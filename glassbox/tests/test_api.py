@@ -96,6 +96,16 @@ def test_powerflow_scenario_run():
     assert "Newton-Raphson" in body["explain"]["title"]
 
 
+def test_dynamics_scenario_run():
+    sc = {"id": "api_dyn", "layer": "dyn", "weather_years": [0],
+          "dyn_inertia_scale": 0.3}
+    r = client.post("/api/scenario/run", json=sc)
+    assert r.status_code == 200
+    body = r.json()
+    assert body["summary"]["rocof_hz_per_s"] != 0
+    assert "critical_clearing_time_s" in body["explain"]["outputs"]
+
+
 def test_weather_ground_truth():
     sites = client.get("/api/weather/sites").json()
     wind = next(s for s in sites if s["kind"] == "wind")

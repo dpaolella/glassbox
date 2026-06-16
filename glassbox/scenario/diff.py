@@ -42,7 +42,10 @@ def diff_runs(run_a: ScenarioRun, run_b: ScenarioRun) -> dict[str, Any]:
                 "unserved_mwh_weighted", "avg_price", "price_spread",
                 "lole_hours_per_year", "eue_mwh_per_year",
                 "losses_mw", "n_base_overloads",
-                "n_n1_contingencies_with_violations"):
+                "n_n1_contingencies_with_violations",
+                "h_sys_mws", "nadir_deviation_hz", "rocof_hz_per_s",
+                "critical_clearing_time_s", "min_inertia_mws",
+                "inertia_deficit_mws", "ffr_requirement_mw"):
         if key in sa or key in sb:
             diff["scalars"][key] = _diff_scalar(sa.get(key, 0.0), sb.get(key, 0.0))
 

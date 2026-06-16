@@ -51,6 +51,18 @@ dispatch exposes intra-zonal overloads the aggregate model never saw. N-1 outage
 produce post-contingency violations. Validated against an analytical 2-bus case
 (Section 11.2). Exposed as a `pf` scenario layer with a nodal-vs-zonal preset.
 
+**Phase 4 — Dynamics** (done): RMS/phasor stability (`engines/dynamics.py`) with
+two transparent models integrated by hand (RK4). An aggregated System Frequency
+Response model (swing + governor + fast frequency response) shows the frequency
+nadir deepen and the RoCoF worsen as synchronous inertia is displaced by
+inverters, that FFR arrests the decline, and that grid-forming converters
+provide effective inertia grid-following ones do not. A Single-Machine-Infinite-
+Bus model shows a longer fault-clearing time breaking transient stability, with
+the critical clearing time validated against the analytical equal-area criterion
+(Section 11.2). The dynamics→operations handoff (Section 6.7) turns the result
+into a minimum-inertia / RoCoF requirement and an FFR reserve that flow upward.
+Exposed as a `dyn` scenario layer with high-vs-low-inertia and FFR presets.
+
 ## Architecture (Section 3.1)
 
 ```

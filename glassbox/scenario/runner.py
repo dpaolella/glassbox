@@ -14,10 +14,12 @@ import numpy as np
 
 from ..engines import (
     AdequacyEngine,
+    DynamicsEngine,
     ENGINES,
     PowerFlowEngine,
     assemble_adequacy_system,
     assemble_view,
+    derive_stability_requirements,
 )
 from ..operators import (
     SpatialMode,
@@ -133,6 +135,8 @@ def run_scenario(world: World, scenario: Scenario) -> ScenarioRun:
         return _run_adequacy(w, scenario)
     if scenario.layer == Layer.PF:
         return _run_powerflow(w, scenario)
+    if scenario.layer == Layer.DYN:
+        return _run_dynamics(w, scenario)
 
     spatial = SpatialProjection(
         SpatialMode.AGGREGATE if scenario.spatial_operator.value == "aggregate"
@@ -195,6 +199,46 @@ def _run_powerflow(world: World, scenario: Scenario) -> ScenarioRun:
         "base_overloads_pct": {k: round(v, 1) for k, v in overloads.items()},
         "n1_violations": result.contingency_violations,
         "n_n1_contingencies_with_violations": len(result.contingency_violations),
+    }
+    return ScenarioRun(scenario=scenario, result=result, explain=explain,
+                       summary=summary, operator_explanations={})
+
+
+def _run_dynamics(world: World, scenario: Scenario) -> ScenarioRun:
+    from ..engines.powerflow import peak_load_hour, snapshot_dispatch
+
+    year = scenario.weather_years[0] if scenario.weather_years else 0
+    engine = DynamicsEngine(hour=scenario.dyn_hour, weather_year=year,
+                            event_mw=scenario.dyn_event_mw,
+                            enable_ffr=scenario.dyn_enable_ffr,
+                            ffr_mw=scenario.dyn_ffr_mw,
+                            inertia_scale=scenario.dyn_inertia_scale,
+                            fault_clear_s=scenario.dyn_fault_clear_s)
+    result, explain = engine.run(world)
+
+    # dynamics -> operations/planning handoff (Section 6.7)
+    hour = scenario.dyn_hour if scenario.dyn_hour is not None else peak_load_hour(world, year)
+    dispatch = snapshot_dispatch(world, hour, year, mode="nodal")
+    reqs = derive_stability_requirements(world, dispatch,
+                                         reference_event_mw=scenario.dyn_event_mw)
+
+    f0 = world.base_frequency_hz
+    summary = {
+        "layer": "dyn",
+        "inertia_scale": scenario.dyn_inertia_scale,
+        "ffr_enabled": scenario.dyn_enable_ffr,
+        "h_sys_mws": explain.inputs["H_sys_mws"],
+        "frequency_nadir_hz": round(result.frequency_nadir_hz, 3),
+        "nadir_deviation_hz": round(result.frequency_nadir_hz - f0, 3),
+        "rocof_hz_per_s": round(result.rocof_hz_per_s, 3),
+        "smib_stable": explain.outputs.get("smib_stable"),
+        "critical_clearing_time_s": explain.outputs.get("critical_clearing_time_s"),
+        "fault_clear_s": scenario.dyn_fault_clear_s,
+        # the upward handoff: a stability-derived inertia/FFR requirement
+        "min_inertia_mws": reqs["h_min_mws"],
+        "inertia_deficit_mws": reqs["inertia_deficit_mws"],
+        "ffr_requirement_mw": reqs["ffr_requirement_mw"],
+        "stability_limited": reqs["min_synchronous_units_needed"],
     }
     return ScenarioRun(scenario=scenario, result=result, explain=explain,
                        summary=summary, operator_explanations={})

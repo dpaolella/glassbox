@@ -25,6 +25,7 @@ class Layer(str, Enum):
     PCM = "pcm"
     RA = "ra"
     PF = "pf"
+    DYN = "dyn"
 
 
 class Override(BaseModel):
@@ -71,3 +72,11 @@ class Scenario(BaseModel):
     pf_hour: int | None = None              # snapshot hour (default: annual peak)
     pf_dispatch_mode: str = "nodal"          # operating point: nodal | zonal
     pf_run_contingencies: bool = True
+
+    # dynamics knobs (Section 6.6)
+    dyn_hour: int | None = None
+    dyn_event_mw: float | None = None        # default: loss of largest online unit
+    dyn_enable_ffr: bool = False
+    dyn_ffr_mw: float = 0.0
+    dyn_inertia_scale: float = 1.0           # <1 displaces synchronous inertia
+    dyn_fault_clear_s: float = 0.15

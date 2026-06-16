@@ -321,6 +321,11 @@ def scenario_presets():
         base.update(kw)
         return Scenario(**base).model_dump(mode="json")
 
+    def dyn(sid, **kw):
+        base = dict(id=sid, layer=Layer.DYN, weather_years=[0])
+        base.update(kw)
+        return Scenario(**base).model_dump(mode="json")
+
     return [
         {
             "key": "nodal_vs_zonal_cem",
@@ -377,5 +382,25 @@ def scenario_presets():
                       "expose losses the DC model omitted and N-1 violations.",
             "a": pf("pf_nodal", pf_dispatch_mode="nodal"),
             "b": pf("pf_zonal", pf_dispatch_mode="zonal"),
+        },
+        {
+            "key": "dyn_inertia",
+            "name": "Frequency: high vs low inertia",
+            "lesson": "As synchronous inertia is displaced by inverters, the "
+                      "frequency nadir deepens and the RoCoF worsens after losing "
+                      "the largest unit — and a minimum-inertia / FFR requirement "
+                      "flows back up into operations and planning (Section 6.7).",
+            "a": dyn("dyn_high_inertia", dyn_inertia_scale=1.0),
+            "b": dyn("dyn_low_inertia", dyn_inertia_scale=0.3),
+        },
+        {
+            "key": "dyn_ffr",
+            "name": "Low inertia: with vs without FFR",
+            "lesson": "Fast frequency response arrests the frequency decline that "
+                      "low inertia causes, lifting the nadir even though the "
+                      "initial RoCoF is unchanged.",
+            "a": dyn("dyn_noffr", dyn_inertia_scale=0.3, dyn_enable_ffr=False),
+            "b": dyn("dyn_ffr", dyn_inertia_scale=0.3, dyn_enable_ffr=True,
+                     dyn_ffr_mw=400.0),
         },
     ]
