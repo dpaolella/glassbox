@@ -81,12 +81,23 @@ strong-vs-weak-grid preset and an impedance-scan plot in the UI.
 
 ## Status
 
-All six engines run on the default system, validated by **93 passing tests**
-including oracle-free analytical checks: binomial-convolution LOLP (RA), the
-2-bus power flow, the equal-area critical clearing time (dynamics), and the LCL
-resonance frequency (EMT). The Scenario Lab ships six demonstration presets, one
-per lesson. Oracle round-trips against PyPSA / pandapower / Andes are the
-remaining dev-only validation layer (Section 11.2) and can be added per engine.
+All six engines run on the default system, validated by **97 passing tests**.
+
+Two complementary validation layers (Section 11):
+
+- **Analytical / canonical** (always on): binomial-convolution LOLP (RA), the
+  2-bus power flow, the equal-area critical clearing time (dynamics), and the LCL
+  resonance frequency (EMT).
+- **Oracle round-trips** (`glassbox/validation/oracles/`, dev-only, auto-skipped
+  if the library is absent): the hand-built AC power flow matches **pandapower**
+  to machine precision (max ΔV = 0, identical losses); the economic dispatch
+  matches **PyPSA** LOPF to machine precision (objective and per-generator
+  dispatch); and the swing dynamics match **Andes** — the rotor-angle oscillation
+  frequency agrees with Andes and the analytical linearized swing within damping.
+  RA and EMT have no mature oracle, so they rest on the analytical cases above.
+
+Install the oracle libraries with `pip install -e ".[oracles]"`. The Scenario
+Lab ships six demonstration presets, one per lesson.
 
 ## Architecture (Section 3.1)
 

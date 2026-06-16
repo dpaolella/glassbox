@@ -22,8 +22,9 @@ dependencies = [
 ]
 
 [project.optional-dependencies]
-# Dev-only correctness oracles (Section 2.3 / 11.2) — not runtime deps
-oracles = ["pypsa>=0.27", "pandapower>=2.14", "andes>=1.9"]
+# Dev-only correctness oracles (Section 2.3 / 11.2) — not runtime deps.
+# cffi is pinned so cryptography's binding (pulled in by pandapower) imports.
+oracles = ["pypsa>=1.0", "pandapower>=3.0", "andes>=2.0", "cffi>=1.16"]
 dev = ["pytest>=8.0", "httpx>=0.27"]
 
 [project.scripts]
