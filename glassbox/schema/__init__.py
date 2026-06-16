@@ -60,6 +60,7 @@ from .results import (
     EMTResult,
     ImpedanceScanResult,
     NetworkResult,
+    PCMResult,
     PowerFlowResult,
     Provenance,
     ResultBase,
@@ -111,7 +112,7 @@ __all__ = [
     "Disturbance", "DisturbanceKind", "FaultType",
     "DynamicModel", "DynamicKind", "SynchronousMachineModel", "ConverterModel", "LCLFilter",
     "World", "WeatherModelParams", "WeatherSite",
-    "ResultBase", "Provenance", "CEMResult", "DispatchResult", "NetworkResult",
+    "ResultBase", "Provenance", "CEMResult", "PCMResult", "DispatchResult", "NetworkResult",
     "AdequacyResult", "PowerFlowResult", "DynamicsResult", "EMTResult", "ImpedanceScanResult",
     "ENTITY_MODELS",
 ]

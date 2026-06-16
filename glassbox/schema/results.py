@@ -54,6 +54,13 @@ class DispatchResult(ResultBase):
     total_cost: float = 0.0
 
 
+class NetworkResult(ResultBase):
+    flow_mw: dict[str, float] = Field(default_factory=dict)
+    nodal_price: dict[str, float] = Field(default_factory=dict)
+    dual_values: dict[str, float] = Field(default_factory=dict)
+    losses_mw: float = 0.0
+
+
 class CEMResult(ResultBase):
     built_capacity_mw: dict[str, float] = Field(default_factory=dict)
     built_storage_power_mw: dict[str, float] = Field(default_factory=dict)
@@ -62,13 +69,14 @@ class CEMResult(ResultBase):
     total_cost: float = 0.0
     cost_breakdown: dict[str, float] = Field(default_factory=dict)
     operational: Optional[DispatchResult] = None
+    network: Optional[NetworkResult] = None
 
 
-class NetworkResult(ResultBase):
-    flow_mw: dict[str, float] = Field(default_factory=dict)
-    nodal_price: dict[str, float] = Field(default_factory=dict)
-    dual_values: dict[str, float] = Field(default_factory=dict)
-    losses_mw: float = 0.0
+class PCMResult(ResultBase):
+    dispatch: Optional[DispatchResult] = None
+    network: Optional[NetworkResult] = None
+    objective: float = 0.0
+    solve_status: str = ""
 
 
 class AdequacyResult(ResultBase):

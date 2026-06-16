@@ -648,25 +648,6 @@
       "capex_per_mw": null
     },
     {
-      "id": "L_B8_B9",
-      "name": "L_B8_B9",
-      "from_bus_id": "B8",
-      "to_bus_id": "B9",
-      "r": 0.006,
-      "x": 0.06,
-      "b": 0.0125,
-      "length_km": 50.0,
-      "rating_normal_mva": 600.0,
-      "rating_emergency_mva": 720.0,
-      "rating_lt_mva": 660.0,
-      "r_per_km": null,
-      "l_per_km": null,
-      "c_per_km": null,
-      "emt_line_model": "pi",
-      "is_candidate": false,
-      "capex_per_mw": null
-    },
-    {
       "id": "L_B1_B3",
       "name": "L_B1_B3",
       "from_bus_id": "B1",

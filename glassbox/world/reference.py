@@ -228,9 +228,14 @@ class ReferenceSystemBuilder:
 
     def _build_transmission(self) -> None:
         p = self.p
-        # intra-zone meshes (radial-ish chains plus a tie)
+        # intra-zone meshes (radial-ish chains plus a tie). For zone B the final
+        # link (to the tail bus) is omitted so the weak feeder below is the sole
+        # connection to the low-SCR pocket.
         for buses in (self._a_buses, self._b_buses, self._c_buses):
-            for i in range(len(buses) - 1):
+            last_link = len(buses) - 1
+            if buses is self._b_buses:
+                last_link -= 1  # leave b[-1] for the weak feeder only
+            for i in range(last_link):
                 self._line(buses[i], buses[i + 1], x=0.06, mva=600.0, length=50.0)
             # add a mesh tie to make intra-zonal flow non-trivial
             if len(buses) >= 4:
