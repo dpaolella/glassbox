@@ -15,6 +15,7 @@ import numpy as np
 from ..engines import (
     AdequacyEngine,
     DynamicsEngine,
+    EMTEngine,
     ENGINES,
     PowerFlowEngine,
     assemble_adequacy_system,
@@ -137,6 +138,8 @@ def run_scenario(world: World, scenario: Scenario) -> ScenarioRun:
         return _run_powerflow(w, scenario)
     if scenario.layer == Layer.DYN:
         return _run_dynamics(w, scenario)
+    if scenario.layer == Layer.EMT:
+        return _run_emt(w, scenario)
 
     spatial = SpatialProjection(
         SpatialMode.AGGREGATE if scenario.spatial_operator.value == "aggregate"
@@ -239,6 +242,27 @@ def _run_dynamics(world: World, scenario: Scenario) -> ScenarioRun:
         "inertia_deficit_mws": reqs["inertia_deficit_mws"],
         "ffr_requirement_mw": reqs["ffr_requirement_mw"],
         "stability_limited": reqs["min_synchronous_units_needed"],
+    }
+    return ScenarioRun(scenario=scenario, result=result, explain=explain,
+                       summary=summary, operator_explanations={})
+
+
+def _run_emt(world: World, scenario: Scenario) -> ScenarioRun:
+    engine = EMTEngine(bus_id=scenario.emt_bus_id,
+                       scr_override=scenario.emt_scr_override,
+                       pll_bw_hz=scenario.emt_pll_bw_hz)
+    result, explain = engine.run(world)
+    scan = result.impedance_scan
+    summary = {
+        "layer": "emt",
+        "weak_pocket_bus": explain.inputs["weak_pocket_bus"],
+        "short_circuit_ratio": round(explain.inputs["short_circuit_ratio"], 3),
+        "gfl_stable": explain.outputs["gfl_stable"],
+        "oscillation_hz": explain.outputs["oscillation_hz"],
+        "resonance_peaks_hz": [round(p, 1) for p in (scan.resonance_peaks_hz if scan else [])],
+        "lcl_resonance_analytic_hz": explain.outputs["lcl_resonance_analytic_hz"],
+        "verdict": explain.outputs["verdict"],
+        "all_scr": explain.inputs["all_scr"],
     }
     return ScenarioRun(scenario=scenario, result=result, explain=explain,
                        summary=summary, operator_explanations={})

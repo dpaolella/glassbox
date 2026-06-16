@@ -189,6 +189,8 @@ export function ScenarioLab() {
             </>
           )}
 
+          {result && <ImpedanceScans result={result} />}
+
           <h4>Engine math (the transparency contract)</h4>
           {result && (
             <>
@@ -199,5 +201,54 @@ export function ScenarioLab() {
         </>
       )}
     </div>
+  );
+}
+
+// EMT impedance scan (|Z| vs frequency) with resonance peaks marked.
+function ImpedanceScans({ result }: { result: ScenarioDiffResult }) {
+  const scanOf = (r: ScenarioDiffResult["a"]) => r.result?.impedance_scan;
+  const a = scanOf(result.a);
+  const b = scanOf(result.b);
+  if (!a && !b) return null;
+
+  const traces: Record<string, unknown>[] = [];
+  const mark = (scan: any, name: string, color: string) => {
+    if (!scan) return;
+    const mag = scan.frequency_hz.map((_: number, i: number) =>
+      Math.hypot(scan.impedance_real[i], scan.impedance_imag[i]),
+    );
+    traces.push({
+      type: "scatter", mode: "lines", name, x: scan.frequency_hz, y: mag,
+      line: { color },
+    });
+  };
+  mark(a, "A |Z|", "#3b82f6");
+  mark(b, "B |Z|", "#22c55e");
+
+  const peaks = [
+    ...(a?.resonance_peaks_hz ?? []),
+    ...(b?.resonance_peaks_hz ?? []),
+  ];
+
+  return (
+    <>
+      <h4>Impedance scan — resonance locator</h4>
+      <Plot
+        height={260}
+        data={traces}
+        layout={{
+          xaxis: { title: "frequency (Hz)" },
+          yaxis: { title: "|Z| (pu)", type: "log" },
+          shapes: peaks.map((f) => ({
+            type: "line", x0: f, x1: f, yref: "paper", y0: 0, y1: 1,
+            line: { color: "#f59e0b", dash: "dot", width: 1 },
+          })),
+        }}
+      />
+      <p className="muted">
+        Resonance peaks (dotted): {peaks.map((f) => Math.round(f)).join(", ") || "—"} Hz.
+        The scan locates the resonance the time-domain trace exhibits.
+      </p>
+    </>
   );
 }

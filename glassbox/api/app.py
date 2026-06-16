@@ -326,6 +326,11 @@ def scenario_presets():
         base.update(kw)
         return Scenario(**base).model_dump(mode="json")
 
+    def emt(sid, **kw):
+        base = dict(id=sid, layer=Layer.EMT, weather_years=[0])
+        base.update(kw)
+        return Scenario(**base).model_dump(mode="json")
+
     return [
         {
             "key": "nodal_vs_zonal_cem",
@@ -402,5 +407,15 @@ def scenario_presets():
             "a": dyn("dyn_noffr", dyn_inertia_scale=0.3, dyn_enable_ffr=False),
             "b": dyn("dyn_ffr", dyn_inertia_scale=0.3, dyn_enable_ffr=True,
                      dyn_ffr_mw=400.0),
+        },
+        {
+            "key": "emt_strong_vs_weak",
+            "name": "EMT: strong vs weak grid (SCR)",
+            "lesson": "On the dynamics-flagged inverter pocket, a grid-following "
+                      "converter is well-damped on a strong grid but suffers a "
+                      "control-driven oscillatory instability on a weak grid (low "
+                      "SCR) — a fast dynamic the RMS phasor model declared stable.",
+            "a": emt("emt_strong", emt_scr_override=5.0, emt_pll_bw_hz=30.0),
+            "b": emt("emt_weak", emt_scr_override=1.2, emt_pll_bw_hz=30.0),
         },
     ]

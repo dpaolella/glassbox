@@ -26,6 +26,7 @@ class Layer(str, Enum):
     RA = "ra"
     PF = "pf"
     DYN = "dyn"
+    EMT = "emt"
 
 
 class Override(BaseModel):
@@ -80,3 +81,8 @@ class Scenario(BaseModel):
     dyn_ffr_mw: float = 0.0
     dyn_inertia_scale: float = 1.0           # <1 displaces synchronous inertia
     dyn_fault_clear_s: float = 0.15
+
+    # EMT knobs (Section 6.7)
+    emt_bus_id: str | None = None            # default: dynamics-flagged weak pocket
+    emt_scr_override: float | None = None     # force a short-circuit ratio
+    emt_pll_bw_hz: float = 20.0

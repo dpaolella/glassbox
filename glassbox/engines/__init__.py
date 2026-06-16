@@ -4,6 +4,7 @@ from .adequacy import AdequacyEngine, AdequacySystem, assemble_adequacy_system
 from .base import Engine
 from .cem import CapacityExpansionEngine
 from .dynamics import DynamicsEngine, derive_stability_requirements
+from .emt import EMTEngine, impedance_scan, lcl_resonance_hz, short_circuit_ratios
 from .powerflow import PowerFlowEngine, assemble_pf_case, solve_newton_raphson
 from .economic_core import (
     EconomicView,
@@ -30,6 +31,10 @@ __all__ = [
     "solve_newton_raphson",
     "DynamicsEngine",
     "derive_stability_requirements",
+    "EMTEngine",
+    "short_circuit_ratios",
+    "impedance_scan",
+    "lcl_resonance_hz",
     "EconomicView",
     "EngineOptions",
     "assemble_view",

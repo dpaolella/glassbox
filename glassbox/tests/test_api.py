@@ -106,6 +106,24 @@ def test_dynamics_scenario_run():
     assert "critical_clearing_time_s" in body["explain"]["outputs"]
 
 
+def test_emt_scenario_run():
+    sc = {"id": "api_emt", "layer": "emt", "weather_years": [0],
+          "emt_scr_override": 1.2, "emt_pll_bw_hz": 30.0}
+    r = client.post("/api/scenario/run", json=sc)
+    assert r.status_code == 200
+    body = r.json()
+    assert body["summary"]["gfl_stable"] is False
+    assert body["explain"]["outputs"]["resonance_peaks_hz"]
+
+
+def test_all_six_layers_have_presets():
+    presets = client.get("/api/scenario/presets").json()
+    layers = set()
+    for p in presets:
+        layers.add(p["a"]["layer"])
+    assert {"cem", "pcm", "ra", "pf", "dyn", "emt"} <= layers
+
+
 def test_weather_ground_truth():
     sites = client.get("/api/weather/sites").json()
     wind = next(s for s in sites if s["kind"] == "wind")

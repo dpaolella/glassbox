@@ -16,6 +16,11 @@ The abstraction ladder, coarsest to finest:
 5. **Dynamic stability (RMS / phasor)** — seconds, "does it stay synchronized?"
 6. **Electromagnetic transients (EMT)** — microseconds, "what happens in the wires?"
 
+All six phases of the PRD (Section 12) are implemented: the full abstraction
+ladder runs on one stored world, every engine and operator implements
+`explain()`, and each Section 1.3 learning objective maps to a concrete in-tool
+demonstration (see `glassbox/validation/phenomena.py`).
+
 This repository is built in the phase order of the PRD (Section 12).
 
 **Phase 0 — The world** (done): the schema spine, the synthetic weather
@@ -62,6 +67,26 @@ the critical clearing time validated against the analytical equal-area criterion
 (Section 11.2). The dynamics→operations handoff (Section 6.7) turns the result
 into a minimum-inertia / RoCoF requirement and an FFR reserve that flow upward.
 Exposed as a `dyn` scenario layer with high-vs-low-inertia and FFR presets.
+
+**Phase 5 — EMT and resonance** (done): micro-examples on the dynamics-flagged
+weak pocket (`engines/emt.py`). A short-circuit-ratio screen (from the bus
+impedance matrix Z = Y⁻¹) selects the weakest inverter pocket (the RMS→EMT
+handoff). An impedance/admittance frequency scan locates the LCL resonance,
+validated against the analytical resonance frequency. A grid-following converter
+with a PLL and constant-power current loop is integrated in the dq frame on a
+Thévenin grid: it is well-damped on a strong grid but suffers a control-driven
+oscillatory instability on a weak grid (low SCR) — a fast dynamic the RMS phasor
+model declared stable. Exposed as an `emt` scenario layer with a
+strong-vs-weak-grid preset and an impedance-scan plot in the UI.
+
+## Status
+
+All six engines run on the default system, validated by **93 passing tests**
+including oracle-free analytical checks: binomial-convolution LOLP (RA), the
+2-bus power flow, the equal-area critical clearing time (dynamics), and the LCL
+resonance frequency (EMT). The Scenario Lab ships six demonstration presets, one
+per lesson. Oracle round-trips against PyPSA / pandapower / Andes are the
+remaining dev-only validation layer (Section 11.2) and can be added per engine.
 
 ## Architecture (Section 3.1)
 
