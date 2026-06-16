@@ -41,6 +41,16 @@ is small and declines with penetration, and storage ELCC grows with duration.
 Validated against the analytical binomial-convolution LOLP for a small case
 (Section 11.2). Exposed as an `ra` scenario layer with a one-year-vs-many preset.
 
+**Phase 3 — Steady-state security** (done): a hand-built AC Newton-Raphson power
+flow (`engines/powerflow.py`) with the admittance matrix, power-mismatch vector,
+Jacobian and iteration trace all exposed in `explain()`, plus N-1 contingency
+screening and a DC/PTDF power flow. The operating point comes from a single-hour
+economic dispatch (the PCM→power-flow handoff): a nodal-feasible dispatch
+converges and reveals the losses the DC model omits, while a transport (zonal)
+dispatch exposes intra-zonal overloads the aggregate model never saw. N-1 outages
+produce post-contingency violations. Validated against an analytical 2-bus case
+(Section 11.2). Exposed as a `pf` scenario layer with a nodal-vs-zonal preset.
+
 ## Architecture (Section 3.1)
 
 ```

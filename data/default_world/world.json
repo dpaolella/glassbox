@@ -2,7 +2,7 @@
   "id": "default",
   "name": "Glassbox Default System",
   "description": "Default seed system: 3 zones, binding intertie, mixed synchronous + inverter-based resources, weak pocket.",
-  "base_power_mva": 100.0,
+  "base_power_mva": 1000.0,
   "base_frequency_hz": 60.0,
   "reference_bus_id": "C_slack",
   "buses": [

@@ -69,7 +69,10 @@ class ReferenceSystemParams:
     """Named, inspectable parameters for the default world (Section 8)."""
 
     name: str = "Glassbox Default System"
-    base_power_mva: float = 100.0
+    # System per-unit base. This is a multi-GW system, so a 1000 MVA base keeps
+    # per-unit flows ~O(1) and the AC power flow well-conditioned (the economic
+    # layers work in physical MW and are unaffected by the base).
+    base_power_mva: float = 1000.0
     base_frequency_hz: float = 60.0
     n_years: int = 10
     hours_per_year: int = 8760

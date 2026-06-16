@@ -85,6 +85,17 @@ def test_scenario_presets_and_run():
     assert body["explain"]["formulation"]["symbolic"]
 
 
+def test_powerflow_scenario_run():
+    sc = {"id": "api_pf", "layer": "pf", "weather_years": [0],
+          "pf_dispatch_mode": "nodal"}
+    r = client.post("/api/scenario/run", json=sc)
+    assert r.status_code == 200
+    body = r.json()
+    assert body["summary"]["converged"] is True
+    assert body["summary"]["losses_mw"] > 0
+    assert "Newton-Raphson" in body["explain"]["title"]
+
+
 def test_weather_ground_truth():
     sites = client.get("/api/weather/sites").json()
     wind = next(s for s in sites if s["kind"] == "wind")

@@ -15,6 +15,7 @@ import numpy as np
 from ..engines import (
     AdequacyEngine,
     ENGINES,
+    PowerFlowEngine,
     assemble_adequacy_system,
     assemble_view,
 )
@@ -130,6 +131,8 @@ def run_scenario(world: World, scenario: Scenario) -> ScenarioRun:
     # it samples weather years internally rather than via the temporal operator.
     if scenario.layer == Layer.RA:
         return _run_adequacy(w, scenario)
+    if scenario.layer == Layer.PF:
+        return _run_powerflow(w, scenario)
 
     spatial = SpatialProjection(
         SpatialMode.AGGREGATE if scenario.spatial_operator.value == "aggregate"
@@ -168,6 +171,30 @@ def _run_adequacy(world: World, scenario: Scenario) -> ScenarioRun:
         "n_loss_events": len(result.loss_events),
         "firm_mw": sum(u.capacity_mw for u in system.dispatchable),
         "vre_nameplate_mw": sum(v.capacity_mw for v in system.vre),
+    }
+    return ScenarioRun(scenario=scenario, result=result, explain=explain,
+                       summary=summary, operator_explanations={})
+
+
+def _run_powerflow(world: World, scenario: Scenario) -> ScenarioRun:
+    year = scenario.weather_years[0] if scenario.weather_years else 0
+    engine = PowerFlowEngine(hour=scenario.pf_hour, weather_year=year,
+                             run_contingencies=scenario.pf_run_contingencies,
+                             dispatch_mode=scenario.pf_dispatch_mode)
+    result, explain = engine.run(world)
+    overloads = explain.outputs.get("base_case_overloads_pct", {})
+    summary = {
+        "layer": "pf",
+        "dispatch_mode": scenario.pf_dispatch_mode,
+        "converged": result.converged,
+        "iterations": result.iterations,
+        "losses_mw": round(result.losses_mw, 2),
+        "min_voltage_pu": explain.outputs.get("min_voltage_pu"),
+        "max_voltage_pu": explain.outputs.get("max_voltage_pu"),
+        "n_base_overloads": len(overloads),
+        "base_overloads_pct": {k: round(v, 1) for k, v in overloads.items()},
+        "n1_violations": result.contingency_violations,
+        "n_n1_contingencies_with_violations": len(result.contingency_violations),
     }
     return ScenarioRun(scenario=scenario, result=result, explain=explain,
                        summary=summary, operator_explanations={})

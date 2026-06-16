@@ -316,6 +316,11 @@ def scenario_presets():
         base.update(kw)
         return Scenario(**base).model_dump(mode="json")
 
+    def pf(sid, **kw):
+        base = dict(id=sid, layer=Layer.PF, weather_years=[0])
+        base.update(kw)
+        return Scenario(**base).model_dump(mode="json")
+
     return [
         {
             "key": "nodal_vs_zonal_cem",
@@ -361,5 +366,16 @@ def scenario_presets():
                       "dunkelflaute coincident with peak load) are sampled.",
             "a": ra("ra_one", weather_years=[0]),
             "b": ra("ra_many", weather_years=list(range(10))),
+        },
+        {
+            "key": "pf_nodal_vs_zonal",
+            "name": "AC power flow: nodal vs zonal dispatch",
+            "lesson": "An economically optimal dispatch can violate AC physics. "
+                      "A transport (zonal) dispatch ignores intra-zonal lines, so "
+                      "the AC power flow on the full network shows different "
+                      "losses and overloads than a nodal-feasible dispatch; both "
+                      "expose losses the DC model omitted and N-1 violations.",
+            "a": pf("pf_nodal", pf_dispatch_mode="nodal"),
+            "b": pf("pf_zonal", pf_dispatch_mode="zonal"),
         },
     ]

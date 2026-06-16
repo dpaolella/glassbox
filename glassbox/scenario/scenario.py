@@ -24,6 +24,7 @@ class Layer(str, Enum):
     CEM = "cem"
     PCM = "pcm"
     RA = "ra"
+    PF = "pf"
 
 
 class Override(BaseModel):
@@ -65,3 +66,8 @@ class Scenario(BaseModel):
     ra_n_draws: int = 40         # Monte Carlo draws
     ra_seed: int = 0
     ra_elcc_resource_ids: list[str] = Field(default_factory=list)
+
+    # power-flow knobs (Section 6.5)
+    pf_hour: int | None = None              # snapshot hour (default: annual peak)
+    pf_dispatch_mode: str = "nodal"          # operating point: nodal | zonal
+    pf_run_contingencies: bool = True
