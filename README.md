@@ -16,10 +16,20 @@ The abstraction ladder, coarsest to finest:
 5. **Dynamic stability (RMS / phasor)** — seconds, "does it stay synchronized?"
 6. **Electromagnetic transients (EMT)** — microseconds, "what happens in the wires?"
 
-This repository is built in the phase order of the PRD (Section 12). **Phase 0
-— The world** is implemented: the schema spine, the synthetic weather generator,
-the parametrized default seed system, the three projection operators, and a
-backend API + React frontend for inspecting the static world.
+This repository is built in the phase order of the PRD (Section 12).
+
+**Phase 0 — The world** (done): the schema spine, the synthetic weather
+generator, the parametrized default seed system, the three projection operators,
+and a backend API + React frontend for inspecting the static world.
+
+**Phase 1 — Economic layers** (done): the capacity-expansion (CEM) and
+production-cost (PCM) engines on a shared transparent linopy/HiGHS formulation,
+the scenario framework with overrides and diffing, and a frontend Scenario Lab
+that runs the canonical demonstration pairs (nodal vs zonal, one year vs many,
+carbon price vs none) and renders each engine's `explain()` math. CEM
+co-optimizes investment + operations over representative periods; PCM does
+chronological MILP unit commitment + LP economic dispatch with DC power flow and
+LMPs from a fixed-commitment price pass.
 
 ## Architecture (Section 3.1)
 

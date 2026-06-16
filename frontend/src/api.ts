@@ -121,8 +121,65 @@ export interface GroundTruth {
   per_year_p5: number[];
 }
 
+async function post<T>(path: string, body: unknown): Promise<T> {
+  const res = await fetch(`${BASE}${path}`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(body),
+  });
+  if (!res.ok) {
+    const detail = await res.text();
+    throw new Error(`${path} -> ${res.status}: ${detail}`);
+  }
+  return res.json() as Promise<T>;
+}
+
+export interface ScenarioPreset {
+  key: string;
+  name: string;
+  lesson: string;
+  a: Record<string, unknown>;
+  b: Record<string, unknown>;
+}
+
+export interface ScenarioRunPayload {
+  scenario: Record<string, unknown>;
+  summary: Record<string, any>;
+  result: Record<string, any>;
+  explain: ExplainPayload;
+  operator_explanations: Record<string, ExplainPayload>;
+}
+
+export interface DiffScalar {
+  a: number;
+  b: number;
+  delta?: number;
+  pct?: number | null;
+}
+
+export interface DiffPayload {
+  a: { id: string; name: string; layer: string; spatial: string; weather_years: number[] };
+  b: { id: string; name: string; layer: string; spatial: string; weather_years: number[] };
+  scalars: Record<string, DiffScalar>;
+  capacity_mix_mw: Record<string, DiffScalar>;
+  nodal_prices?: Record<string, DiffScalar>;
+  congestion?: Record<string, DiffScalar>;
+  realized_capacity_factor?: Record<string, DiffScalar>;
+}
+
+export interface ScenarioDiffResult {
+  a: ScenarioRunPayload;
+  b: ScenarioRunPayload;
+  diff: DiffPayload;
+}
+
 export const api = {
   worldSummary: () => get<WorldSummary>("/world/summary"),
+  presets: () => get<ScenarioPreset[]>("/scenario/presets"),
+  runScenario: (scenario: Record<string, unknown>) =>
+    post<ScenarioRunPayload>("/scenario/run", scenario),
+  diffScenarios: (a: Record<string, unknown>, b: Record<string, unknown>) =>
+    post<ScenarioDiffResult>("/scenario/diff", { a, b }),
   facets: () => get<FacetInfo[]>("/schema/facets"),
   graph: () => get<GraphData>("/graph"),
   listEntities: (collection: string) =>

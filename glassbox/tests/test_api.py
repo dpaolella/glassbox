@@ -71,6 +71,20 @@ def test_operator_explain_surfaces_information_loss():
     assert "fields_in_scope" in attr["outputs"]
 
 
+def test_scenario_presets_and_run():
+    presets = client.get("/api/scenario/presets").json()
+    assert {p["key"] for p in presets} >= {"nodal_vs_zonal_cem", "carbon_vs_none"}
+    # run a small CEM scenario through the HTTP layer
+    sc = {"id": "api_cem", "layer": "cem", "spatial_operator": "aggregate",
+          "temporal_map_id": "representative_days", "weather_years": [0],
+          "n_rep_days": 2}
+    r = client.post("/api/scenario/run", json=sc)
+    assert r.status_code == 200
+    body = r.json()
+    assert body["summary"]["total_cost"] > 0
+    assert body["explain"]["formulation"]["symbolic"]
+
+
 def test_weather_ground_truth():
     sites = client.get("/api/weather/sites").json()
     wind = next(s for s in sites if s["kind"] == "wind")

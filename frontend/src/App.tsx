@@ -5,13 +5,14 @@ import { Inspector } from "./components/Inspector";
 import { OperatorPanel } from "./components/OperatorPanel";
 import { WeatherPanel } from "./components/WeatherPanel";
 import { TimeSeriesPanel } from "./components/TimeSeriesPanel";
+import { ScenarioLab } from "./components/ScenarioLab";
 
 export interface Selection {
   collection: string;
   id: string;
 }
 
-type Tab = "inspector" | "math" | "weather" | "series";
+type Tab = "inspector" | "scenarios" | "math" | "weather" | "series";
 
 export default function App() {
   const [summary, setSummary] = useState<WorldSummary | null>(null);
@@ -99,20 +100,23 @@ export default function App() {
 
         <aside className="side-pane">
           <nav className="tabs">
-            {(["inspector", "math", "weather", "series"] as Tab[]).map((t) => (
-              <button
-                key={t}
-                className={`tab ${tab === t ? "active" : ""}`}
-                onClick={() => setTab(t)}
-              >
-                {t === "math" ? "operator math" : t}
-              </button>
-            ))}
+            {(["inspector", "scenarios", "math", "weather", "series"] as Tab[]).map(
+              (t) => (
+                <button
+                  key={t}
+                  className={`tab ${tab === t ? "active" : ""}`}
+                  onClick={() => setTab(t)}
+                >
+                  {t === "math" ? "operators" : t}
+                </button>
+              ),
+            )}
           </nav>
           <div className="panel-body">
             {tab === "inspector" && (
               <Inspector selection={selection} layer={layer} perUnit={perUnit} />
             )}
+            {tab === "scenarios" && <ScenarioLab />}
             {tab === "math" && <OperatorPanel layer={layer} />}
             {tab === "weather" && <WeatherPanel />}
             {tab === "series" && <TimeSeriesPanel />}

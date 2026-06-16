@@ -14,6 +14,7 @@ from typing import Optional
 import numpy as np
 from fastapi import FastAPI, HTTPException, Query
 from fastapi.middleware.cors import CORSMiddleware
+from pydantic import BaseModel
 
 from ..operators import (
     AttributeProjection,
@@ -23,6 +24,8 @@ from ..operators import (
     build_full_chronology_map,
     build_representative_days_map,
 )
+from ..scenario import Layer, Scenario, SpatialOperator, diff_runs, run_scenario
+from ..scenario.scenario import Override
 from ..schema import ENTITY_MODELS, FACET_LABELS, Facet, field_metadata
 from .service import COLLECTION_MODELS, service
 
@@ -250,3 +253,99 @@ def temporal_explain(kind: str = "full_chronology",
     payload["map"] = {"id": tmap.id, "kind": tmap.kind.value,
                       "n_periods": len(tmap.representative_timesteps)}
     return payload
+
+
+# --- scenarios: run, diff, presets (Sections 10, 9.5) -----------------------
+
+
+def _run_payload(run) -> dict:
+    return {
+        "scenario": run.scenario.model_dump(mode="json"),
+        "summary": run.summary,
+        "result": run.result.model_dump(mode="json"),
+        "explain": run.explain.model_dump(mode="json"),
+        "operator_explanations": run.operator_explanations,
+    }
+
+
+@app.post("/api/scenario/run")
+def scenario_run(scenario: Scenario):
+    try:
+        run = run_scenario(service.world, scenario)
+    except Exception as exc:  # surface solver/build errors to the UI
+        raise HTTPException(500, f"scenario run failed: {exc}")
+    return _run_payload(run)
+
+
+class DiffRequest(BaseModel):
+    a: Scenario
+    b: Scenario
+
+
+@app.post("/api/scenario/diff")
+def scenario_diff(req: DiffRequest):
+    try:
+        run_a = run_scenario(service.world, req.a)
+        run_b = run_scenario(service.world, req.b)
+    except Exception as exc:
+        raise HTTPException(500, f"scenario diff failed: {exc}")
+    return {
+        "a": _run_payload(run_a),
+        "b": _run_payload(run_b),
+        "diff": diff_runs(run_a, run_b),
+    }
+
+
+@app.get("/api/scenario/presets")
+def scenario_presets():
+    """Canonical demonstration pairs (Section 10): each differs in one knob."""
+    def cem(sid, **kw):
+        base = dict(id=sid, layer=Layer.CEM, temporal_map_id="representative_days",
+                    weather_years=[0], n_rep_days=4)
+        base.update(kw)
+        return Scenario(**base).model_dump(mode="json")
+
+    def pcm(sid, **kw):
+        base = dict(id=sid, layer=Layer.PCM, temporal_map_id="full_chronology",
+                    weather_years=[0], horizon_hours=72, horizon_start=4300)
+        base.update(kw)
+        return Scenario(**base).model_dump(mode="json")
+
+    return [
+        {
+            "key": "nodal_vs_zonal_cem",
+            "name": "Nodal vs Zonal (capacity)",
+            "lesson": "Nodal modeling reveals congestion and curtailment that "
+                      "zonal aggregation hides.",
+            "a": cem("cem_zonal", spatial_operator=SpatialOperator.AGGREGATE),
+            "b": cem("cem_nodal", spatial_operator=SpatialOperator.IDENTITY),
+        },
+        {
+            "key": "nodal_vs_zonal_pcm",
+            "name": "Nodal vs Zonal (prices)",
+            "lesson": "Locational marginal prices and a binding interface appear "
+                      "under the nodal view and vanish under the zonal view.",
+            "a": pcm("pcm_zonal", spatial_operator=SpatialOperator.AGGREGATE),
+            "b": pcm("pcm_nodal", spatial_operator=SpatialOperator.IDENTITY),
+        },
+        {
+            "key": "one_year_vs_many",
+            "name": "One year vs Many",
+            "lesson": "A single weather year misrepresents a VRE system; the "
+                      "capacity mix shifts when many years are used.",
+            "a": cem("cem_one", spatial_operator=SpatialOperator.AGGREGATE,
+                     weather_years=[0]),
+            "b": cem("cem_many", spatial_operator=SpatialOperator.AGGREGATE,
+                     weather_years=[0, 1, 2, 3]),
+        },
+        {
+            "key": "carbon_vs_none",
+            "name": "Carbon price vs none",
+            "lesson": "A carbon price reshapes the capacity mix and reduces "
+                      "emissions relative to the unpriced baseline.",
+            "a": cem("cem_base", spatial_operator=SpatialOperator.AGGREGATE),
+            "b": cem("cem_carbon", spatial_operator=SpatialOperator.AGGREGATE,
+                     overrides=[Override(kind="set_policy", policy_kind="carbon_price",
+                                         value=150.0).model_dump()]),
+        },
+    ]
