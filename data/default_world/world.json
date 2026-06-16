@@ -1,0 +1,3318 @@
+{
+  "id": "default",
+  "name": "Glassbox Default System",
+  "description": "Default seed system: 3 zones, binding intertie, mixed synchronous + inverter-based resources, weak pocket.",
+  "base_power_mva": 100.0,
+  "base_frequency_hz": 60.0,
+  "reference_bus_id": "C_slack",
+  "buses": [
+    {
+      "id": "A1",
+      "name": "LoadCenter-1",
+      "base_kv": 230.0,
+      "zone_id": "ZA",
+      "x": 600.0,
+      "y": 200.0,
+      "v_min_pu": 0.95,
+      "v_max_pu": 1.05,
+      "bus_type": "PQ"
+    },
+    {
+      "id": "A2",
+      "name": "LoadCenter-2",
+      "base_kv": 230.0,
+      "zone_id": "ZA",
+      "x": 660.0,
+      "y": 200.0,
+      "v_min_pu": 0.95,
+      "v_max_pu": 1.05,
+      "bus_type": "PQ"
+    },
+    {
+      "id": "A3",
+      "name": "LoadCenter-3",
+      "base_kv": 230.0,
+      "zone_id": "ZA",
+      "x": 720.0,
+      "y": 200.0,
+      "v_min_pu": 0.95,
+      "v_max_pu": 1.05,
+      "bus_type": "PQ"
+    },
+    {
+      "id": "A4",
+      "name": "LoadCenter-4",
+      "base_kv": 230.0,
+      "zone_id": "ZA",
+      "x": 600.0,
+      "y": 260.0,
+      "v_min_pu": 0.95,
+      "v_max_pu": 1.05,
+      "bus_type": "PQ"
+    },
+    {
+      "id": "A5",
+      "name": "LoadCenter-5",
+      "base_kv": 230.0,
+      "zone_id": "ZA",
+      "x": 660.0,
+      "y": 260.0,
+      "v_min_pu": 0.95,
+      "v_max_pu": 1.05,
+      "bus_type": "PQ"
+    },
+    {
+      "id": "A6",
+      "name": "LoadCenter-6",
+      "base_kv": 230.0,
+      "zone_id": "ZA",
+      "x": 720.0,
+      "y": 260.0,
+      "v_min_pu": 0.95,
+      "v_max_pu": 1.05,
+      "bus_type": "PQ"
+    },
+    {
+      "id": "A7",
+      "name": "LoadCenter-7",
+      "base_kv": 230.0,
+      "zone_id": "ZA",
+      "x": 600.0,
+      "y": 320.0,
+      "v_min_pu": 0.95,
+      "v_max_pu": 1.05,
+      "bus_type": "PQ"
+    },
+    {
+      "id": "A8",
+      "name": "LoadCenter-8",
+      "base_kv": 230.0,
+      "zone_id": "ZA",
+      "x": 660.0,
+      "y": 320.0,
+      "v_min_pu": 0.95,
+      "v_max_pu": 1.05,
+      "bus_type": "PQ"
+    },
+    {
+      "id": "A9",
+      "name": "LoadCenter-9",
+      "base_kv": 230.0,
+      "zone_id": "ZA",
+      "x": 720.0,
+      "y": 320.0,
+      "v_min_pu": 0.95,
+      "v_max_pu": 1.05,
+      "bus_type": "PQ"
+    },
+    {
+      "id": "B1",
+      "name": "RenewRemote-1",
+      "base_kv": 230.0,
+      "zone_id": "ZB",
+      "x": 60.0,
+      "y": 180.0,
+      "v_min_pu": 0.95,
+      "v_max_pu": 1.05,
+      "bus_type": "PQ"
+    },
+    {
+      "id": "B2",
+      "name": "RenewRemote-2",
+      "base_kv": 230.0,
+      "zone_id": "ZB",
+      "x": 120.0,
+      "y": 180.0,
+      "v_min_pu": 0.95,
+      "v_max_pu": 1.05,
+      "bus_type": "PQ"
+    },
+    {
+      "id": "B3",
+      "name": "RenewRemote-3",
+      "base_kv": 230.0,
+      "zone_id": "ZB",
+      "x": 180.0,
+      "y": 180.0,
+      "v_min_pu": 0.95,
+      "v_max_pu": 1.05,
+      "bus_type": "PQ"
+    },
+    {
+      "id": "B4",
+      "name": "RenewRemote-4",
+      "base_kv": 230.0,
+      "zone_id": "ZB",
+      "x": 60.0,
+      "y": 240.0,
+      "v_min_pu": 0.95,
+      "v_max_pu": 1.05,
+      "bus_type": "PQ"
+    },
+    {
+      "id": "B5",
+      "name": "RenewRemote-5",
+      "base_kv": 230.0,
+      "zone_id": "ZB",
+      "x": 120.0,
+      "y": 240.0,
+      "v_min_pu": 0.95,
+      "v_max_pu": 1.05,
+      "bus_type": "PQ"
+    },
+    {
+      "id": "B6",
+      "name": "RenewRemote-6",
+      "base_kv": 230.0,
+      "zone_id": "ZB",
+      "x": 180.0,
+      "y": 240.0,
+      "v_min_pu": 0.95,
+      "v_max_pu": 1.05,
+      "bus_type": "PQ"
+    },
+    {
+      "id": "B7",
+      "name": "RenewRemote-7",
+      "base_kv": 230.0,
+      "zone_id": "ZB",
+      "x": 60.0,
+      "y": 300.0,
+      "v_min_pu": 0.95,
+      "v_max_pu": 1.05,
+      "bus_type": "PQ"
+    },
+    {
+      "id": "B8",
+      "name": "RenewRemote-8",
+      "base_kv": 230.0,
+      "zone_id": "ZB",
+      "x": 120.0,
+      "y": 300.0,
+      "v_min_pu": 0.95,
+      "v_max_pu": 1.05,
+      "bus_type": "PQ"
+    },
+    {
+      "id": "B9",
+      "name": "RenewRemote-9",
+      "base_kv": 230.0,
+      "zone_id": "ZB",
+      "x": 180.0,
+      "y": 300.0,
+      "v_min_pu": 0.95,
+      "v_max_pu": 1.05,
+      "bus_type": "PQ"
+    },
+    {
+      "id": "C_slack",
+      "name": "HydroNorth-1",
+      "base_kv": 230.0,
+      "zone_id": "ZC",
+      "x": 340.0,
+      "y": 520.0,
+      "v_min_pu": 0.95,
+      "v_max_pu": 1.05,
+      "bus_type": "slack"
+    },
+    {
+      "id": "C2",
+      "name": "HydroNorth-2",
+      "base_kv": 230.0,
+      "zone_id": "ZC",
+      "x": 400.0,
+      "y": 520.0,
+      "v_min_pu": 0.95,
+      "v_max_pu": 1.05,
+      "bus_type": "PQ"
+    },
+    {
+      "id": "C3",
+      "name": "HydroNorth-3",
+      "base_kv": 230.0,
+      "zone_id": "ZC",
+      "x": 460.0,
+      "y": 520.0,
+      "v_min_pu": 0.95,
+      "v_max_pu": 1.05,
+      "bus_type": "PQ"
+    },
+    {
+      "id": "C4",
+      "name": "HydroNorth-4",
+      "base_kv": 230.0,
+      "zone_id": "ZC",
+      "x": 340.0,
+      "y": 580.0,
+      "v_min_pu": 0.95,
+      "v_max_pu": 1.05,
+      "bus_type": "PQ"
+    },
+    {
+      "id": "C5",
+      "name": "HydroNorth-5",
+      "base_kv": 230.0,
+      "zone_id": "ZC",
+      "x": 400.0,
+      "y": 580.0,
+      "v_min_pu": 0.95,
+      "v_max_pu": 1.05,
+      "bus_type": "PQ"
+    },
+    {
+      "id": "C6",
+      "name": "HydroNorth-6",
+      "base_kv": 230.0,
+      "zone_id": "ZC",
+      "x": 460.0,
+      "y": 580.0,
+      "v_min_pu": 0.95,
+      "v_max_pu": 1.05,
+      "bus_type": "PQ"
+    },
+    {
+      "id": "C7",
+      "name": "HydroNorth-7",
+      "base_kv": 230.0,
+      "zone_id": "ZC",
+      "x": 340.0,
+      "y": 640.0,
+      "v_min_pu": 0.95,
+      "v_max_pu": 1.05,
+      "bus_type": "PQ"
+    },
+    {
+      "id": "C8",
+      "name": "HydroNorth-8",
+      "base_kv": 230.0,
+      "zone_id": "ZC",
+      "x": 400.0,
+      "y": 640.0,
+      "v_min_pu": 0.95,
+      "v_max_pu": 1.05,
+      "bus_type": "PQ"
+    }
+  ],
+  "zones": [
+    {
+      "id": "ZA",
+      "name": "Load Center",
+      "member_bus_ids": [
+        "A1",
+        "A2",
+        "A3",
+        "A4",
+        "A5",
+        "A6",
+        "A7",
+        "A8",
+        "A9"
+      ],
+      "partition": "balancing"
+    },
+    {
+      "id": "ZB",
+      "name": "Renewable Remote",
+      "member_bus_ids": [
+        "B1",
+        "B2",
+        "B3",
+        "B4",
+        "B5",
+        "B6",
+        "B7",
+        "B8",
+        "B9"
+      ],
+      "partition": "balancing"
+    },
+    {
+      "id": "ZC",
+      "name": "Hydro North",
+      "member_bus_ids": [
+        "C_slack",
+        "C2",
+        "C3",
+        "C4",
+        "C5",
+        "C6",
+        "C7",
+        "C8"
+      ],
+      "partition": "balancing"
+    }
+  ],
+  "ac_lines": [
+    {
+      "id": "L_A1_A2",
+      "name": "L_A1_A2",
+      "from_bus_id": "A1",
+      "to_bus_id": "A2",
+      "r": 0.006,
+      "x": 0.06,
+      "b": 0.0125,
+      "length_km": 50.0,
+      "rating_normal_mva": 600.0,
+      "rating_emergency_mva": 720.0,
+      "rating_lt_mva": 660.0,
+      "r_per_km": null,
+      "l_per_km": null,
+      "c_per_km": null,
+      "emt_line_model": "pi",
+      "is_candidate": false,
+      "capex_per_mw": null
+    },
+    {
+      "id": "L_A2_A3",
+      "name": "L_A2_A3",
+      "from_bus_id": "A2",
+      "to_bus_id": "A3",
+      "r": 0.006,
+      "x": 0.06,
+      "b": 0.0125,
+      "length_km": 50.0,
+      "rating_normal_mva": 600.0,
+      "rating_emergency_mva": 720.0,
+      "rating_lt_mva": 660.0,
+      "r_per_km": null,
+      "l_per_km": null,
+      "c_per_km": null,
+      "emt_line_model": "pi",
+      "is_candidate": false,
+      "capex_per_mw": null
+    },
+    {
+      "id": "L_A3_A4",
+      "name": "L_A3_A4",
+      "from_bus_id": "A3",
+      "to_bus_id": "A4",
+      "r": 0.006,
+      "x": 0.06,
+      "b": 0.0125,
+      "length_km": 50.0,
+      "rating_normal_mva": 600.0,
+      "rating_emergency_mva": 720.0,
+      "rating_lt_mva": 660.0,
+      "r_per_km": null,
+      "l_per_km": null,
+      "c_per_km": null,
+      "emt_line_model": "pi",
+      "is_candidate": false,
+      "capex_per_mw": null
+    },
+    {
+      "id": "L_A4_A5",
+      "name": "L_A4_A5",
+      "from_bus_id": "A4",
+      "to_bus_id": "A5",
+      "r": 0.006,
+      "x": 0.06,
+      "b": 0.0125,
+      "length_km": 50.0,
+      "rating_normal_mva": 600.0,
+      "rating_emergency_mva": 720.0,
+      "rating_lt_mva": 660.0,
+      "r_per_km": null,
+      "l_per_km": null,
+      "c_per_km": null,
+      "emt_line_model": "pi",
+      "is_candidate": false,
+      "capex_per_mw": null
+    },
+    {
+      "id": "L_A5_A6",
+      "name": "L_A5_A6",
+      "from_bus_id": "A5",
+      "to_bus_id": "A6",
+      "r": 0.006,
+      "x": 0.06,
+      "b": 0.0125,
+      "length_km": 50.0,
+      "rating_normal_mva": 600.0,
+      "rating_emergency_mva": 720.0,
+      "rating_lt_mva": 660.0,
+      "r_per_km": null,
+      "l_per_km": null,
+      "c_per_km": null,
+      "emt_line_model": "pi",
+      "is_candidate": false,
+      "capex_per_mw": null
+    },
+    {
+      "id": "L_A6_A7",
+      "name": "L_A6_A7",
+      "from_bus_id": "A6",
+      "to_bus_id": "A7",
+      "r": 0.006,
+      "x": 0.06,
+      "b": 0.0125,
+      "length_km": 50.0,
+      "rating_normal_mva": 600.0,
+      "rating_emergency_mva": 720.0,
+      "rating_lt_mva": 660.0,
+      "r_per_km": null,
+      "l_per_km": null,
+      "c_per_km": null,
+      "emt_line_model": "pi",
+      "is_candidate": false,
+      "capex_per_mw": null
+    },
+    {
+      "id": "L_A7_A8",
+      "name": "L_A7_A8",
+      "from_bus_id": "A7",
+      "to_bus_id": "A8",
+      "r": 0.006,
+      "x": 0.06,
+      "b": 0.0125,
+      "length_km": 50.0,
+      "rating_normal_mva": 600.0,
+      "rating_emergency_mva": 720.0,
+      "rating_lt_mva": 660.0,
+      "r_per_km": null,
+      "l_per_km": null,
+      "c_per_km": null,
+      "emt_line_model": "pi",
+      "is_candidate": false,
+      "capex_per_mw": null
+    },
+    {
+      "id": "L_A8_A9",
+      "name": "L_A8_A9",
+      "from_bus_id": "A8",
+      "to_bus_id": "A9",
+      "r": 0.006,
+      "x": 0.06,
+      "b": 0.0125,
+      "length_km": 50.0,
+      "rating_normal_mva": 600.0,
+      "rating_emergency_mva": 720.0,
+      "rating_lt_mva": 660.0,
+      "r_per_km": null,
+      "l_per_km": null,
+      "c_per_km": null,
+      "emt_line_model": "pi",
+      "is_candidate": false,
+      "capex_per_mw": null
+    },
+    {
+      "id": "L_A1_A3",
+      "name": "L_A1_A3",
+      "from_bus_id": "A1",
+      "to_bus_id": "A3",
+      "r": 0.008,
+      "x": 0.08,
+      "b": 0.0175,
+      "length_km": 70.0,
+      "rating_normal_mva": 500.0,
+      "rating_emergency_mva": 600.0,
+      "rating_lt_mva": 550.0,
+      "r_per_km": null,
+      "l_per_km": null,
+      "c_per_km": null,
+      "emt_line_model": "pi",
+      "is_candidate": false,
+      "capex_per_mw": null
+    },
+    {
+      "id": "L_B1_B2",
+      "name": "L_B1_B2",
+      "from_bus_id": "B1",
+      "to_bus_id": "B2",
+      "r": 0.006,
+      "x": 0.06,
+      "b": 0.0125,
+      "length_km": 50.0,
+      "rating_normal_mva": 600.0,
+      "rating_emergency_mva": 720.0,
+      "rating_lt_mva": 660.0,
+      "r_per_km": null,
+      "l_per_km": null,
+      "c_per_km": null,
+      "emt_line_model": "pi",
+      "is_candidate": false,
+      "capex_per_mw": null
+    },
+    {
+      "id": "L_B2_B3",
+      "name": "L_B2_B3",
+      "from_bus_id": "B2",
+      "to_bus_id": "B3",
+      "r": 0.006,
+      "x": 0.06,
+      "b": 0.0125,
+      "length_km": 50.0,
+      "rating_normal_mva": 600.0,
+      "rating_emergency_mva": 720.0,
+      "rating_lt_mva": 660.0,
+      "r_per_km": null,
+      "l_per_km": null,
+      "c_per_km": null,
+      "emt_line_model": "pi",
+      "is_candidate": false,
+      "capex_per_mw": null
+    },
+    {
+      "id": "L_B3_B4",
+      "name": "L_B3_B4",
+      "from_bus_id": "B3",
+      "to_bus_id": "B4",
+      "r": 0.006,
+      "x": 0.06,
+      "b": 0.0125,
+      "length_km": 50.0,
+      "rating_normal_mva": 600.0,
+      "rating_emergency_mva": 720.0,
+      "rating_lt_mva": 660.0,
+      "r_per_km": null,
+      "l_per_km": null,
+      "c_per_km": null,
+      "emt_line_model": "pi",
+      "is_candidate": false,
+      "capex_per_mw": null
+    },
+    {
+      "id": "L_B4_B5",
+      "name": "L_B4_B5",
+      "from_bus_id": "B4",
+      "to_bus_id": "B5",
+      "r": 0.006,
+      "x": 0.06,
+      "b": 0.0125,
+      "length_km": 50.0,
+      "rating_normal_mva": 600.0,
+      "rating_emergency_mva": 720.0,
+      "rating_lt_mva": 660.0,
+      "r_per_km": null,
+      "l_per_km": null,
+      "c_per_km": null,
+      "emt_line_model": "pi",
+      "is_candidate": false,
+      "capex_per_mw": null
+    },
+    {
+      "id": "L_B5_B6",
+      "name": "L_B5_B6",
+      "from_bus_id": "B5",
+      "to_bus_id": "B6",
+      "r": 0.006,
+      "x": 0.06,
+      "b": 0.0125,
+      "length_km": 50.0,
+      "rating_normal_mva": 600.0,
+      "rating_emergency_mva": 720.0,
+      "rating_lt_mva": 660.0,
+      "r_per_km": null,
+      "l_per_km": null,
+      "c_per_km": null,
+      "emt_line_model": "pi",
+      "is_candidate": false,
+      "capex_per_mw": null
+    },
+    {
+      "id": "L_B6_B7",
+      "name": "L_B6_B7",
+      "from_bus_id": "B6",
+      "to_bus_id": "B7",
+      "r": 0.006,
+      "x": 0.06,
+      "b": 0.0125,
+      "length_km": 50.0,
+      "rating_normal_mva": 600.0,
+      "rating_emergency_mva": 720.0,
+      "rating_lt_mva": 660.0,
+      "r_per_km": null,
+      "l_per_km": null,
+      "c_per_km": null,
+      "emt_line_model": "pi",
+      "is_candidate": false,
+      "capex_per_mw": null
+    },
+    {
+      "id": "L_B7_B8",
+      "name": "L_B7_B8",
+      "from_bus_id": "B7",
+      "to_bus_id": "B8",
+      "r": 0.006,
+      "x": 0.06,
+      "b": 0.0125,
+      "length_km": 50.0,
+      "rating_normal_mva": 600.0,
+      "rating_emergency_mva": 720.0,
+      "rating_lt_mva": 660.0,
+      "r_per_km": null,
+      "l_per_km": null,
+      "c_per_km": null,
+      "emt_line_model": "pi",
+      "is_candidate": false,
+      "capex_per_mw": null
+    },
+    {
+      "id": "L_B8_B9",
+      "name": "L_B8_B9",
+      "from_bus_id": "B8",
+      "to_bus_id": "B9",
+      "r": 0.006,
+      "x": 0.06,
+      "b": 0.0125,
+      "length_km": 50.0,
+      "rating_normal_mva": 600.0,
+      "rating_emergency_mva": 720.0,
+      "rating_lt_mva": 660.0,
+      "r_per_km": null,
+      "l_per_km": null,
+      "c_per_km": null,
+      "emt_line_model": "pi",
+      "is_candidate": false,
+      "capex_per_mw": null
+    },
+    {
+      "id": "L_B1_B3",
+      "name": "L_B1_B3",
+      "from_bus_id": "B1",
+      "to_bus_id": "B3",
+      "r": 0.008,
+      "x": 0.08,
+      "b": 0.0175,
+      "length_km": 70.0,
+      "rating_normal_mva": 500.0,
+      "rating_emergency_mva": 600.0,
+      "rating_lt_mva": 550.0,
+      "r_per_km": null,
+      "l_per_km": null,
+      "c_per_km": null,
+      "emt_line_model": "pi",
+      "is_candidate": false,
+      "capex_per_mw": null
+    },
+    {
+      "id": "L_C_slack_C2",
+      "name": "L_C_slack_C2",
+      "from_bus_id": "C_slack",
+      "to_bus_id": "C2",
+      "r": 0.006,
+      "x": 0.06,
+      "b": 0.0125,
+      "length_km": 50.0,
+      "rating_normal_mva": 600.0,
+      "rating_emergency_mva": 720.0,
+      "rating_lt_mva": 660.0,
+      "r_per_km": null,
+      "l_per_km": null,
+      "c_per_km": null,
+      "emt_line_model": "pi",
+      "is_candidate": false,
+      "capex_per_mw": null
+    },
+    {
+      "id": "L_C2_C3",
+      "name": "L_C2_C3",
+      "from_bus_id": "C2",
+      "to_bus_id": "C3",
+      "r": 0.006,
+      "x": 0.06,
+      "b": 0.0125,
+      "length_km": 50.0,
+      "rating_normal_mva": 600.0,
+      "rating_emergency_mva": 720.0,
+      "rating_lt_mva": 660.0,
+      "r_per_km": null,
+      "l_per_km": null,
+      "c_per_km": null,
+      "emt_line_model": "pi",
+      "is_candidate": false,
+      "capex_per_mw": null
+    },
+    {
+      "id": "L_C3_C4",
+      "name": "L_C3_C4",
+      "from_bus_id": "C3",
+      "to_bus_id": "C4",
+      "r": 0.006,
+      "x": 0.06,
+      "b": 0.0125,
+      "length_km": 50.0,
+      "rating_normal_mva": 600.0,
+      "rating_emergency_mva": 720.0,
+      "rating_lt_mva": 660.0,
+      "r_per_km": null,
+      "l_per_km": null,
+      "c_per_km": null,
+      "emt_line_model": "pi",
+      "is_candidate": false,
+      "capex_per_mw": null
+    },
+    {
+      "id": "L_C4_C5",
+      "name": "L_C4_C5",
+      "from_bus_id": "C4",
+      "to_bus_id": "C5",
+      "r": 0.006,
+      "x": 0.06,
+      "b": 0.0125,
+      "length_km": 50.0,
+      "rating_normal_mva": 600.0,
+      "rating_emergency_mva": 720.0,
+      "rating_lt_mva": 660.0,
+      "r_per_km": null,
+      "l_per_km": null,
+      "c_per_km": null,
+      "emt_line_model": "pi",
+      "is_candidate": false,
+      "capex_per_mw": null
+    },
+    {
+      "id": "L_C5_C6",
+      "name": "L_C5_C6",
+      "from_bus_id": "C5",
+      "to_bus_id": "C6",
+      "r": 0.006,
+      "x": 0.06,
+      "b": 0.0125,
+      "length_km": 50.0,
+      "rating_normal_mva": 600.0,
+      "rating_emergency_mva": 720.0,
+      "rating_lt_mva": 660.0,
+      "r_per_km": null,
+      "l_per_km": null,
+      "c_per_km": null,
+      "emt_line_model": "pi",
+      "is_candidate": false,
+      "capex_per_mw": null
+    },
+    {
+      "id": "L_C6_C7",
+      "name": "L_C6_C7",
+      "from_bus_id": "C6",
+      "to_bus_id": "C7",
+      "r": 0.006,
+      "x": 0.06,
+      "b": 0.0125,
+      "length_km": 50.0,
+      "rating_normal_mva": 600.0,
+      "rating_emergency_mva": 720.0,
+      "rating_lt_mva": 660.0,
+      "r_per_km": null,
+      "l_per_km": null,
+      "c_per_km": null,
+      "emt_line_model": "pi",
+      "is_candidate": false,
+      "capex_per_mw": null
+    },
+    {
+      "id": "L_C7_C8",
+      "name": "L_C7_C8",
+      "from_bus_id": "C7",
+      "to_bus_id": "C8",
+      "r": 0.006,
+      "x": 0.06,
+      "b": 0.0125,
+      "length_km": 50.0,
+      "rating_normal_mva": 600.0,
+      "rating_emergency_mva": 720.0,
+      "rating_lt_mva": 660.0,
+      "r_per_km": null,
+      "l_per_km": null,
+      "c_per_km": null,
+      "emt_line_model": "pi",
+      "is_candidate": false,
+      "capex_per_mw": null
+    },
+    {
+      "id": "L_C_slack_C3",
+      "name": "L_C_slack_C3",
+      "from_bus_id": "C_slack",
+      "to_bus_id": "C3",
+      "r": 0.008,
+      "x": 0.08,
+      "b": 0.0175,
+      "length_km": 70.0,
+      "rating_normal_mva": 500.0,
+      "rating_emergency_mva": 600.0,
+      "rating_lt_mva": 550.0,
+      "r_per_km": null,
+      "l_per_km": null,
+      "c_per_km": null,
+      "emt_line_model": "pi",
+      "is_candidate": false,
+      "capex_per_mw": null
+    },
+    {
+      "id": "L_B8_B9",
+      "name": "L_B8_B9",
+      "from_bus_id": "B8",
+      "to_bus_id": "B9",
+      "r": 0.03,
+      "x": 0.3,
+      "b": 0.03,
+      "length_km": 120.0,
+      "rating_normal_mva": 250.0,
+      "rating_emergency_mva": 300.0,
+      "rating_lt_mva": 275.0,
+      "r_per_km": null,
+      "l_per_km": null,
+      "c_per_km": null,
+      "emt_line_model": "pi",
+      "is_candidate": false,
+      "capex_per_mw": null
+    },
+    {
+      "id": "L_B2_A1",
+      "name": "L_B2_A1",
+      "from_bus_id": "B2",
+      "to_bus_id": "A1",
+      "r": 0.01,
+      "x": 0.1,
+      "b": 0.05500000000000001,
+      "length_km": 220.0,
+      "rating_normal_mva": 700.0,
+      "rating_emergency_mva": 840.0,
+      "rating_lt_mva": 770.0000000000001,
+      "r_per_km": null,
+      "l_per_km": null,
+      "c_per_km": null,
+      "emt_line_model": "pi",
+      "is_candidate": false,
+      "capex_per_mw": null
+    },
+    {
+      "id": "L_B4_A2",
+      "name": "L_B4_A2",
+      "from_bus_id": "B4",
+      "to_bus_id": "A2",
+      "r": 0.012,
+      "x": 0.12,
+      "b": 0.06,
+      "length_km": 240.0,
+      "rating_normal_mva": 700.0,
+      "rating_emergency_mva": 840.0,
+      "rating_lt_mva": 770.0000000000001,
+      "r_per_km": null,
+      "l_per_km": null,
+      "c_per_km": null,
+      "emt_line_model": "pi",
+      "is_candidate": false,
+      "capex_per_mw": null
+    },
+    {
+      "id": "L_B3_A3",
+      "name": "L_B3_A3",
+      "from_bus_id": "B3",
+      "to_bus_id": "A3",
+      "r": 0.011,
+      "x": 0.11,
+      "b": 0.05750000000000001,
+      "length_km": 230.0,
+      "rating_normal_mva": 700.0,
+      "rating_emergency_mva": 840.0,
+      "rating_lt_mva": 770.0000000000001,
+      "r_per_km": null,
+      "l_per_km": null,
+      "c_per_km": null,
+      "emt_line_model": "pi",
+      "is_candidate": true,
+      "capex_per_mw": 900000.0
+    },
+    {
+      "id": "L_C_slack_A4",
+      "name": "L_C_slack_A4",
+      "from_bus_id": "C_slack",
+      "to_bus_id": "A4",
+      "r": 0.009,
+      "x": 0.09,
+      "b": 0.045,
+      "length_km": 180.0,
+      "rating_normal_mva": 900.0,
+      "rating_emergency_mva": 1080.0,
+      "rating_lt_mva": 990.0000000000001,
+      "r_per_km": null,
+      "l_per_km": null,
+      "c_per_km": null,
+      "emt_line_model": "pi",
+      "is_candidate": false,
+      "capex_per_mw": null
+    },
+    {
+      "id": "L_C2_A5",
+      "name": "L_C2_A5",
+      "from_bus_id": "C2",
+      "to_bus_id": "A5",
+      "r": 0.009,
+      "x": 0.09,
+      "b": 0.0475,
+      "length_km": 190.0,
+      "rating_normal_mva": 900.0,
+      "rating_emergency_mva": 1080.0,
+      "rating_lt_mva": 990.0000000000001,
+      "r_per_km": null,
+      "l_per_km": null,
+      "c_per_km": null,
+      "emt_line_model": "pi",
+      "is_candidate": false,
+      "capex_per_mw": null
+    }
+  ],
+  "transformers": [
+    {
+      "id": "T_C_slack",
+      "name": "",
+      "from_bus_id": "C_slack",
+      "to_bus_id": "C2",
+      "r": 0.0,
+      "x": 0.05,
+      "rating_mva": 1000.0,
+      "tap_ratio": 1.0,
+      "phase_shift_deg": 0.0,
+      "oltc_enabled": false,
+      "tap_min": 0.9,
+      "tap_max": 1.1,
+      "tap_step": 0.0125
+    }
+  ],
+  "dc_lines": [
+    {
+      "id": "HVDC_B_A",
+      "name": "HVDC Remote-Center",
+      "from_bus_id": "B1",
+      "to_bus_id": "A6",
+      "p_max_mw": 400.0,
+      "loss_fraction": 0.03,
+      "is_candidate": false,
+      "capex_per_mw": null,
+      "dynamic_model_id": "cnv_hvdc"
+    }
+  ],
+  "shunts": [],
+  "interfaces": [
+    {
+      "id": "IF_remote_center",
+      "name": "Remote->Center Intertie",
+      "member_line_ids": [
+        "L_B2_A1",
+        "L_B4_A2",
+        "L_B3_A3"
+      ],
+      "direction_weights": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "limit_mw": 700.0,
+      "limit_source": "thermal"
+    }
+  ],
+  "generators": [
+    {
+      "id": "nuclear_1",
+      "name": "nuclear_1",
+      "bus_id": "C_slack",
+      "technology": "nuclear",
+      "fuel_id": "uranium",
+      "prime_mover": "nuclear",
+      "in_service": true,
+      "retirement_year": null,
+      "capex_per_mw": null,
+      "fom_per_mw_yr": 30000.0,
+      "lifetime_yr": 40,
+      "is_existing": true,
+      "is_candidate": false,
+      "p_nom_existing_mw": 1200.0,
+      "build_min_mw": 0.0,
+      "build_max_mw": null,
+      "resource_class": null,
+      "p_max_mw": 1200.0,
+      "p_min_pu": 0.7,
+      "heat_rate_mmbtu_per_mwh": 10.4,
+      "cost_curve_id": null,
+      "vom_per_mwh": 2.0,
+      "ramp_up_mw_per_min": 12.0,
+      "ramp_down_mw_per_min": 12.0,
+      "min_up_time_h": 24.0,
+      "min_down_time_h": 4.0,
+      "start_cost": 96000.0,
+      "no_load_cost": 2400.0,
+      "reserve_eligible": [
+        "spin",
+        "nonspin"
+      ],
+      "availability_profile_id": null,
+      "mttf_h": 2000.0,
+      "mttr_h": 50.0,
+      "maintenance_weeks": 3.0,
+      "p_setpoint_mw": null,
+      "q_min_mvar": -480.0,
+      "q_max_mvar": 600.0,
+      "v_setpoint_pu": 1.0,
+      "mva_base": 1333.3333333333333,
+      "dynamic_model_id": "sm_nuclear_1"
+    },
+    {
+      "id": "ccgt_2",
+      "name": "ccgt_2",
+      "bus_id": "C3",
+      "technology": "ccgt",
+      "fuel_id": "gas",
+      "prime_mover": "steam",
+      "in_service": true,
+      "retirement_year": null,
+      "capex_per_mw": null,
+      "fom_per_mw_yr": 30000.0,
+      "lifetime_yr": 40,
+      "is_existing": true,
+      "is_candidate": false,
+      "p_nom_existing_mw": 450.0,
+      "build_min_mw": 0.0,
+      "build_max_mw": null,
+      "resource_class": null,
+      "p_max_mw": 450.0,
+      "p_min_pu": 0.4,
+      "heat_rate_mmbtu_per_mwh": 6.9,
+      "cost_curve_id": null,
+      "vom_per_mwh": 3.0,
+      "ramp_up_mw_per_min": 4.5,
+      "ramp_down_mw_per_min": 4.5,
+      "min_up_time_h": 4.0,
+      "min_down_time_h": 4.0,
+      "start_cost": 36000.0,
+      "no_load_cost": 900.0,
+      "reserve_eligible": [
+        "spin",
+        "nonspin"
+      ],
+      "availability_profile_id": null,
+      "mttf_h": 2000.0,
+      "mttr_h": 50.0,
+      "maintenance_weeks": 3.0,
+      "p_setpoint_mw": null,
+      "q_min_mvar": -180.0,
+      "q_max_mvar": 225.0,
+      "v_setpoint_pu": 1.0,
+      "mva_base": 500.0,
+      "dynamic_model_id": "sm_ccgt_2"
+    },
+    {
+      "id": "coal_3",
+      "name": "coal_3",
+      "bus_id": "C4",
+      "technology": "coal",
+      "fuel_id": "coal",
+      "prime_mover": "steam",
+      "in_service": true,
+      "retirement_year": null,
+      "capex_per_mw": null,
+      "fom_per_mw_yr": 30000.0,
+      "lifetime_yr": 40,
+      "is_existing": true,
+      "is_candidate": false,
+      "p_nom_existing_mw": 500.0,
+      "build_min_mw": 0.0,
+      "build_max_mw": null,
+      "resource_class": null,
+      "p_max_mw": 500.0,
+      "p_min_pu": 0.4,
+      "heat_rate_mmbtu_per_mwh": 9.5,
+      "cost_curve_id": null,
+      "vom_per_mwh": 4.0,
+      "ramp_up_mw_per_min": 5.0,
+      "ramp_down_mw_per_min": 5.0,
+      "min_up_time_h": 4.0,
+      "min_down_time_h": 4.0,
+      "start_cost": 40000.0,
+      "no_load_cost": 1000.0,
+      "reserve_eligible": [
+        "spin",
+        "nonspin"
+      ],
+      "availability_profile_id": null,
+      "mttf_h": 2000.0,
+      "mttr_h": 50.0,
+      "maintenance_weeks": 3.0,
+      "p_setpoint_mw": null,
+      "q_min_mvar": -200.0,
+      "q_max_mvar": 250.0,
+      "v_setpoint_pu": 1.0,
+      "mva_base": 555.5555555555555,
+      "dynamic_model_id": "sm_coal_3"
+    },
+    {
+      "id": "ccgt_4",
+      "name": "ccgt_4",
+      "bus_id": "A7",
+      "technology": "ccgt",
+      "fuel_id": "gas",
+      "prime_mover": "steam",
+      "in_service": true,
+      "retirement_year": null,
+      "capex_per_mw": null,
+      "fom_per_mw_yr": 30000.0,
+      "lifetime_yr": 40,
+      "is_existing": true,
+      "is_candidate": false,
+      "p_nom_existing_mw": 600.0,
+      "build_min_mw": 0.0,
+      "build_max_mw": null,
+      "resource_class": null,
+      "p_max_mw": 600.0,
+      "p_min_pu": 0.4,
+      "heat_rate_mmbtu_per_mwh": 6.8,
+      "cost_curve_id": null,
+      "vom_per_mwh": 3.0,
+      "ramp_up_mw_per_min": 6.0,
+      "ramp_down_mw_per_min": 6.0,
+      "min_up_time_h": 4.0,
+      "min_down_time_h": 4.0,
+      "start_cost": 48000.0,
+      "no_load_cost": 1200.0,
+      "reserve_eligible": [
+        "spin",
+        "nonspin"
+      ],
+      "availability_profile_id": null,
+      "mttf_h": 2000.0,
+      "mttr_h": 50.0,
+      "maintenance_weeks": 3.0,
+      "p_setpoint_mw": null,
+      "q_min_mvar": -240.0,
+      "q_max_mvar": 300.0,
+      "v_setpoint_pu": 1.0,
+      "mva_base": 666.6666666666666,
+      "dynamic_model_id": "sm_ccgt_4"
+    },
+    {
+      "id": "ocgt_5",
+      "name": "ocgt_5",
+      "bus_id": "A8",
+      "technology": "ocgt",
+      "fuel_id": "gas",
+      "prime_mover": "steam",
+      "in_service": true,
+      "retirement_year": null,
+      "capex_per_mw": null,
+      "fom_per_mw_yr": 30000.0,
+      "lifetime_yr": 40,
+      "is_existing": true,
+      "is_candidate": false,
+      "p_nom_existing_mw": 300.0,
+      "build_min_mw": 0.0,
+      "build_max_mw": null,
+      "resource_class": null,
+      "p_max_mw": 300.0,
+      "p_min_pu": 0.2,
+      "heat_rate_mmbtu_per_mwh": 10.5,
+      "cost_curve_id": null,
+      "vom_per_mwh": 8.0,
+      "ramp_up_mw_per_min": 3.0,
+      "ramp_down_mw_per_min": 3.0,
+      "min_up_time_h": 4.0,
+      "min_down_time_h": 4.0,
+      "start_cost": 24000.0,
+      "no_load_cost": 600.0,
+      "reserve_eligible": [
+        "spin",
+        "nonspin"
+      ],
+      "availability_profile_id": null,
+      "mttf_h": 2000.0,
+      "mttr_h": 50.0,
+      "maintenance_weeks": 3.0,
+      "p_setpoint_mw": null,
+      "q_min_mvar": -120.0,
+      "q_max_mvar": 150.0,
+      "v_setpoint_pu": 1.0,
+      "mva_base": 333.3333333333333,
+      "dynamic_model_id": "sm_ocgt_5"
+    },
+    {
+      "id": "ccgt_6",
+      "name": "ccgt_6",
+      "bus_id": "A9",
+      "technology": "ccgt",
+      "fuel_id": "gas",
+      "prime_mover": "steam",
+      "in_service": true,
+      "retirement_year": null,
+      "capex_per_mw": 1100000.0,
+      "fom_per_mw_yr": 33000.0,
+      "lifetime_yr": 40,
+      "is_existing": false,
+      "is_candidate": true,
+      "p_nom_existing_mw": 0.0,
+      "build_min_mw": 0.0,
+      "build_max_mw": 800.0,
+      "resource_class": null,
+      "p_max_mw": 400.0,
+      "p_min_pu": 0.4,
+      "heat_rate_mmbtu_per_mwh": 6.7,
+      "cost_curve_id": null,
+      "vom_per_mwh": 3.0,
+      "ramp_up_mw_per_min": 4.0,
+      "ramp_down_mw_per_min": 4.0,
+      "min_up_time_h": 4.0,
+      "min_down_time_h": 4.0,
+      "start_cost": 32000.0,
+      "no_load_cost": 800.0,
+      "reserve_eligible": [
+        "spin",
+        "nonspin"
+      ],
+      "availability_profile_id": null,
+      "mttf_h": 2000.0,
+      "mttr_h": 50.0,
+      "maintenance_weeks": 3.0,
+      "p_setpoint_mw": null,
+      "q_min_mvar": -160.0,
+      "q_max_mvar": 200.0,
+      "v_setpoint_pu": 1.0,
+      "mva_base": 444.44444444444446,
+      "dynamic_model_id": "sm_ccgt_6"
+    },
+    {
+      "id": "wind_7",
+      "name": "wind_7",
+      "bus_id": "B1",
+      "technology": "wind",
+      "fuel_id": null,
+      "prime_mover": "inverter",
+      "in_service": true,
+      "retirement_year": null,
+      "capex_per_mw": null,
+      "fom_per_mw_yr": 24000.0,
+      "lifetime_yr": 25,
+      "is_existing": true,
+      "is_candidate": false,
+      "p_nom_existing_mw": 800.0,
+      "build_min_mw": 0.0,
+      "build_max_mw": null,
+      "resource_class": "wind",
+      "p_max_mw": 800.0,
+      "p_min_pu": 0.0,
+      "heat_rate_mmbtu_per_mwh": null,
+      "cost_curve_id": null,
+      "vom_per_mwh": 0.5,
+      "ramp_up_mw_per_min": null,
+      "ramp_down_mw_per_min": null,
+      "min_up_time_h": 0.0,
+      "min_down_time_h": 0.0,
+      "start_cost": 0.0,
+      "no_load_cost": 0.0,
+      "reserve_eligible": [],
+      "availability_profile_id": "availability__wind_B0",
+      "mttf_h": null,
+      "mttr_h": null,
+      "maintenance_weeks": 0.0,
+      "p_setpoint_mw": null,
+      "q_min_mvar": -264.0,
+      "q_max_mvar": 264.0,
+      "v_setpoint_pu": null,
+      "mva_base": 888.8888888888889,
+      "dynamic_model_id": "cnv_wind_7"
+    },
+    {
+      "id": "wind_8",
+      "name": "wind_8",
+      "bus_id": "B3",
+      "technology": "wind",
+      "fuel_id": null,
+      "prime_mover": "inverter",
+      "in_service": true,
+      "retirement_year": null,
+      "capex_per_mw": null,
+      "fom_per_mw_yr": 24000.0,
+      "lifetime_yr": 25,
+      "is_existing": true,
+      "is_candidate": false,
+      "p_nom_existing_mw": 700.0,
+      "build_min_mw": 0.0,
+      "build_max_mw": null,
+      "resource_class": "wind",
+      "p_max_mw": 700.0,
+      "p_min_pu": 0.0,
+      "heat_rate_mmbtu_per_mwh": null,
+      "cost_curve_id": null,
+      "vom_per_mwh": 0.5,
+      "ramp_up_mw_per_min": null,
+      "ramp_down_mw_per_min": null,
+      "min_up_time_h": 0.0,
+      "min_down_time_h": 0.0,
+      "start_cost": 0.0,
+      "no_load_cost": 0.0,
+      "reserve_eligible": [],
+      "availability_profile_id": "availability__wind_B2",
+      "mttf_h": null,
+      "mttr_h": null,
+      "maintenance_weeks": 0.0,
+      "p_setpoint_mw": null,
+      "q_min_mvar": -231.0,
+      "q_max_mvar": 231.0,
+      "v_setpoint_pu": null,
+      "mva_base": 777.7777777777777,
+      "dynamic_model_id": "cnv_wind_8"
+    },
+    {
+      "id": "solar_pv_9",
+      "name": "solar_pv_9",
+      "bus_id": "B5",
+      "technology": "solar_pv",
+      "fuel_id": null,
+      "prime_mover": "inverter",
+      "in_service": true,
+      "retirement_year": null,
+      "capex_per_mw": null,
+      "fom_per_mw_yr": 24000.0,
+      "lifetime_yr": 25,
+      "is_existing": true,
+      "is_candidate": false,
+      "p_nom_existing_mw": 600.0,
+      "build_min_mw": 0.0,
+      "build_max_mw": null,
+      "resource_class": "solar_pv",
+      "p_max_mw": 600.0,
+      "p_min_pu": 0.0,
+      "heat_rate_mmbtu_per_mwh": null,
+      "cost_curve_id": null,
+      "vom_per_mwh": 0.5,
+      "ramp_up_mw_per_min": null,
+      "ramp_down_mw_per_min": null,
+      "min_up_time_h": 0.0,
+      "min_down_time_h": 0.0,
+      "start_cost": 0.0,
+      "no_load_cost": 0.0,
+      "reserve_eligible": [],
+      "availability_profile_id": "availability__solar_B4",
+      "mttf_h": null,
+      "mttr_h": null,
+      "maintenance_weeks": 0.0,
+      "p_setpoint_mw": null,
+      "q_min_mvar": -198.0,
+      "q_max_mvar": 198.0,
+      "v_setpoint_pu": null,
+      "mva_base": 666.6666666666666,
+      "dynamic_model_id": "cnv_solar_pv_9"
+    },
+    {
+      "id": "solar_pv_10",
+      "name": "solar_pv_10",
+      "bus_id": "B6",
+      "technology": "solar_pv",
+      "fuel_id": null,
+      "prime_mover": "inverter",
+      "in_service": true,
+      "retirement_year": null,
+      "capex_per_mw": null,
+      "fom_per_mw_yr": 24000.0,
+      "lifetime_yr": 25,
+      "is_existing": true,
+      "is_candidate": false,
+      "p_nom_existing_mw": 500.0,
+      "build_min_mw": 0.0,
+      "build_max_mw": null,
+      "resource_class": "solar_pv",
+      "p_max_mw": 500.0,
+      "p_min_pu": 0.0,
+      "heat_rate_mmbtu_per_mwh": null,
+      "cost_curve_id": null,
+      "vom_per_mwh": 0.5,
+      "ramp_up_mw_per_min": null,
+      "ramp_down_mw_per_min": null,
+      "min_up_time_h": 0.0,
+      "min_down_time_h": 0.0,
+      "start_cost": 0.0,
+      "no_load_cost": 0.0,
+      "reserve_eligible": [],
+      "availability_profile_id": "availability__solar_B5",
+      "mttf_h": null,
+      "mttr_h": null,
+      "maintenance_weeks": 0.0,
+      "p_setpoint_mw": null,
+      "q_min_mvar": -165.0,
+      "q_max_mvar": 165.0,
+      "v_setpoint_pu": null,
+      "mva_base": 555.5555555555555,
+      "dynamic_model_id": "cnv_solar_pv_10"
+    },
+    {
+      "id": "wind_11",
+      "name": "wind_11",
+      "bus_id": "B9",
+      "technology": "wind",
+      "fuel_id": null,
+      "prime_mover": "inverter",
+      "in_service": true,
+      "retirement_year": null,
+      "capex_per_mw": null,
+      "fom_per_mw_yr": 24000.0,
+      "lifetime_yr": 25,
+      "is_existing": true,
+      "is_candidate": false,
+      "p_nom_existing_mw": 350.0,
+      "build_min_mw": 0.0,
+      "build_max_mw": null,
+      "resource_class": "wind",
+      "p_max_mw": 350.0,
+      "p_min_pu": 0.0,
+      "heat_rate_mmbtu_per_mwh": null,
+      "cost_curve_id": null,
+      "vom_per_mwh": 0.5,
+      "ramp_up_mw_per_min": null,
+      "ramp_down_mw_per_min": null,
+      "min_up_time_h": 0.0,
+      "min_down_time_h": 0.0,
+      "start_cost": 0.0,
+      "no_load_cost": 0.0,
+      "reserve_eligible": [],
+      "availability_profile_id": "availability__wind_Bweak",
+      "mttf_h": null,
+      "mttr_h": null,
+      "maintenance_weeks": 0.0,
+      "p_setpoint_mw": null,
+      "q_min_mvar": -115.5,
+      "q_max_mvar": 115.5,
+      "v_setpoint_pu": null,
+      "mva_base": 388.88888888888886,
+      "dynamic_model_id": "cnv_wind_11"
+    },
+    {
+      "id": "wind_12",
+      "name": "wind_12",
+      "bus_id": "B2",
+      "technology": "wind",
+      "fuel_id": null,
+      "prime_mover": "inverter",
+      "in_service": true,
+      "retirement_year": null,
+      "capex_per_mw": 1300000.0,
+      "fom_per_mw_yr": 26000.0,
+      "lifetime_yr": 25,
+      "is_existing": false,
+      "is_candidate": true,
+      "p_nom_existing_mw": 0.0,
+      "build_min_mw": 0.0,
+      "build_max_mw": 1200.0,
+      "resource_class": "wind",
+      "p_max_mw": 300.0,
+      "p_min_pu": 0.0,
+      "heat_rate_mmbtu_per_mwh": null,
+      "cost_curve_id": null,
+      "vom_per_mwh": 0.5,
+      "ramp_up_mw_per_min": null,
+      "ramp_down_mw_per_min": null,
+      "min_up_time_h": 0.0,
+      "min_down_time_h": 0.0,
+      "start_cost": 0.0,
+      "no_load_cost": 0.0,
+      "reserve_eligible": [],
+      "availability_profile_id": "availability__wind_B1",
+      "mttf_h": null,
+      "mttr_h": null,
+      "maintenance_weeks": 0.0,
+      "p_setpoint_mw": null,
+      "q_min_mvar": -99.0,
+      "q_max_mvar": 99.0,
+      "v_setpoint_pu": null,
+      "mva_base": 333.3333333333333,
+      "dynamic_model_id": "cnv_wind_12"
+    },
+    {
+      "id": "solar_pv_13",
+      "name": "solar_pv_13",
+      "bus_id": "B7",
+      "technology": "solar_pv",
+      "fuel_id": null,
+      "prime_mover": "inverter",
+      "in_service": true,
+      "retirement_year": null,
+      "capex_per_mw": 900000.0,
+      "fom_per_mw_yr": 18000.0,
+      "lifetime_yr": 25,
+      "is_existing": false,
+      "is_candidate": true,
+      "p_nom_existing_mw": 0.0,
+      "build_min_mw": 0.0,
+      "build_max_mw": 1200.0,
+      "resource_class": "solar_pv",
+      "p_max_mw": 300.0,
+      "p_min_pu": 0.0,
+      "heat_rate_mmbtu_per_mwh": null,
+      "cost_curve_id": null,
+      "vom_per_mwh": 0.5,
+      "ramp_up_mw_per_min": null,
+      "ramp_down_mw_per_min": null,
+      "min_up_time_h": 0.0,
+      "min_down_time_h": 0.0,
+      "start_cost": 0.0,
+      "no_load_cost": 0.0,
+      "reserve_eligible": [],
+      "availability_profile_id": "availability__solar_B6",
+      "mttf_h": null,
+      "mttr_h": null,
+      "maintenance_weeks": 0.0,
+      "p_setpoint_mw": null,
+      "q_min_mvar": -99.0,
+      "q_max_mvar": 99.0,
+      "v_setpoint_pu": null,
+      "mva_base": 333.3333333333333,
+      "dynamic_model_id": "cnv_solar_pv_13"
+    },
+    {
+      "id": "solar_pv_14",
+      "name": "solar_pv_14",
+      "bus_id": "B8",
+      "technology": "solar_pv",
+      "fuel_id": null,
+      "prime_mover": "inverter",
+      "in_service": true,
+      "retirement_year": null,
+      "capex_per_mw": null,
+      "fom_per_mw_yr": 24000.0,
+      "lifetime_yr": 25,
+      "is_existing": true,
+      "is_candidate": false,
+      "p_nom_existing_mw": 250.0,
+      "build_min_mw": 0.0,
+      "build_max_mw": null,
+      "resource_class": "solar_pv",
+      "p_max_mw": 250.0,
+      "p_min_pu": 0.0,
+      "heat_rate_mmbtu_per_mwh": null,
+      "cost_curve_id": null,
+      "vom_per_mwh": 0.5,
+      "ramp_up_mw_per_min": null,
+      "ramp_down_mw_per_min": null,
+      "min_up_time_h": 0.0,
+      "min_down_time_h": 0.0,
+      "start_cost": 0.0,
+      "no_load_cost": 0.0,
+      "reserve_eligible": [],
+      "availability_profile_id": "availability__solar_B7",
+      "mttf_h": null,
+      "mttr_h": null,
+      "maintenance_weeks": 0.0,
+      "p_setpoint_mw": null,
+      "q_min_mvar": -82.5,
+      "q_max_mvar": 82.5,
+      "v_setpoint_pu": null,
+      "mva_base": 277.77777777777777,
+      "dynamic_model_id": "cnv_solar_pv_14"
+    }
+  ],
+  "hydro_units": [
+    {
+      "id": "hydro1",
+      "name": "North Reservoir",
+      "bus_id": "C5",
+      "technology": "reservoir",
+      "p_max_mw": 500.0,
+      "p_min_pu": 0.0,
+      "reservoir_energy_mwh": 84000.0,
+      "inflow_profile_id": null,
+      "cascade_downstream_id": null,
+      "mva_base": 550.0,
+      "dynamic_model_id": "sm_hydro1"
+    }
+  ],
+  "storage_units": [
+    {
+      "id": "batt1",
+      "name": "Load Center Battery",
+      "bus_id": "A3",
+      "technology": "battery",
+      "p_charge_max_mw": 200.0,
+      "p_discharge_max_mw": 200.0,
+      "energy_capacity_mwh": 800.0,
+      "efficiency_charge": 0.95,
+      "efficiency_discharge": 0.95,
+      "self_discharge_per_h": 0.0,
+      "soc_min_pu": 0.05,
+      "soc_max_pu": 1.0,
+      "vom_per_mwh": 1.0,
+      "capex_per_mw": 250000.0,
+      "capex_per_mwh": 200000.0,
+      "fom_per_mw_yr": 6000.0,
+      "lifetime_yr": 15,
+      "is_candidate": false,
+      "mttf_h": 3000.0,
+      "mttr_h": 24.0,
+      "mva_base": 200.0,
+      "dynamic_model_id": "cnv_batt1"
+    },
+    {
+      "id": "batt2",
+      "name": "Remote Candidate Battery",
+      "bus_id": "B4",
+      "technology": "battery",
+      "p_charge_max_mw": 100.0,
+      "p_discharge_max_mw": 100.0,
+      "energy_capacity_mwh": 400.0,
+      "efficiency_charge": 0.94,
+      "efficiency_discharge": 0.94,
+      "self_discharge_per_h": 0.0,
+      "soc_min_pu": 0.05,
+      "soc_max_pu": 1.0,
+      "vom_per_mwh": 1.0,
+      "capex_per_mw": 240000.0,
+      "capex_per_mwh": 180000.0,
+      "fom_per_mw_yr": 6000.0,
+      "lifetime_yr": 15,
+      "is_candidate": true,
+      "mttf_h": 3000.0,
+      "mttr_h": 24.0,
+      "mva_base": 100.0,
+      "dynamic_model_id": "cnv_batt2"
+    }
+  ],
+  "loads": [
+    {
+      "id": "load_A1",
+      "name": "Load A1",
+      "bus_id": "A1",
+      "zone_id": "ZA",
+      "demand_profile_id": "demand__load_A1",
+      "power_factor": 0.98,
+      "zip_z": 0.1,
+      "zip_i": 0.2,
+      "zip_p": 0.7,
+      "motor_fraction": 0.3,
+      "voll_per_mwh": 10000.0,
+      "dr_sheddable_mw": 0.0,
+      "dr_shiftable_mw": 0.0
+    },
+    {
+      "id": "load_A2",
+      "name": "Load A2",
+      "bus_id": "A2",
+      "zone_id": "ZA",
+      "demand_profile_id": "demand__load_A2",
+      "power_factor": 0.98,
+      "zip_z": 0.1,
+      "zip_i": 0.2,
+      "zip_p": 0.7,
+      "motor_fraction": 0.3,
+      "voll_per_mwh": 10000.0,
+      "dr_sheddable_mw": 0.0,
+      "dr_shiftable_mw": 0.0
+    },
+    {
+      "id": "load_A3",
+      "name": "Load A3",
+      "bus_id": "A3",
+      "zone_id": "ZA",
+      "demand_profile_id": "demand__load_A3",
+      "power_factor": 0.98,
+      "zip_z": 0.1,
+      "zip_i": 0.2,
+      "zip_p": 0.7,
+      "motor_fraction": 0.3,
+      "voll_per_mwh": 10000.0,
+      "dr_sheddable_mw": 0.0,
+      "dr_shiftable_mw": 0.0
+    },
+    {
+      "id": "load_A4",
+      "name": "Load A4",
+      "bus_id": "A4",
+      "zone_id": "ZA",
+      "demand_profile_id": "demand__load_A4",
+      "power_factor": 0.98,
+      "zip_z": 0.1,
+      "zip_i": 0.2,
+      "zip_p": 0.7,
+      "motor_fraction": 0.3,
+      "voll_per_mwh": 10000.0,
+      "dr_sheddable_mw": 0.0,
+      "dr_shiftable_mw": 0.0
+    },
+    {
+      "id": "load_A5",
+      "name": "Load A5",
+      "bus_id": "A5",
+      "zone_id": "ZA",
+      "demand_profile_id": "demand__load_A5",
+      "power_factor": 0.98,
+      "zip_z": 0.1,
+      "zip_i": 0.2,
+      "zip_p": 0.7,
+      "motor_fraction": 0.3,
+      "voll_per_mwh": 10000.0,
+      "dr_sheddable_mw": 0.0,
+      "dr_shiftable_mw": 0.0
+    },
+    {
+      "id": "load_A6",
+      "name": "Load A6",
+      "bus_id": "A6",
+      "zone_id": "ZA",
+      "demand_profile_id": "demand__load_A6",
+      "power_factor": 0.98,
+      "zip_z": 0.1,
+      "zip_i": 0.2,
+      "zip_p": 0.7,
+      "motor_fraction": 0.3,
+      "voll_per_mwh": 10000.0,
+      "dr_sheddable_mw": 0.0,
+      "dr_shiftable_mw": 0.0
+    },
+    {
+      "id": "load_A7",
+      "name": "Load A7",
+      "bus_id": "A7",
+      "zone_id": "ZA",
+      "demand_profile_id": "demand__load_A7",
+      "power_factor": 0.98,
+      "zip_z": 0.1,
+      "zip_i": 0.2,
+      "zip_p": 0.7,
+      "motor_fraction": 0.3,
+      "voll_per_mwh": 10000.0,
+      "dr_sheddable_mw": 0.0,
+      "dr_shiftable_mw": 0.0
+    },
+    {
+      "id": "load_A8",
+      "name": "Load A8",
+      "bus_id": "A8",
+      "zone_id": "ZA",
+      "demand_profile_id": "demand__load_A8",
+      "power_factor": 0.98,
+      "zip_z": 0.1,
+      "zip_i": 0.2,
+      "zip_p": 0.7,
+      "motor_fraction": 0.3,
+      "voll_per_mwh": 10000.0,
+      "dr_sheddable_mw": 0.0,
+      "dr_shiftable_mw": 0.0
+    },
+    {
+      "id": "load_A9",
+      "name": "Load A9",
+      "bus_id": "A9",
+      "zone_id": "ZA",
+      "demand_profile_id": "demand__load_A9",
+      "power_factor": 0.98,
+      "zip_z": 0.1,
+      "zip_i": 0.2,
+      "zip_p": 0.7,
+      "motor_fraction": 0.3,
+      "voll_per_mwh": 10000.0,
+      "dr_sheddable_mw": 0.0,
+      "dr_shiftable_mw": 0.0
+    },
+    {
+      "id": "load_B4",
+      "name": "Load B4",
+      "bus_id": "B4",
+      "zone_id": "ZB",
+      "demand_profile_id": "demand__load_B4",
+      "power_factor": 0.98,
+      "zip_z": 0.1,
+      "zip_i": 0.2,
+      "zip_p": 0.7,
+      "motor_fraction": 0.3,
+      "voll_per_mwh": 10000.0,
+      "dr_sheddable_mw": 0.0,
+      "dr_shiftable_mw": 0.0
+    },
+    {
+      "id": "load_C6",
+      "name": "Load C6",
+      "bus_id": "C6",
+      "zone_id": "ZC",
+      "demand_profile_id": "demand__load_C6",
+      "power_factor": 0.98,
+      "zip_z": 0.1,
+      "zip_i": 0.2,
+      "zip_p": 0.7,
+      "motor_fraction": 0.3,
+      "voll_per_mwh": 10000.0,
+      "dr_sheddable_mw": 0.0,
+      "dr_shiftable_mw": 0.0
+    }
+  ],
+  "dynamic_models": [
+    {
+      "id": "cnv_hvdc",
+      "kind": "converter",
+      "control_mode": "grid_following",
+      "current_limit_pu": 1.2,
+      "pll_bandwidth_hz": 20.0,
+      "outer_loop": {
+        "p_gain": 0.5,
+        "q_or_v_gain": 0.5,
+        "time_constants": {
+          "tp": 0.02,
+          "tq": 0.02
+        }
+      },
+      "inner_current_loop": {
+        "bandwidth_hz": 600.0,
+        "gains": {
+          "kp": 0.3,
+          "ki": 10.0
+        }
+      },
+      "droop_p_f": 0.05,
+      "droop_q_v": 0.05,
+      "virtual_inertia_s": 0.0,
+      "fault_ride_through": {
+        "v_thresholds": {},
+        "current_injection": {}
+      },
+      "dc_link": null,
+      "lcl_filter": {
+        "l1": 0.05,
+        "c": 0.03,
+        "l2": 0.05
+      },
+      "emt_switching_model": "averaged"
+    },
+    {
+      "id": "sm_nuclear_1",
+      "kind": "synchronous",
+      "h_s": 5.5,
+      "damping_d": 2.0,
+      "xd": 1.8,
+      "xq": 1.75,
+      "xd_t": 0.3,
+      "xq_t": 0.55,
+      "xd_st": 0.23,
+      "xq_st": 0.23,
+      "td0_t": 8.0,
+      "tq0_t": 0.4,
+      "td0_st": 0.03,
+      "tq0_st": 0.05,
+      "saturation_params": {},
+      "governor": {
+        "type": "TGOV1",
+        "droop_r": 0.05,
+        "time_constants": {
+          "t1": 0.5,
+          "t2": 1.0,
+          "t3": 5.0
+        },
+        "p_min": 0.0,
+        "p_max": 1.0
+      },
+      "exciter": {
+        "type": "IEEET1",
+        "gains": {
+          "ka": 200.0
+        },
+        "time_constants": {
+          "ta": 0.02,
+          "te": 0.8
+        },
+        "v_ref": 1.0,
+        "limits": {
+          "vrmax": 5.0,
+          "vrmin": -5.0
+        }
+      },
+      "pss": null,
+      "turbine": {
+        "type": "nuclear",
+        "time_constants": {
+          "tch": 0.3
+        }
+      }
+    },
+    {
+      "id": "sm_ccgt_2",
+      "kind": "synchronous",
+      "h_s": 4.5,
+      "damping_d": 2.0,
+      "xd": 1.8,
+      "xq": 1.75,
+      "xd_t": 0.3,
+      "xq_t": 0.55,
+      "xd_st": 0.23,
+      "xq_st": 0.23,
+      "td0_t": 8.0,
+      "tq0_t": 0.4,
+      "td0_st": 0.03,
+      "tq0_st": 0.05,
+      "saturation_params": {},
+      "governor": {
+        "type": "TGOV1",
+        "droop_r": 0.05,
+        "time_constants": {
+          "t1": 0.5,
+          "t2": 1.0,
+          "t3": 5.0
+        },
+        "p_min": 0.0,
+        "p_max": 1.0
+      },
+      "exciter": {
+        "type": "IEEET1",
+        "gains": {
+          "ka": 200.0
+        },
+        "time_constants": {
+          "ta": 0.02,
+          "te": 0.8
+        },
+        "v_ref": 1.0,
+        "limits": {
+          "vrmax": 5.0,
+          "vrmin": -5.0
+        }
+      },
+      "pss": null,
+      "turbine": {
+        "type": "ccgt",
+        "time_constants": {
+          "tch": 0.3
+        }
+      }
+    },
+    {
+      "id": "sm_coal_3",
+      "kind": "synchronous",
+      "h_s": 4.0,
+      "damping_d": 2.0,
+      "xd": 1.8,
+      "xq": 1.75,
+      "xd_t": 0.3,
+      "xq_t": 0.55,
+      "xd_st": 0.23,
+      "xq_st": 0.23,
+      "td0_t": 8.0,
+      "tq0_t": 0.4,
+      "td0_st": 0.03,
+      "tq0_st": 0.05,
+      "saturation_params": {},
+      "governor": {
+        "type": "TGOV1",
+        "droop_r": 0.05,
+        "time_constants": {
+          "t1": 0.5,
+          "t2": 1.0,
+          "t3": 5.0
+        },
+        "p_min": 0.0,
+        "p_max": 1.0
+      },
+      "exciter": {
+        "type": "IEEET1",
+        "gains": {
+          "ka": 200.0
+        },
+        "time_constants": {
+          "ta": 0.02,
+          "te": 0.8
+        },
+        "v_ref": 1.0,
+        "limits": {
+          "vrmax": 5.0,
+          "vrmin": -5.0
+        }
+      },
+      "pss": null,
+      "turbine": {
+        "type": "coal",
+        "time_constants": {
+          "tch": 0.3
+        }
+      }
+    },
+    {
+      "id": "sm_ccgt_4",
+      "kind": "synchronous",
+      "h_s": 4.5,
+      "damping_d": 2.0,
+      "xd": 1.8,
+      "xq": 1.75,
+      "xd_t": 0.3,
+      "xq_t": 0.55,
+      "xd_st": 0.23,
+      "xq_st": 0.23,
+      "td0_t": 8.0,
+      "tq0_t": 0.4,
+      "td0_st": 0.03,
+      "tq0_st": 0.05,
+      "saturation_params": {},
+      "governor": {
+        "type": "TGOV1",
+        "droop_r": 0.05,
+        "time_constants": {
+          "t1": 0.5,
+          "t2": 1.0,
+          "t3": 5.0
+        },
+        "p_min": 0.0,
+        "p_max": 1.0
+      },
+      "exciter": {
+        "type": "IEEET1",
+        "gains": {
+          "ka": 200.0
+        },
+        "time_constants": {
+          "ta": 0.02,
+          "te": 0.8
+        },
+        "v_ref": 1.0,
+        "limits": {
+          "vrmax": 5.0,
+          "vrmin": -5.0
+        }
+      },
+      "pss": null,
+      "turbine": {
+        "type": "ccgt",
+        "time_constants": {
+          "tch": 0.3
+        }
+      }
+    },
+    {
+      "id": "sm_ocgt_5",
+      "kind": "synchronous",
+      "h_s": 3.0,
+      "damping_d": 2.0,
+      "xd": 1.8,
+      "xq": 1.75,
+      "xd_t": 0.3,
+      "xq_t": 0.55,
+      "xd_st": 0.23,
+      "xq_st": 0.23,
+      "td0_t": 8.0,
+      "tq0_t": 0.4,
+      "td0_st": 0.03,
+      "tq0_st": 0.05,
+      "saturation_params": {},
+      "governor": {
+        "type": "TGOV1",
+        "droop_r": 0.05,
+        "time_constants": {
+          "t1": 0.5,
+          "t2": 1.0,
+          "t3": 5.0
+        },
+        "p_min": 0.0,
+        "p_max": 1.0
+      },
+      "exciter": {
+        "type": "IEEET1",
+        "gains": {
+          "ka": 200.0
+        },
+        "time_constants": {
+          "ta": 0.02,
+          "te": 0.8
+        },
+        "v_ref": 1.0,
+        "limits": {
+          "vrmax": 5.0,
+          "vrmin": -5.0
+        }
+      },
+      "pss": null,
+      "turbine": {
+        "type": "ocgt",
+        "time_constants": {
+          "tch": 0.3
+        }
+      }
+    },
+    {
+      "id": "sm_ccgt_6",
+      "kind": "synchronous",
+      "h_s": 4.5,
+      "damping_d": 2.0,
+      "xd": 1.8,
+      "xq": 1.75,
+      "xd_t": 0.3,
+      "xq_t": 0.55,
+      "xd_st": 0.23,
+      "xq_st": 0.23,
+      "td0_t": 8.0,
+      "tq0_t": 0.4,
+      "td0_st": 0.03,
+      "tq0_st": 0.05,
+      "saturation_params": {},
+      "governor": {
+        "type": "TGOV1",
+        "droop_r": 0.05,
+        "time_constants": {
+          "t1": 0.5,
+          "t2": 1.0,
+          "t3": 5.0
+        },
+        "p_min": 0.0,
+        "p_max": 1.0
+      },
+      "exciter": {
+        "type": "IEEET1",
+        "gains": {
+          "ka": 200.0
+        },
+        "time_constants": {
+          "ta": 0.02,
+          "te": 0.8
+        },
+        "v_ref": 1.0,
+        "limits": {
+          "vrmax": 5.0,
+          "vrmin": -5.0
+        }
+      },
+      "pss": null,
+      "turbine": {
+        "type": "ccgt",
+        "time_constants": {
+          "tch": 0.3
+        }
+      }
+    },
+    {
+      "id": "cnv_wind_7",
+      "kind": "converter",
+      "control_mode": "grid_following",
+      "current_limit_pu": 1.2,
+      "pll_bandwidth_hz": 20.0,
+      "outer_loop": {
+        "p_gain": 0.5,
+        "q_or_v_gain": 0.5,
+        "time_constants": {
+          "tp": 0.02,
+          "tq": 0.02
+        }
+      },
+      "inner_current_loop": {
+        "bandwidth_hz": 600.0,
+        "gains": {
+          "kp": 0.3,
+          "ki": 10.0
+        }
+      },
+      "droop_p_f": 0.05,
+      "droop_q_v": 0.05,
+      "virtual_inertia_s": 0.0,
+      "fault_ride_through": {
+        "v_thresholds": {},
+        "current_injection": {}
+      },
+      "dc_link": null,
+      "lcl_filter": {
+        "l1": 0.05,
+        "c": 0.03,
+        "l2": 0.05
+      },
+      "emt_switching_model": "averaged"
+    },
+    {
+      "id": "cnv_wind_8",
+      "kind": "converter",
+      "control_mode": "grid_following",
+      "current_limit_pu": 1.2,
+      "pll_bandwidth_hz": 20.0,
+      "outer_loop": {
+        "p_gain": 0.5,
+        "q_or_v_gain": 0.5,
+        "time_constants": {
+          "tp": 0.02,
+          "tq": 0.02
+        }
+      },
+      "inner_current_loop": {
+        "bandwidth_hz": 600.0,
+        "gains": {
+          "kp": 0.3,
+          "ki": 10.0
+        }
+      },
+      "droop_p_f": 0.05,
+      "droop_q_v": 0.05,
+      "virtual_inertia_s": 0.0,
+      "fault_ride_through": {
+        "v_thresholds": {},
+        "current_injection": {}
+      },
+      "dc_link": null,
+      "lcl_filter": {
+        "l1": 0.05,
+        "c": 0.03,
+        "l2": 0.05
+      },
+      "emt_switching_model": "averaged"
+    },
+    {
+      "id": "cnv_solar_pv_9",
+      "kind": "converter",
+      "control_mode": "grid_following",
+      "current_limit_pu": 1.2,
+      "pll_bandwidth_hz": 20.0,
+      "outer_loop": {
+        "p_gain": 0.5,
+        "q_or_v_gain": 0.5,
+        "time_constants": {
+          "tp": 0.02,
+          "tq": 0.02
+        }
+      },
+      "inner_current_loop": {
+        "bandwidth_hz": 600.0,
+        "gains": {
+          "kp": 0.3,
+          "ki": 10.0
+        }
+      },
+      "droop_p_f": 0.05,
+      "droop_q_v": 0.05,
+      "virtual_inertia_s": 0.0,
+      "fault_ride_through": {
+        "v_thresholds": {},
+        "current_injection": {}
+      },
+      "dc_link": null,
+      "lcl_filter": {
+        "l1": 0.05,
+        "c": 0.03,
+        "l2": 0.05
+      },
+      "emt_switching_model": "averaged"
+    },
+    {
+      "id": "cnv_solar_pv_10",
+      "kind": "converter",
+      "control_mode": "grid_following",
+      "current_limit_pu": 1.2,
+      "pll_bandwidth_hz": 20.0,
+      "outer_loop": {
+        "p_gain": 0.5,
+        "q_or_v_gain": 0.5,
+        "time_constants": {
+          "tp": 0.02,
+          "tq": 0.02
+        }
+      },
+      "inner_current_loop": {
+        "bandwidth_hz": 600.0,
+        "gains": {
+          "kp": 0.3,
+          "ki": 10.0
+        }
+      },
+      "droop_p_f": 0.05,
+      "droop_q_v": 0.05,
+      "virtual_inertia_s": 0.0,
+      "fault_ride_through": {
+        "v_thresholds": {},
+        "current_injection": {}
+      },
+      "dc_link": null,
+      "lcl_filter": {
+        "l1": 0.05,
+        "c": 0.03,
+        "l2": 0.05
+      },
+      "emt_switching_model": "averaged"
+    },
+    {
+      "id": "cnv_wind_11",
+      "kind": "converter",
+      "control_mode": "grid_following",
+      "current_limit_pu": 1.2,
+      "pll_bandwidth_hz": 60.0,
+      "outer_loop": {
+        "p_gain": 0.5,
+        "q_or_v_gain": 0.5,
+        "time_constants": {
+          "tp": 0.02,
+          "tq": 0.02
+        }
+      },
+      "inner_current_loop": {
+        "bandwidth_hz": 600.0,
+        "gains": {
+          "kp": 0.3,
+          "ki": 10.0
+        }
+      },
+      "droop_p_f": 0.05,
+      "droop_q_v": 0.05,
+      "virtual_inertia_s": 0.0,
+      "fault_ride_through": {
+        "v_thresholds": {},
+        "current_injection": {}
+      },
+      "dc_link": null,
+      "lcl_filter": {
+        "l1": 0.05,
+        "c": 0.03,
+        "l2": 0.05
+      },
+      "emt_switching_model": "averaged"
+    },
+    {
+      "id": "cnv_wind_12",
+      "kind": "converter",
+      "control_mode": "grid_following",
+      "current_limit_pu": 1.2,
+      "pll_bandwidth_hz": 20.0,
+      "outer_loop": {
+        "p_gain": 0.5,
+        "q_or_v_gain": 0.5,
+        "time_constants": {
+          "tp": 0.02,
+          "tq": 0.02
+        }
+      },
+      "inner_current_loop": {
+        "bandwidth_hz": 600.0,
+        "gains": {
+          "kp": 0.3,
+          "ki": 10.0
+        }
+      },
+      "droop_p_f": 0.05,
+      "droop_q_v": 0.05,
+      "virtual_inertia_s": 0.0,
+      "fault_ride_through": {
+        "v_thresholds": {},
+        "current_injection": {}
+      },
+      "dc_link": null,
+      "lcl_filter": {
+        "l1": 0.05,
+        "c": 0.03,
+        "l2": 0.05
+      },
+      "emt_switching_model": "averaged"
+    },
+    {
+      "id": "cnv_solar_pv_13",
+      "kind": "converter",
+      "control_mode": "grid_following",
+      "current_limit_pu": 1.2,
+      "pll_bandwidth_hz": 20.0,
+      "outer_loop": {
+        "p_gain": 0.5,
+        "q_or_v_gain": 0.5,
+        "time_constants": {
+          "tp": 0.02,
+          "tq": 0.02
+        }
+      },
+      "inner_current_loop": {
+        "bandwidth_hz": 600.0,
+        "gains": {
+          "kp": 0.3,
+          "ki": 10.0
+        }
+      },
+      "droop_p_f": 0.05,
+      "droop_q_v": 0.05,
+      "virtual_inertia_s": 0.0,
+      "fault_ride_through": {
+        "v_thresholds": {},
+        "current_injection": {}
+      },
+      "dc_link": null,
+      "lcl_filter": {
+        "l1": 0.05,
+        "c": 0.03,
+        "l2": 0.05
+      },
+      "emt_switching_model": "averaged"
+    },
+    {
+      "id": "cnv_solar_pv_14",
+      "kind": "converter",
+      "control_mode": "grid_forming",
+      "current_limit_pu": 1.2,
+      "pll_bandwidth_hz": 20.0,
+      "outer_loop": {
+        "p_gain": 0.5,
+        "q_or_v_gain": 0.5,
+        "time_constants": {
+          "tp": 0.02,
+          "tq": 0.02
+        }
+      },
+      "inner_current_loop": {
+        "bandwidth_hz": 600.0,
+        "gains": {
+          "kp": 0.3,
+          "ki": 10.0
+        }
+      },
+      "droop_p_f": 0.05,
+      "droop_q_v": 0.05,
+      "virtual_inertia_s": 4.0,
+      "fault_ride_through": {
+        "v_thresholds": {},
+        "current_injection": {}
+      },
+      "dc_link": null,
+      "lcl_filter": {
+        "l1": 0.05,
+        "c": 0.03,
+        "l2": 0.05
+      },
+      "emt_switching_model": "averaged"
+    },
+    {
+      "id": "sm_hydro1",
+      "kind": "synchronous",
+      "h_s": 4.0,
+      "damping_d": 2.0,
+      "xd": 1.8,
+      "xq": 1.75,
+      "xd_t": 0.3,
+      "xq_t": 0.55,
+      "xd_st": 0.23,
+      "xq_st": 0.23,
+      "td0_t": 8.0,
+      "tq0_t": 0.4,
+      "td0_st": 0.03,
+      "tq0_st": 0.05,
+      "saturation_params": {},
+      "governor": {
+        "type": "TGOV1",
+        "droop_r": 0.05,
+        "time_constants": {
+          "t1": 0.5,
+          "t2": 1.0,
+          "t3": 5.0
+        },
+        "p_min": 0.0,
+        "p_max": 1.0
+      },
+      "exciter": {
+        "type": "IEEET1",
+        "gains": {
+          "ka": 200.0
+        },
+        "time_constants": {
+          "ta": 0.02,
+          "te": 0.8
+        },
+        "v_ref": 1.0,
+        "limits": {
+          "vrmax": 5.0,
+          "vrmin": -5.0
+        }
+      },
+      "pss": null,
+      "turbine": {
+        "type": "hydro",
+        "time_constants": {
+          "tch": 0.3
+        }
+      }
+    },
+    {
+      "id": "cnv_batt1",
+      "kind": "converter",
+      "control_mode": "grid_following",
+      "current_limit_pu": 1.2,
+      "pll_bandwidth_hz": 20.0,
+      "outer_loop": {
+        "p_gain": 0.5,
+        "q_or_v_gain": 0.5,
+        "time_constants": {
+          "tp": 0.02,
+          "tq": 0.02
+        }
+      },
+      "inner_current_loop": {
+        "bandwidth_hz": 600.0,
+        "gains": {
+          "kp": 0.3,
+          "ki": 10.0
+        }
+      },
+      "droop_p_f": 0.05,
+      "droop_q_v": 0.05,
+      "virtual_inertia_s": 0.0,
+      "fault_ride_through": {
+        "v_thresholds": {},
+        "current_injection": {}
+      },
+      "dc_link": null,
+      "lcl_filter": {
+        "l1": 0.05,
+        "c": 0.03,
+        "l2": 0.05
+      },
+      "emt_switching_model": "averaged"
+    },
+    {
+      "id": "cnv_batt2",
+      "kind": "converter",
+      "control_mode": "grid_forming",
+      "current_limit_pu": 1.2,
+      "pll_bandwidth_hz": 20.0,
+      "outer_loop": {
+        "p_gain": 0.5,
+        "q_or_v_gain": 0.5,
+        "time_constants": {
+          "tp": 0.02,
+          "tq": 0.02
+        }
+      },
+      "inner_current_loop": {
+        "bandwidth_hz": 600.0,
+        "gains": {
+          "kp": 0.3,
+          "ki": 10.0
+        }
+      },
+      "droop_p_f": 0.05,
+      "droop_q_v": 0.05,
+      "virtual_inertia_s": 4.0,
+      "fault_ride_through": {
+        "v_thresholds": {},
+        "current_injection": {}
+      },
+      "dc_link": null,
+      "lcl_filter": {
+        "l1": 0.05,
+        "c": 0.03,
+        "l2": 0.05
+      },
+      "emt_switching_model": "averaged"
+    }
+  ],
+  "fuels": [
+    {
+      "id": "gas",
+      "name": "Natural Gas",
+      "price_per_mmbtu": 3.5,
+      "price_profile_id": null,
+      "emissions_tco2_per_mmbtu": 0.053
+    },
+    {
+      "id": "coal",
+      "name": "Coal",
+      "price_per_mmbtu": 2.0,
+      "price_profile_id": null,
+      "emissions_tco2_per_mmbtu": 0.095
+    },
+    {
+      "id": "uranium",
+      "name": "Uranium",
+      "price_per_mmbtu": 0.7,
+      "price_profile_id": null,
+      "emissions_tco2_per_mmbtu": 0.0
+    }
+  ],
+  "cost_curves": [],
+  "policies": [
+    {
+      "id": "carbon",
+      "kind": "carbon_price",
+      "value": 0.0,
+      "scope_zone_ids": [],
+      "applies_to_technologies": []
+    },
+    {
+      "id": "rps",
+      "kind": "rps",
+      "value": 0.0,
+      "scope_zone_ids": [],
+      "applies_to_technologies": []
+    },
+    {
+      "id": "prm",
+      "kind": "planning_reserve_margin",
+      "value": 0.15,
+      "scope_zone_ids": [],
+      "applies_to_technologies": []
+    }
+  ],
+  "reserve_products": [
+    {
+      "id": "spin",
+      "kind": "spinning",
+      "requirement_rule": {
+        "pct_load": 0.03,
+        "pct_vre": 0.05
+      },
+      "zone_scope": []
+    },
+    {
+      "id": "nonspin",
+      "kind": "non_spinning",
+      "requirement_rule": {
+        "pct_load": 0.03
+      },
+      "zone_scope": []
+    },
+    {
+      "id": "ffr",
+      "kind": "fast_frequency_response",
+      "requirement_rule": {
+        "fixed_mw": 0.0
+      },
+      "zone_scope": []
+    }
+  ],
+  "system_constraints": [
+    {
+      "id": "min_inertia",
+      "kind": "min_inertia",
+      "value": 0.0,
+      "scope": []
+    },
+    {
+      "id": "rocof",
+      "kind": "rocof_limit",
+      "value": 1.0,
+      "scope": []
+    }
+  ],
+  "disturbances": [
+    {
+      "id": "N1_L_B2_A1",
+      "name": "Outage L_B2_A1",
+      "affected_element_ids": [
+        "L_B2_A1"
+      ],
+      "kind": "element_outage",
+      "fault_type": null,
+      "fault_impedance_ohm": null,
+      "apply_time_s": null,
+      "clear_time_s": null
+    },
+    {
+      "id": "N1_L_B4_A2",
+      "name": "Outage L_B4_A2",
+      "affected_element_ids": [
+        "L_B4_A2"
+      ],
+      "kind": "element_outage",
+      "fault_type": null,
+      "fault_impedance_ohm": null,
+      "apply_time_s": null,
+      "clear_time_s": null
+    },
+    {
+      "id": "N1_L_B3_A3",
+      "name": "Outage L_B3_A3",
+      "affected_element_ids": [
+        "L_B3_A3"
+      ],
+      "kind": "element_outage",
+      "fault_type": null,
+      "fault_impedance_ohm": null,
+      "apply_time_s": null,
+      "clear_time_s": null
+    },
+    {
+      "id": "fault_center",
+      "name": "3ph fault at load center",
+      "affected_element_ids": [
+        "A1"
+      ],
+      "kind": "bus_fault",
+      "fault_type": "three_phase",
+      "fault_impedance_ohm": 0.01,
+      "apply_time_s": 1.0,
+      "clear_time_s": 1.08
+    }
+  ],
+  "temporal_maps": [],
+  "weather_model": {
+    "seed": 42,
+    "n_years": 10,
+    "hours_per_year": 8760,
+    "latitude_deg": 41.0,
+    "regime_names": [
+      "calm_high",
+      "windy_frontal",
+      "mixed"
+    ],
+    "regime_transition": [],
+    "ou_theta": 0.15,
+    "ou_sigma": 1.0,
+    "correlation_length_km": 300.0,
+    "interannual_sigma": 0.1,
+    "wind_cut_in_ms": 3.0,
+    "wind_rated_ms": 12.0,
+    "wind_cut_out_ms": 25.0,
+    "load_growth_per_year": 0.01,
+    "load_base_mw": 1.0,
+    "temp_heating_coef": 0.02,
+    "temp_cooling_coef": 0.03
+  },
+  "weather_sites": [
+    {
+      "id": "load_A1",
+      "name": "load@A1",
+      "kind": "load",
+      "x": 600.0,
+      "y": 200.0,
+      "scale": 235.29411764705884
+    },
+    {
+      "id": "load_A2",
+      "name": "load@A2",
+      "kind": "load",
+      "x": 660.0,
+      "y": 200.0,
+      "scale": 235.29411764705884
+    },
+    {
+      "id": "load_A3",
+      "name": "load@A3",
+      "kind": "load",
+      "x": 720.0,
+      "y": 200.0,
+      "scale": 235.29411764705884
+    },
+    {
+      "id": "load_A4",
+      "name": "load@A4",
+      "kind": "load",
+      "x": 600.0,
+      "y": 260.0,
+      "scale": 235.29411764705884
+    },
+    {
+      "id": "load_A5",
+      "name": "load@A5",
+      "kind": "load",
+      "x": 660.0,
+      "y": 260.0,
+      "scale": 235.29411764705884
+    },
+    {
+      "id": "load_A6",
+      "name": "load@A6",
+      "kind": "load",
+      "x": 720.0,
+      "y": 260.0,
+      "scale": 235.29411764705884
+    },
+    {
+      "id": "load_A7",
+      "name": "load@A7",
+      "kind": "load",
+      "x": 600.0,
+      "y": 320.0,
+      "scale": 235.29411764705884
+    },
+    {
+      "id": "load_A8",
+      "name": "load@A8",
+      "kind": "load",
+      "x": 660.0,
+      "y": 320.0,
+      "scale": 235.29411764705884
+    },
+    {
+      "id": "load_A9",
+      "name": "load@A9",
+      "kind": "load",
+      "x": 720.0,
+      "y": 320.0,
+      "scale": 235.29411764705884
+    },
+    {
+      "id": "load_B4",
+      "name": "load@B4",
+      "kind": "load",
+      "x": 60.0,
+      "y": 240.0,
+      "scale": 35.294117647058826
+    },
+    {
+      "id": "load_C6",
+      "name": "load@C6",
+      "kind": "load",
+      "x": 460.0,
+      "y": 580.0,
+      "scale": 47.05882352941177
+    },
+    {
+      "id": "wind_B0",
+      "name": "wind@B1",
+      "kind": "wind",
+      "x": 60.0,
+      "y": 180.0,
+      "scale": 1.0
+    },
+    {
+      "id": "wind_B2",
+      "name": "wind@B3",
+      "kind": "wind",
+      "x": 180.0,
+      "y": 180.0,
+      "scale": 1.0
+    },
+    {
+      "id": "solar_B4",
+      "name": "solar@B5",
+      "kind": "solar",
+      "x": 120.0,
+      "y": 240.0,
+      "scale": 1.0
+    },
+    {
+      "id": "solar_B5",
+      "name": "solar@B6",
+      "kind": "solar",
+      "x": 180.0,
+      "y": 240.0,
+      "scale": 1.0
+    },
+    {
+      "id": "wind_Bweak",
+      "name": "wind@B9",
+      "kind": "wind",
+      "x": 180.0,
+      "y": 300.0,
+      "scale": 1.0
+    },
+    {
+      "id": "wind_B1",
+      "name": "wind@B2",
+      "kind": "wind",
+      "x": 120.0,
+      "y": 180.0,
+      "scale": 1.0
+    },
+    {
+      "id": "solar_B6",
+      "name": "solar@B7",
+      "kind": "solar",
+      "x": 60.0,
+      "y": 300.0,
+      "scale": 1.0
+    },
+    {
+      "id": "solar_B7",
+      "name": "solar@B8",
+      "kind": "solar",
+      "x": 120.0,
+      "y": 300.0,
+      "scale": 1.0
+    }
+  ],
+  "time_series_store": {
+    "series": {
+      "availability__wind_B0": {
+        "id": "availability__wind_B0",
+        "kind": "availability",
+        "unit": "pu",
+        "resolution": "hourly",
+        "start": "2030-01-01T00:00:00",
+        "length": 87600,
+        "years": [
+          0,
+          1,
+          2,
+          3,
+          4,
+          5,
+          6,
+          7,
+          8,
+          9
+        ],
+        "hours_per_year": 8760
+      },
+      "availability__wind_B2": {
+        "id": "availability__wind_B2",
+        "kind": "availability",
+        "unit": "pu",
+        "resolution": "hourly",
+        "start": "2030-01-01T00:00:00",
+        "length": 87600,
+        "years": [
+          0,
+          1,
+          2,
+          3,
+          4,
+          5,
+          6,
+          7,
+          8,
+          9
+        ],
+        "hours_per_year": 8760
+      },
+      "availability__wind_Bweak": {
+        "id": "availability__wind_Bweak",
+        "kind": "availability",
+        "unit": "pu",
+        "resolution": "hourly",
+        "start": "2030-01-01T00:00:00",
+        "length": 87600,
+        "years": [
+          0,
+          1,
+          2,
+          3,
+          4,
+          5,
+          6,
+          7,
+          8,
+          9
+        ],
+        "hours_per_year": 8760
+      },
+      "availability__wind_B1": {
+        "id": "availability__wind_B1",
+        "kind": "availability",
+        "unit": "pu",
+        "resolution": "hourly",
+        "start": "2030-01-01T00:00:00",
+        "length": 87600,
+        "years": [
+          0,
+          1,
+          2,
+          3,
+          4,
+          5,
+          6,
+          7,
+          8,
+          9
+        ],
+        "hours_per_year": 8760
+      },
+      "availability__solar_B4": {
+        "id": "availability__solar_B4",
+        "kind": "availability",
+        "unit": "pu",
+        "resolution": "hourly",
+        "start": "2030-01-01T00:00:00",
+        "length": 87600,
+        "years": [
+          0,
+          1,
+          2,
+          3,
+          4,
+          5,
+          6,
+          7,
+          8,
+          9
+        ],
+        "hours_per_year": 8760
+      },
+      "availability__solar_B5": {
+        "id": "availability__solar_B5",
+        "kind": "availability",
+        "unit": "pu",
+        "resolution": "hourly",
+        "start": "2030-01-01T00:00:00",
+        "length": 87600,
+        "years": [
+          0,
+          1,
+          2,
+          3,
+          4,
+          5,
+          6,
+          7,
+          8,
+          9
+        ],
+        "hours_per_year": 8760
+      },
+      "availability__solar_B6": {
+        "id": "availability__solar_B6",
+        "kind": "availability",
+        "unit": "pu",
+        "resolution": "hourly",
+        "start": "2030-01-01T00:00:00",
+        "length": 87600,
+        "years": [
+          0,
+          1,
+          2,
+          3,
+          4,
+          5,
+          6,
+          7,
+          8,
+          9
+        ],
+        "hours_per_year": 8760
+      },
+      "availability__solar_B7": {
+        "id": "availability__solar_B7",
+        "kind": "availability",
+        "unit": "pu",
+        "resolution": "hourly",
+        "start": "2030-01-01T00:00:00",
+        "length": 87600,
+        "years": [
+          0,
+          1,
+          2,
+          3,
+          4,
+          5,
+          6,
+          7,
+          8,
+          9
+        ],
+        "hours_per_year": 8760
+      },
+      "demand__load_A1": {
+        "id": "demand__load_A1",
+        "kind": "demand",
+        "unit": "MW",
+        "resolution": "hourly",
+        "start": "2030-01-01T00:00:00",
+        "length": 87600,
+        "years": [
+          0,
+          1,
+          2,
+          3,
+          4,
+          5,
+          6,
+          7,
+          8,
+          9
+        ],
+        "hours_per_year": 8760
+      },
+      "demand__load_A2": {
+        "id": "demand__load_A2",
+        "kind": "demand",
+        "unit": "MW",
+        "resolution": "hourly",
+        "start": "2030-01-01T00:00:00",
+        "length": 87600,
+        "years": [
+          0,
+          1,
+          2,
+          3,
+          4,
+          5,
+          6,
+          7,
+          8,
+          9
+        ],
+        "hours_per_year": 8760
+      },
+      "demand__load_A3": {
+        "id": "demand__load_A3",
+        "kind": "demand",
+        "unit": "MW",
+        "resolution": "hourly",
+        "start": "2030-01-01T00:00:00",
+        "length": 87600,
+        "years": [
+          0,
+          1,
+          2,
+          3,
+          4,
+          5,
+          6,
+          7,
+          8,
+          9
+        ],
+        "hours_per_year": 8760
+      },
+      "demand__load_A4": {
+        "id": "demand__load_A4",
+        "kind": "demand",
+        "unit": "MW",
+        "resolution": "hourly",
+        "start": "2030-01-01T00:00:00",
+        "length": 87600,
+        "years": [
+          0,
+          1,
+          2,
+          3,
+          4,
+          5,
+          6,
+          7,
+          8,
+          9
+        ],
+        "hours_per_year": 8760
+      },
+      "demand__load_A5": {
+        "id": "demand__load_A5",
+        "kind": "demand",
+        "unit": "MW",
+        "resolution": "hourly",
+        "start": "2030-01-01T00:00:00",
+        "length": 87600,
+        "years": [
+          0,
+          1,
+          2,
+          3,
+          4,
+          5,
+          6,
+          7,
+          8,
+          9
+        ],
+        "hours_per_year": 8760
+      },
+      "demand__load_A6": {
+        "id": "demand__load_A6",
+        "kind": "demand",
+        "unit": "MW",
+        "resolution": "hourly",
+        "start": "2030-01-01T00:00:00",
+        "length": 87600,
+        "years": [
+          0,
+          1,
+          2,
+          3,
+          4,
+          5,
+          6,
+          7,
+          8,
+          9
+        ],
+        "hours_per_year": 8760
+      },
+      "demand__load_A7": {
+        "id": "demand__load_A7",
+        "kind": "demand",
+        "unit": "MW",
+        "resolution": "hourly",
+        "start": "2030-01-01T00:00:00",
+        "length": 87600,
+        "years": [
+          0,
+          1,
+          2,
+          3,
+          4,
+          5,
+          6,
+          7,
+          8,
+          9
+        ],
+        "hours_per_year": 8760
+      },
+      "demand__load_A8": {
+        "id": "demand__load_A8",
+        "kind": "demand",
+        "unit": "MW",
+        "resolution": "hourly",
+        "start": "2030-01-01T00:00:00",
+        "length": 87600,
+        "years": [
+          0,
+          1,
+          2,
+          3,
+          4,
+          5,
+          6,
+          7,
+          8,
+          9
+        ],
+        "hours_per_year": 8760
+      },
+      "demand__load_A9": {
+        "id": "demand__load_A9",
+        "kind": "demand",
+        "unit": "MW",
+        "resolution": "hourly",
+        "start": "2030-01-01T00:00:00",
+        "length": 87600,
+        "years": [
+          0,
+          1,
+          2,
+          3,
+          4,
+          5,
+          6,
+          7,
+          8,
+          9
+        ],
+        "hours_per_year": 8760
+      },
+      "demand__load_B4": {
+        "id": "demand__load_B4",
+        "kind": "demand",
+        "unit": "MW",
+        "resolution": "hourly",
+        "start": "2030-01-01T00:00:00",
+        "length": 87600,
+        "years": [
+          0,
+          1,
+          2,
+          3,
+          4,
+          5,
+          6,
+          7,
+          8,
+          9
+        ],
+        "hours_per_year": 8760
+      },
+      "demand__load_C6": {
+        "id": "demand__load_C6",
+        "kind": "demand",
+        "unit": "MW",
+        "resolution": "hourly",
+        "start": "2030-01-01T00:00:00",
+        "length": 87600,
+        "years": [
+          0,
+          1,
+          2,
+          3,
+          4,
+          5,
+          6,
+          7,
+          8,
+          9
+        ],
+        "hours_per_year": 8760
+      },
+      "regime": {
+        "id": "regime",
+        "kind": "regime",
+        "unit": "index",
+        "resolution": "hourly",
+        "start": "2030-01-01T00:00:00",
+        "length": 87600,
+        "years": [
+          0,
+          1,
+          2,
+          3,
+          4,
+          5,
+          6,
+          7,
+          8,
+          9
+        ],
+        "hours_per_year": 8760
+      }
+    }
+  }
+}
