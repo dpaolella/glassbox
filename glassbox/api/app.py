@@ -311,6 +311,11 @@ def scenario_presets():
         base.update(kw)
         return Scenario(**base).model_dump(mode="json")
 
+    def ra(sid, **kw):
+        base = dict(id=sid, layer=Layer.RA, ra_n_draws=40, ra_seed=1)
+        base.update(kw)
+        return Scenario(**base).model_dump(mode="json")
+
     return [
         {
             "key": "nodal_vs_zonal_cem",
@@ -347,5 +352,14 @@ def scenario_presets():
             "b": cem("cem_carbon", spatial_operator=SpatialOperator.AGGREGATE,
                      overrides=[Override(kind="set_policy", policy_kind="carbon_price",
                                          value=150.0).model_dump()]),
+        },
+        {
+            "key": "ra_one_vs_many",
+            "name": "Adequacy: one year vs many",
+            "lesson": "A single weather year understates tail risk: LOLE and EUE "
+                      "rise sharply once many correlated weather years (with "
+                      "dunkelflaute coincident with peak load) are sampled.",
+            "a": ra("ra_one", weather_years=[0]),
+            "b": ra("ra_many", weather_years=list(range(10))),
         },
     ]

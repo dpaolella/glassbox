@@ -1,5 +1,6 @@
 """Modeling engines, one per rung of the abstraction ladder (PRD Section 6)."""
 
+from .adequacy import AdequacyEngine, AdequacySystem, assemble_adequacy_system
 from .base import Engine
 from .cem import CapacityExpansionEngine
 from .economic_core import (
@@ -19,6 +20,9 @@ __all__ = [
     "Engine",
     "CapacityExpansionEngine",
     "ProductionCostEngine",
+    "AdequacyEngine",
+    "AdequacySystem",
+    "assemble_adequacy_system",
     "EconomicView",
     "EngineOptions",
     "assemble_view",

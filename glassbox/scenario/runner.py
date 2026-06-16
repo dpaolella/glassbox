@@ -12,7 +12,12 @@ from typing import Any
 
 import numpy as np
 
-from ..engines import ENGINES, assemble_view
+from ..engines import (
+    AdequacyEngine,
+    ENGINES,
+    assemble_adequacy_system,
+    assemble_view,
+)
 from ..operators import (
     SpatialMode,
     SpatialProjection,
@@ -121,6 +126,11 @@ def _resolve_temporal(world: World, scenario: Scenario):
 def run_scenario(world: World, scenario: Scenario) -> ScenarioRun:
     w = apply_overrides(world, scenario.overrides)
 
+    # Resource adequacy is a Monte Carlo simulation, not a projected optimization;
+    # it samples weather years internally rather than via the temporal operator.
+    if scenario.layer == Layer.RA:
+        return _run_adequacy(w, scenario)
+
     spatial = SpatialProjection(
         SpatialMode.AGGREGATE if scenario.spatial_operator.value == "aggregate"
         else SpatialMode.IDENTITY)
@@ -141,6 +151,26 @@ def run_scenario(world: World, scenario: Scenario) -> ScenarioRun:
         operator_explanations={
             "spatial": spatial.explain().model_dump(mode="json"),
         })
+
+
+def _run_adequacy(world: World, scenario: Scenario) -> ScenarioRun:
+    system = assemble_adequacy_system(world, scenario.weather_years)
+    engine = AdequacyEngine(n_draws=scenario.ra_n_draws, seed=scenario.ra_seed,
+                            elcc_resource_ids=scenario.ra_elcc_resource_ids)
+    result, explain = engine.run(system)
+    summary = {
+        "layer": "ra",
+        "weather_years": scenario.weather_years,
+        "n_draws": result.n_draws,
+        "lole_hours_per_year": round(result.lole_hours_per_year, 3),
+        "eue_mwh_per_year": round(result.eue_mwh_per_year, 1),
+        "elcc_mw": {k: round(v, 1) for k, v in result.elcc_mw.items()},
+        "n_loss_events": len(result.loss_events),
+        "firm_mw": sum(u.capacity_mw for u in system.dispatchable),
+        "vre_nameplate_mw": sum(v.capacity_mw for v in system.vre),
+    }
+    return ScenarioRun(scenario=scenario, result=result, explain=explain,
+                       summary=summary, operator_explanations={})
 
 
 def _summarize(scenario: Scenario, view, result) -> dict[str, Any]:

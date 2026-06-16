@@ -23,6 +23,7 @@ class SpatialOperator(str, Enum):
 class Layer(str, Enum):
     CEM = "cem"
     PCM = "pcm"
+    RA = "ra"
 
 
 class Override(BaseModel):
@@ -59,3 +60,8 @@ class Scenario(BaseModel):
     n_rep_days: int = 8          # CEM representative-day count
     horizon_hours: int = 168     # PCM chronological window length
     horizon_start: int = 0       # PCM window start (hour within first weather year)
+
+    # resource-adequacy knobs (Section 6.4)
+    ra_n_draws: int = 40         # Monte Carlo draws
+    ra_seed: int = 0
+    ra_elcc_resource_ids: list[str] = Field(default_factory=list)

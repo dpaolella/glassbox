@@ -39,9 +39,13 @@ def diff_runs(run_a: ScenarioRun, run_b: ScenarioRun) -> dict[str, Any]:
                                       sb.get("capacity_mix_mw", {})),
     }
     for key in ("total_cost", "vre_penetration", "curtailment_mwh_weighted",
-                "unserved_mwh_weighted", "avg_price", "price_spread"):
+                "unserved_mwh_weighted", "avg_price", "price_spread",
+                "lole_hours_per_year", "eue_mwh_per_year"):
         if key in sa or key in sb:
             diff["scalars"][key] = _diff_scalar(sa.get(key, 0.0), sb.get(key, 0.0))
+
+    if "elcc_mw" in sa or "elcc_mw" in sb:
+        diff["elcc_mw"] = _diff_dict(sa.get("elcc_mw", {}), sb.get("elcc_mw", {}))
 
     if "nodal_prices" in sa or "nodal_prices" in sb:
         diff["nodal_prices"] = _diff_dict(sa.get("nodal_prices", {}),

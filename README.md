@@ -31,6 +31,16 @@ co-optimizes investment + operations over representative periods; PCM does
 chronological MILP unit commitment + LP economic dispatch with DC power flow and
 LMPs from a fixed-commitment price pass.
 
+**Phase 2 — Resource adequacy** (done): a sequential Monte Carlo engine
+(`engines/adequacy.py`) sampling correlated weather years and two-state
+(MTTF/MTTR) forced outages, with chronological storage dispatch vectorized
+across draws. Computes LOLE, EUE, and ELCC (effective load carrying capability
+via the standard iterative method with common random numbers). Demonstrates the
+phenomena (Section 11.3): a single weather year understates tail risk, VRE ELCC
+is small and declines with penetration, and storage ELCC grows with duration.
+Validated against the analytical binomial-convolution LOLP for a small case
+(Section 11.2). Exposed as an `ra` scenario layer with a one-year-vs-many preset.
+
 ## Architecture (Section 3.1)
 
 ```
