@@ -173,8 +173,32 @@ export interface ScenarioDiffResult {
   diff: DiffPayload;
 }
 
+export interface OracleMetric {
+  name: string;
+  kernel: number | string;
+  oracle: number | string;
+  diff: number;
+  unit: string;
+  tol: number;
+}
+
+export interface OracleResult {
+  available: boolean;
+  oracle: string;
+  engine?: string;
+  hour?: number;
+  metrics?: OracleMetric[];
+  converged_both?: boolean;
+  n_buses?: number;
+  detail?: Record<string, number>;
+}
+
 export const api = {
   worldSummary: () => get<WorldSummary>("/world/summary"),
+  oracleAvailability: () => get<Record<string, boolean>>("/oracle/availability"),
+  oraclePowerflow: () => get<OracleResult>("/oracle/powerflow"),
+  oracleDispatch: () => get<OracleResult>("/oracle/dispatch"),
+  oracleDynamics: () => get<OracleResult>("/oracle/dynamics"),
   presets: () => get<ScenarioPreset[]>("/scenario/presets"),
   runScenario: (scenario: Record<string, unknown>) =>
     post<ScenarioRunPayload>("/scenario/run", scenario),

@@ -6,13 +6,14 @@ import { OperatorPanel } from "./components/OperatorPanel";
 import { WeatherPanel } from "./components/WeatherPanel";
 import { TimeSeriesPanel } from "./components/TimeSeriesPanel";
 import { ScenarioLab } from "./components/ScenarioLab";
+import { OraclePanel } from "./components/OraclePanel";
 
 export interface Selection {
   collection: string;
   id: string;
 }
 
-type Tab = "inspector" | "scenarios" | "math" | "weather" | "series";
+type Tab = "inspector" | "scenarios" | "math" | "oracles" | "weather" | "series";
 
 export default function App() {
   const [summary, setSummary] = useState<WorldSummary | null>(null);
@@ -100,7 +101,7 @@ export default function App() {
 
         <aside className="side-pane">
           <nav className="tabs">
-            {(["inspector", "scenarios", "math", "weather", "series"] as Tab[]).map(
+            {(["inspector", "scenarios", "math", "oracles", "weather", "series"] as Tab[]).map(
               (t) => (
                 <button
                   key={t}
@@ -118,6 +119,7 @@ export default function App() {
             )}
             {tab === "scenarios" && <ScenarioLab />}
             {tab === "math" && <OperatorPanel layer={layer} />}
+            {tab === "oracles" && <OraclePanel />}
             {tab === "weather" && <WeatherPanel />}
             {tab === "series" && <TimeSeriesPanel />}
           </div>

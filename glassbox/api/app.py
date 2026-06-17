@@ -419,3 +419,94 @@ def scenario_presets():
             "b": emt("emt_weak", emt_scr_override=1.2, emt_pll_bw_hz=30.0),
         },
     ]
+
+
+# --- oracle round-trips: transparent kernel vs mature library (Section 11) ---
+
+
+@app.get("/api/oracle/availability")
+def oracle_availability():
+    """Which oracle libraries are importable in this environment."""
+    from ..validation.oracles import available
+
+    return available()
+
+
+@app.get("/api/oracle/powerflow")
+def oracle_powerflow(hour: Optional[int] = None, weather_year: int = 0,
+                     dispatch_mode: str = "nodal"):
+    """AC power flow: hand-built Newton-Raphson vs pandapower (Section 6.5)."""
+    from ..engines.powerflow import peak_load_hour
+    from ..validation.oracles.pandapower_oracle import HAVE_PANDAPOWER, compare_power_flow
+
+    if not HAVE_PANDAPOWER:
+        return {"available": False, "oracle": "pandapower"}
+    w = service.world
+    h = hour if hour is not None else peak_load_hour(w, weather_year)
+    cmp = compare_power_flow(w, h, weather_year, dispatch_mode=dispatch_mode)
+    return {
+        "available": True, "oracle": "pandapower", "engine": "pf", "hour": h,
+        "metrics": [
+            {"name": "max |V| difference", "kernel": "—", "oracle": "—",
+             "diff": cmp.max_v_diff_pu, "unit": "pu", "tol": 1e-4},
+            {"name": "max angle difference", "kernel": "—", "oracle": "—",
+             "diff": cmp.max_angle_diff_deg, "unit": "deg", "tol": 1e-2},
+            {"name": "max branch-flow difference", "kernel": "—", "oracle": "—",
+             "diff": cmp.max_flow_diff_mw, "unit": "MW", "tol": 1.0},
+            {"name": "total losses", "kernel": cmp.losses_glassbox_mw,
+             "oracle": cmp.losses_pandapower_mw,
+             "diff": abs(cmp.losses_glassbox_mw - cmp.losses_pandapower_mw),
+             "unit": "MW", "tol": 1.0},
+        ],
+        "converged_both": cmp.converged_both, "n_buses": cmp.n_buses,
+    }
+
+
+@app.get("/api/oracle/dispatch")
+def oracle_dispatch(hour: Optional[int] = None, weather_year: int = 0):
+    """Economic dispatch: transparent linopy core vs PyPSA LOPF (Sections 6.2/6.3)."""
+    from ..engines.powerflow import peak_load_hour
+    from ..validation.oracles.pypsa_oracle import HAVE_PYPSA, compare_dispatch
+
+    if not HAVE_PYPSA:
+        return {"available": False, "oracle": "pypsa"}
+    w = service.world
+    h = hour if hour is not None else peak_load_hour(w, weather_year)
+    cmp = compare_dispatch(w, h, weather_year)
+    return {
+        "available": True, "oracle": "PyPSA", "engine": "pcm", "hour": h,
+        "metrics": [
+            {"name": "objective", "kernel": cmp.objective_glassbox,
+             "oracle": cmp.objective_pypsa, "diff": cmp.objective_rel_diff,
+             "unit": "rel", "tol": 1e-4},
+            {"name": "max per-generator dispatch difference", "kernel": "—",
+             "oracle": "—", "diff": cmp.max_dispatch_diff_mw, "unit": "MW", "tol": 1.0},
+            {"name": "total dispatched", "kernel": cmp.total_dispatch_glassbox_mw,
+             "oracle": cmp.total_dispatch_pypsa_mw,
+             "diff": abs(cmp.total_dispatch_glassbox_mw - cmp.total_dispatch_pypsa_mw),
+             "unit": "MW", "tol": 1.0},
+        ],
+    }
+
+
+@app.get("/api/oracle/dynamics")
+def oracle_dynamics():
+    """RMS swing: transparent SMIB integrator vs Andes (Section 6.6)."""
+    from ..validation.oracles.andes_oracle import HAVE_ANDES, compare_swing_frequency
+
+    if not HAVE_ANDES:
+        return {"available": False, "oracle": "andes"}
+    cmp = compare_swing_frequency()
+    return {
+        "available": True, "oracle": "Andes", "engine": "dyn",
+        "metrics": [
+            {"name": "swing frequency (kernel vs Andes)", "kernel": cmp.glassbox_hz,
+             "oracle": cmp.andes_hz, "diff": cmp.rel_diff_glassbox_vs_andes,
+             "unit": "rel", "tol": 0.08},
+            {"name": "swing frequency (Andes vs analytic)", "kernel": cmp.analytic_hz,
+             "oracle": cmp.andes_hz, "diff": cmp.rel_diff_andes_vs_analytic,
+             "unit": "rel", "tol": 0.05},
+        ],
+        "detail": {"andes_hz": cmp.andes_hz, "glassbox_hz": cmp.glassbox_hz,
+                   "analytic_hz": cmp.analytic_hz},
+    }

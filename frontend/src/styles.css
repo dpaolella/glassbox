@@ -453,3 +453,55 @@ code {
   font-size: 12px;
   font-weight: 600;
 }
+
+/* oracle panel -------------------------------------------------------- */
+.oracle-card {
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 10px 12px;
+  margin: 10px 0;
+  background: var(--bg-2);
+}
+.oracle-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 8px;
+  margin-bottom: 8px;
+}
+.oracle-title {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text);
+}
+.verdict {
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.5px;
+  padding: 3px 7px;
+  border-radius: 5px;
+  white-space: nowrap;
+}
+.verdict.ok {
+  background: #10261f;
+  color: #22c55e;
+  border: 1px solid #1f6f4a;
+}
+.verdict.warn {
+  background: #2a1d10;
+  color: #fbbf24;
+  border: 1px solid #7c4a12;
+}
+.run-oracle {
+  background: var(--accent);
+  border: none;
+  color: #04121c;
+  padding: 5px 12px;
+  border-radius: 6px;
+  font-weight: 600;
+  font-size: 12px;
+  margin-top: 8px;
+}
+.oracle-card .field-table th {
+  font-size: 9px;
+}

@@ -124,6 +124,21 @@ def test_all_six_layers_have_presets():
     assert {"cem", "pcm", "ra", "pf", "dyn", "emt"} <= layers
 
 
+def test_oracle_endpoints():
+    avail = client.get("/api/oracle/availability").json()
+    assert set(avail) == {"pandapower", "pypsa", "andes"}
+    # power-flow oracle: present iff pandapower importable; matches when present
+    pf = client.get("/api/oracle/powerflow").json()
+    assert pf["available"] == avail["pandapower"]
+    if pf["available"]:
+        assert pf["converged_both"]
+        assert all(m["diff"] <= m["tol"] for m in pf["metrics"])
+    disp = client.get("/api/oracle/dispatch").json()
+    assert disp["available"] == avail["pypsa"]
+    if disp["available"]:
+        assert all(m["diff"] <= m["tol"] for m in disp["metrics"])
+
+
 def test_weather_ground_truth():
     sites = client.get("/api/weather/sites").json()
     wind = next(s for s in sites if s["kind"] == "wind")

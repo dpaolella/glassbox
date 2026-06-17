@@ -97,7 +97,9 @@ Two complementary validation layers (Section 11):
   RA and EMT have no mature oracle, so they rest on the analytical cases above.
 
 Install the oracle libraries with `pip install -e ".[oracles]"`. The Scenario
-Lab ships six demonstration presets, one per lesson.
+Lab ships six demonstration presets, one per lesson, and the **Oracles** tab runs
+the kernel-vs-library round-trips live (per-engine MATCH/DIVERGES verdicts with
+the metric differences against tolerance).
 
 ## Architecture (Section 3.1)
 
