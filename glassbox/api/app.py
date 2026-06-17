@@ -9,6 +9,7 @@ later phases.
 
 from __future__ import annotations
 
+from pathlib import Path
 from typing import Optional
 
 import numpy as np
@@ -510,3 +511,15 @@ def oracle_dynamics():
         "detail": {"andes_hz": cmp.andes_hz, "glassbox_hz": cmp.glassbox_hz,
                    "analytic_hz": cmp.analytic_hz},
     }
+
+
+# --- serve the built frontend (single-port deployment) ----------------------
+# When the React app has been built (frontend/dist), serve it from the same
+# server so the whole tool runs on one port with no proxy/CORS configuration.
+# This makes Codespaces / Replit / any cloud runner a single forwarded port.
+
+_DIST = Path(__file__).resolve().parents[2] / "frontend" / "dist"
+if _DIST.is_dir():
+    from fastapi.staticfiles import StaticFiles
+
+    app.mount("/", StaticFiles(directory=str(_DIST), html=True), name="frontend")

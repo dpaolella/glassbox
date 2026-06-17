@@ -129,20 +129,40 @@ data/          # serialized default world + generated weather artifacts
   consume it. This is machine-readable and drives both the attribute operator
   and the layer-filtered inspector.
 
-## Quick start
+## Run it
+
+### In your browser, no local install — GitHub Codespaces
+
+1. On the GitHub repo page: **Code ▸ Codespaces ▸ Create codespace on
+   `claude/build-to-spec-uuw601`**.
+2. Wait for the container to build (it installs deps, builds the world, and
+   builds the UI automatically via `.devcontainer`).
+3. In the Codespace terminal run **`bash scripts/run.sh`**.
+4. When the **port 8000** notification appears, click **Open in Browser**.
+
+That's the whole app — UI and API — on one URL. (Codespaces' free monthly hours
+cover this; Gitpod or Replit work the same way by importing the repo.)
+
+### Locally — one command
+
+The backend serves the built UI, so it's a single server on one port:
 
 ```bash
-# 1. Install (Python 3.11+)
+pip install -e .          # Python 3.11+
+bash scripts/run.sh       # builds the world + UI on first run, then serves
+# open http://localhost:8000
+```
+
+For the **Oracles** tab (kernel-vs-library validation), also install the
+dev-only oracle libraries: `pip install -e ".[oracles]"`.
+
+### Local dev mode (hot reload)
+
+```bash
 pip install -e .
-
-# 2. Build the default world + multi-year weather (writes data/default_world/)
 python scripts/build_default_world.py
-
-# 3. Run the backend API
-uvicorn glassbox.api.app:app --reload
-
-# 4. Run the frontend (separate terminal)
-cd frontend && npm install && npm run dev
+uvicorn glassbox.api.app:app --reload          # API on :8000
+cd frontend && npm install && npm run dev        # UI on :5173 (proxies /api)
 ```
 
 ## Tests

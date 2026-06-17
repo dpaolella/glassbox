@@ -1,0 +1,13 @@
+{
+  "name": "Glassbox",
+  "image": "mcr.microsoft.com/devcontainers/python:3.11-bookworm",
+  "features": {
+    "ghcr.io/devcontainers/features/node:1": { "version": "22" }
+  },
+  "forwardPorts": [8000],
+  "portsAttributes": {
+    "8000": { "label": "Glassbox", "onAutoForward": "openBrowserOnce" }
+  },
+  "postCreateCommand": "pip install -e . && python scripts/build_default_world.py && (cd frontend && npm install && npm run build)",
+  "postAttachCommand": "echo 'Setup done. Start the app with:  bash scripts/run.sh  (then open the forwarded port 8000)'"
+}
