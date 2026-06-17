@@ -74,12 +74,20 @@ export interface InspectField {
   per_unit: PerUnit | null;
 }
 
+export interface AttachedRef {
+  collection: string;
+  id: string;
+  label: string;
+  kind: string;
+}
+
 export interface InspectPayload {
   collection: string;
   type: string;
   id: string;
   facet: string | null;
   fields: InspectField[];
+  attached: AttachedRef[];
 }
 
 export interface TimeSeriesMeta {

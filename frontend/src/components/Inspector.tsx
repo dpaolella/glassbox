@@ -6,6 +6,7 @@ interface Props {
   selection: Selection | null;
   layer: string;
   perUnit: boolean;
+  onSelect: (sel: Selection) => void;
 }
 
 function renderValue(v: unknown): string {
@@ -17,7 +18,7 @@ function renderValue(v: unknown): string {
   return String(v);
 }
 
-export function Inspector({ selection, layer, perUnit }: Props) {
+export function Inspector({ selection, layer, perUnit, onSelect }: Props) {
   const [payload, setPayload] = useState<InspectPayload | null>(null);
   const [err, setErr] = useState<string | null>(null);
 
@@ -38,7 +39,9 @@ export function Inspector({ selection, layer, perUnit }: Props) {
       <div className="empty-hint">
         <p>Click a bus or line on the map to inspect it.</p>
         <p className="muted">
-          The inspector shows only the fields the current <b>{layer}</b> layer
+          Generators, storage, hydro and loads attach to buses — click a bus,
+          then click an attached device below its header to inspect it. The
+          inspector shows only the fields the current <b>{layer}</b> layer
           consumes — the same object reveals different depth per layer (Section
           9.2). Toggle SI / per-unit in the header.
         </p>
@@ -57,6 +60,26 @@ export function Inspector({ selection, layer, perUnit }: Props) {
           {payload.fields.length} fields in <b>{layer}</b> scope
         </span>
       </div>
+
+      {payload.attached && payload.attached.length > 0 && (
+        <div className="attached">
+          <div className="attached-label">
+            {payload.collection === "buses" ? "attached devices" : "connected"}
+          </div>
+          <div className="attached-chips">
+            {payload.attached.map((a) => (
+              <button
+                key={`${a.collection}:${a.id}`}
+                className="attached-chip"
+                title={`${a.kind} — open inspector`}
+                onClick={() => onSelect({ collection: a.collection, id: a.id })}
+              >
+                {a.label}
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
 
       {payload.fields.length === 0 && (
         <p className="muted">

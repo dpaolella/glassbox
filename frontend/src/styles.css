@@ -505,3 +505,44 @@ code {
 .oracle-card .field-table th {
   font-size: 9px;
 }
+
+/* attached devices (click-through inspection) -------------------------- */
+.attached {
+  margin: 4px 0 12px;
+  padding: 8px 10px;
+  background: var(--bg-2);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+}
+.attached-label {
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  color: var(--muted);
+  margin-bottom: 6px;
+}
+.attached-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+.attached-chip {
+  background: var(--bg-3);
+  border: 1px solid var(--border);
+  color: var(--text);
+  padding: 4px 9px;
+  border-radius: 6px;
+  font-size: 12px;
+  font-family: ui-monospace, monospace;
+}
+.attached-chip:hover {
+  border-color: var(--accent);
+  color: var(--accent);
+}
+.legend-hint {
+  margin-top: 8px;
+  font-size: 10px;
+  color: var(--muted);
+  max-width: 190px;
+  line-height: 1.4;
+}

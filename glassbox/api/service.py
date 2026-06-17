@@ -157,7 +157,36 @@ class WorldService:
             "id": entity_id,
             "facet": facet,
             "fields": fields,
+            "attached": self._attached_for(collection, item),
         }
+
+    def _attached_for(self, collection: str, item) -> list[dict]:
+        """Navigable related entities: a bus lists its devices; a device links
+        back to its bus. Powers click-through inspection (Section 9.1)."""
+        w = self.world
+        out: list[dict] = []
+        if collection == "buses":
+            bid = item.id
+            for g in w.generators:
+                if g.bus_id == bid:
+                    out.append({"collection": "generators", "id": g.id,
+                                "label": f"⚡ {g.id}", "kind": g.technology.value})
+            for s in w.storage_units:
+                if s.bus_id == bid:
+                    out.append({"collection": "storage_units", "id": s.id,
+                                "label": f"🔋 {s.id}", "kind": s.technology.value})
+            for h in w.hydro_units:
+                if h.bus_id == bid:
+                    out.append({"collection": "hydro_units", "id": h.id,
+                                "label": f"💧 {h.id}", "kind": h.technology.value})
+            for ld in w.loads:
+                if ld.bus_id == bid:
+                    out.append({"collection": "loads", "id": ld.id,
+                                "label": f"🏠 {ld.id}", "kind": "load"})
+        elif hasattr(item, "bus_id") and item.bus_id:
+            out.append({"collection": "buses", "id": item.bus_id,
+                        "label": f"⬢ bus {item.bus_id}", "kind": "bus"})
+        return out
 
     # --- network graph for react-flow (Section 9.1) ---------------------
 

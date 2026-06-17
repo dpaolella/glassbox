@@ -114,20 +114,29 @@ function CanvasInner({ layer, selection, onSelect }: Props) {
       <Background color="#1e2733" gap={24} />
       <Controls />
       <div className="canvas-legend">
-        <div className="legend-title">layer: {layer}</div>
+        <div className="legend-title">zones (bus outline color)</div>
         {graph?.zones.map((z) => (
           <div key={z.id} className="legend-row">
             <span className="swatch" style={{ background: zoneColor(z.id) }} />
             {z.name}
           </div>
         ))}
+        <div className="legend-title" style={{ marginTop: 8 }}>
+          on each bus
+        </div>
+        <div className="legend-row">⚡ generators &nbsp; 🔋 storage</div>
+        <div className="legend-row">🏠 loads &nbsp; ★ slack bus</div>
+        <div className="legend-title" style={{ marginTop: 8 }}>lines</div>
         <div className="legend-row">
           <span className="swatch line" style={{ background: "#f59e0b" }} />
-          candidate (CEM)
+          candidate (CEM build option)
         </div>
         <div className="legend-row">
           <span className="swatch line" style={{ background: "#ef4444" }} />
           weak feeder (low SCR)
+        </div>
+        <div className="legend-hint">
+          click a bus → its devices appear in the inspector ({layer} layer)
         </div>
       </div>
     </ReactFlow>

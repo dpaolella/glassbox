@@ -115,7 +115,12 @@ export default function App() {
           </nav>
           <div className="panel-body">
             {tab === "inspector" && (
-              <Inspector selection={selection} layer={layer} perUnit={perUnit} />
+              <Inspector
+                selection={selection}
+                layer={layer}
+                perUnit={perUnit}
+                onSelect={setSelection}
+              />
             )}
             {tab === "scenarios" && <ScenarioLab />}
             {tab === "math" && <OperatorPanel layer={layer} />}
