@@ -46,6 +46,8 @@ export default function App() {
     api.facets().then(setFacets).catch((e) => setError(String(e)));
   }, []);
 
+  const activeFacet = facets.find((f) => f.code === layer);
+
   return (
     <div className="app">
       <header className="topbar">
@@ -66,16 +68,17 @@ export default function App() {
               <button
                 key={f.code}
                 className={`chip ${layer === f.code ? "active" : ""}`}
-                title={f.label}
+                title={`${f.label} — ${f.description}`}
                 onClick={() => setLayer(f.code)}
               >
                 {f.code}
               </button>
             ))}
           </div>
-          <span className="layer-full">
-            {facets.find((f) => f.code === layer)?.label}
-          </span>
+          <div className="layer-desc">
+            <span className="layer-full">{activeFacet?.label}</span>
+            <span className="layer-explain">{activeFacet?.description}</span>
+          </div>
         </div>
 
         <label className="unit-toggle">
@@ -160,7 +163,13 @@ export default function App() {
                 focus={catalogFocus}
               />
             )}
-            {tab === "scenarios" && <ScenarioLab />}
+            {tab === "scenarios" && (
+              <ScenarioLab
+                layerLabel={activeFacet?.label ?? layer}
+                layerEngine={activeFacet?.engine ?? null}
+                onPickLayer={setLayer}
+              />
+            )}
             {tab === "math" && <OperatorPanel layer={layer} />}
             {tab === "oracles" && <OraclePanel />}
             {tab === "weather" && <WeatherPanel />}

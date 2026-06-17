@@ -44,6 +44,8 @@ from .entities import (
     ZonePartition,
 )
 from .facets import (
+    FACET_DESCRIPTIONS,
+    FACET_ENGINE,
     FACET_LABELS,
     Facet,
     all_facets_for,

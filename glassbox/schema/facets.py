@@ -55,6 +55,35 @@ FACET_LABELS: dict[Facet, str] = {
     Facet.EMT: "Electromagnetic Transients",
 }
 
+# One-line explanation of what each modeling layer does, surfaced in the UI.
+FACET_DESCRIPTIONS: dict[Facet, str] = {
+    Facet.CORE: ("Identity and topology shared by every layer — buses, lines, "
+                 "coordinates. The spine all engines read; not solved on its own."),
+    Facet.INV: ("Capacity expansion (CEM): least-cost build-out over decades. "
+                "Answers 'what do we build?' — co-optimizes investment and operations."),
+    Facet.OPS: ("Production cost (PCM): chronological unit commitment + economic "
+                "dispatch over a year, hourly. 'How does it run and what does it cost?'"),
+    Facet.ADQ: ("Resource adequacy (RA): Monte Carlo over many weather years and "
+                "forced-outage draws. 'Does it keep the lights on?' (LOLE/EUE/ELCC)."),
+    Facet.PF: ("Steady-state security: AC power flow + N-1 contingencies. 'Does the "
+               "dispatched injection physically flow within limits, even after a trip?'"),
+    Facet.DYN: ("Dynamic stability (RMS/phasor): swing dynamics over seconds. 'Does it "
+                "stay synchronized and recover frequency?' — inertia, RoCoF, damping."),
+    Facet.EMT: ("Electromagnetic transients: microsecond converter + resonance "
+                "micro-examples. 'What actually happens in the wires and power electronics?'"),
+}
+
+# The engine / scenario layer each facet drives (None for the shared core layer).
+FACET_ENGINE: dict[Facet, str | None] = {
+    Facet.CORE: None,
+    Facet.INV: "cem",
+    Facet.OPS: "pcm",
+    Facet.ADQ: "ra",
+    Facet.PF: "pf",
+    Facet.DYN: "dyn",
+    Facet.EMT: "emt",
+}
+
 
 def facet_field(
     *,

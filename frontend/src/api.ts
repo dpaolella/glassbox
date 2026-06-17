@@ -24,6 +24,23 @@ export interface WorldSummary {
 export interface FacetInfo {
   code: string;
   label: string;
+  description: string;
+  engine: string | null;
+}
+
+export interface LoadScope {
+  id: string;
+  name: string;
+}
+
+export interface AggregatedLoad {
+  scope: string;
+  unit: string;
+  n_loads: number;
+  start: number;
+  length: number;
+  downsample: number;
+  values: number[];
 }
 
 export interface GraphNode {
@@ -233,6 +250,11 @@ export const api = {
   timeseries: (id: string, start = 0, length = 8760, downsample = 1) =>
     get<TimeSeriesData>(
       `/timeseries/${id}?start=${start}&length=${length}&downsample=${downsample}`,
+    ),
+  loadScopes: () => get<LoadScope[]>("/series/load-scopes"),
+  aggregatedLoad: (scope: string, start = 0, length = 168, downsample = 1) =>
+    get<AggregatedLoad>(
+      `/series/load?scope=${scope}&start=${start}&length=${length}&downsample=${downsample}`,
     ),
   weatherSites: () => get<{ id: string; kind: string; name: string }[]>("/weather/sites"),
   groundTruth: (siteId: string, kind = "availability") =>

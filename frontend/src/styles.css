@@ -660,3 +660,20 @@ code {
 .catalog-link:hover {
   border-color: var(--accent);
 }
+
+/* layer description in the top bar ------------------------------------ */
+.layer-desc {
+  display: flex;
+  flex-direction: column;
+  max-width: 360px;
+}
+.layer-full {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text);
+}
+.layer-explain {
+  font-size: 11px;
+  color: var(--muted);
+  line-height: 1.35;
+}

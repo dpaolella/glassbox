@@ -27,7 +27,14 @@ from ..operators import (
 )
 from ..scenario import Layer, Scenario, SpatialOperator, diff_runs, run_scenario
 from ..scenario.scenario import Override
-from ..schema import ENTITY_MODELS, FACET_LABELS, Facet, field_metadata
+from ..schema import (
+    ENTITY_MODELS,
+    FACET_DESCRIPTIONS,
+    FACET_ENGINE,
+    FACET_LABELS,
+    Facet,
+    field_metadata,
+)
 from .service import COLLECTION_MODELS, service
 
 app = FastAPI(title="Glassbox API", version="0.1.0",
@@ -68,7 +75,9 @@ def world_summary():
 
 @app.get("/api/schema/facets")
 def schema_facets():
-    return [{"code": f.value, "label": FACET_LABELS[f]} for f in Facet]
+    return [{"code": f.value, "label": FACET_LABELS[f],
+             "description": FACET_DESCRIPTIONS[f], "engine": FACET_ENGINE[f]}
+            for f in Facet]
 
 
 @app.get("/api/schema/entities")
@@ -149,6 +158,50 @@ def get_timeseries(ts_id: str,
     meta = store.meta(ts_id)
     return {
         "id": ts_id, "unit": meta.unit, "kind": meta.kind.value,
+        "start": start, "length": int(window.shape[0]), "downsample": downsample,
+        "values": window.tolist(),
+    }
+
+
+@app.get("/api/series/load-scopes")
+def load_scopes():
+    """Regions you can aggregate load over: the whole system or each zone."""
+    w = service.world
+    scopes = [{"id": "all", "name": "All regions"}]
+    scopes += [{"id": z.id, "name": z.name} for z in w.zones]
+    return scopes
+
+
+@app.get("/api/series/load")
+def aggregated_load(scope: str = "all",
+                    start: int = Query(0, ge=0),
+                    length: int = Query(168, ge=1, le=87600),
+                    downsample: int = Query(1, ge=1, le=24)):
+    """Aggregated load (MW) summed across a region (zone id) or the whole system.
+
+    Lets the user see one region's demand or the system total over any window
+    (day, week, …) rather than a single load's raw series."""
+    w = service.world
+    store = w.time_series_store
+    total = None
+    n_loads = 0
+    for ld in w.loads:
+        if scope != "all" and ld.zone_id != scope:
+            continue
+        if not ld.demand_profile_id or ld.demand_profile_id not in store:
+            continue
+        arr = store.get(ld.demand_profile_id)
+        total = arr.copy() if total is None else total + arr
+        n_loads += 1
+    if total is None:
+        raise HTTPException(404, f"no load series for scope '{scope}'")
+    end = min(start + length, total.shape[0])
+    window = total[start:end]
+    if downsample > 1:
+        n = (window.shape[0] // downsample) * downsample
+        window = window[:n].reshape(-1, downsample).mean(axis=1)
+    return {
+        "scope": scope, "unit": "MW", "n_loads": n_loads,
         "start": start, "length": int(window.shape[0]), "downsample": downsample,
         "values": window.tolist(),
     }

@@ -20,8 +20,25 @@ def test_world_summary():
 def test_facets_endpoint():
     r = client.get("/api/schema/facets")
     assert r.status_code == 200
-    codes = [f["code"] for f in r.json()]
+    facets = r.json()
+    codes = [f["code"] for f in facets]
     assert "ops" in codes and "dyn" in codes
+    # each facet carries a description and the engine it drives
+    by = {f["code"]: f for f in facets}
+    assert by["ops"]["engine"] == "pcm" and by["inv"]["engine"] == "cem"
+    assert by["core"]["engine"] is None
+    assert all(f["description"] for f in facets)
+
+
+def test_aggregated_load_endpoint():
+    scopes = [s["id"] for s in client.get("/api/series/load-scopes").json()]
+    assert "all" in scopes and "ZA" in scopes
+    # a one-day window for one region
+    day = client.get("/api/series/load?scope=ZA&start=0&length=24").json()
+    assert day["length"] == 24 and day["n_loads"] > 0
+    # system total exceeds a single region's load
+    allwk = client.get("/api/series/load?scope=all&start=0&length=168").json()
+    assert max(allwk["values"]) >= max(day["values"])
 
 
 def test_inspect_generator_layer_filtered():

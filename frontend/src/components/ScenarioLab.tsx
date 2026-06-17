@@ -56,7 +56,23 @@ function EngineMath({ explain }: { explain: ExplainPayload }) {
   );
 }
 
-export function ScenarioLab() {
+interface LabProps {
+  layerLabel: string;
+  layerEngine: string | null; // cem | pcm | ra | pf | dyn | emt | null (core)
+  onPickLayer: (code: string) => void;
+}
+
+// modeling-layer code -> the scenario engine its experiments use
+const LAYER_FOR_ENGINE: Record<string, string> = {
+  cem: "inv",
+  pcm: "ops",
+  ra: "adq",
+  pf: "pf",
+  dyn: "dyn",
+  emt: "emt",
+};
+
+export function ScenarioLab({ layerLabel, layerEngine, onPickLayer }: LabProps) {
   const [presets, setPresets] = useState<ScenarioPreset[]>([]);
   const [active, setActive] = useState<ScenarioPreset | null>(null);
   const [result, setResult] = useState<ScenarioDiffResult | null>(null);
@@ -66,6 +82,19 @@ export function ScenarioLab() {
   useEffect(() => {
     api.presets().then(setPresets).catch((e) => setErr(String(e)));
   }, []);
+
+  // show only the experiments for the selected modeling layer, so the Scenario
+  // tab is consistent with the layer chip at the top (and every other tab)
+  const shown = presets.filter(
+    (p) => !layerEngine || (p.a.layer as string) === layerEngine,
+  );
+  useEffect(() => {
+    // drop a stale active preset if it no longer belongs to the chosen layer
+    if (active && layerEngine && (active.a.layer as string) !== layerEngine) {
+      setActive(null);
+      setResult(null);
+    }
+  }, [layerEngine, active]);
 
   function run(p: ScenarioPreset) {
     setActive(p);
@@ -86,23 +115,51 @@ export function ScenarioLab() {
       )
     : [];
 
+  const otherEngineWithPresets = presets.find(
+    (p) => LAYER_FOR_ENGINE[p.a.layer as string],
+  );
+
   return (
     <div className="scenario-lab">
       <p className="muted">
-        Each demonstration is a pair of scenarios that differ in exactly one
-        operator or override (Section 10). Run one to see the diff.
+        Experiments for the <b>{layerLabel}</b> layer. Each is a pair of
+        scenarios differing in exactly one operator or override (Section 10);
+        run one to see the diff. Switch the modeling layer at the top to see
+        other experiments.
       </p>
-      <div className="preset-list">
-        {presets.map((p) => (
-          <button
-            key={p.key}
-            className={`preset ${active?.key === p.key ? "active" : ""}`}
-            onClick={() => run(p)}
-          >
-            {p.name}
-          </button>
-        ))}
-      </div>
+
+      {shown.length === 0 ? (
+        <div className="lesson-box">
+          The <b>{layerLabel}</b> layer has no scenario experiments
+          {layerEngine === null
+            ? " — it is the shared topology layer. Pick a modeling layer (capacity expansion, operations, adequacy, power flow, dynamics, EMT) to run experiments."
+            : "."}
+          {otherEngineWithPresets && (
+            <div style={{ marginTop: 6 }}>
+              <button
+                className="preset"
+                onClick={() =>
+                  onPickLayer(LAYER_FOR_ENGINE[otherEngineWithPresets.a.layer as string])
+                }
+              >
+                jump to {otherEngineWithPresets.name}
+              </button>
+            </div>
+          )}
+        </div>
+      ) : (
+        <div className="preset-list">
+          {shown.map((p) => (
+            <button
+              key={p.key}
+              className={`preset ${active?.key === p.key ? "active" : ""}`}
+              onClick={() => run(p)}
+            >
+              {p.name}
+            </button>
+          ))}
+        </div>
+      )}
 
       {active && <div className="lesson-box">{active.lesson}</div>}
       {loading && <div className="empty-hint">solving both scenarios…</div>}
