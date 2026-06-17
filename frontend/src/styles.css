@@ -546,3 +546,117 @@ code {
   max-width: 190px;
   line-height: 1.4;
 }
+
+/* canvas overlays control --------------------------------------------- */
+.canvas-overlays {
+  position: absolute;
+  top: 12px;
+  right: 12px;
+  background: rgba(15, 22, 32, 0.92);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 8px 10px;
+  font-size: 11px;
+  z-index: 5;
+}
+.overlay-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin: 3px 0;
+  cursor: pointer;
+  color: var(--text);
+}
+.overlay-row input {
+  accent-color: var(--accent);
+}
+
+/* clickable status bar ------------------------------------------------- */
+.statusbar .stat {
+  background: none;
+  border: 1px solid transparent;
+  color: var(--muted);
+  font: inherit;
+  padding: 2px 6px;
+  border-radius: 5px;
+  cursor: pointer;
+}
+.statusbar .stat:hover {
+  border-color: var(--border);
+  color: var(--text);
+  background: var(--bg-3);
+}
+
+/* catalog ------------------------------------------------------------- */
+.catalog-section {
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  color: var(--accent);
+  margin: 14px 0 4px;
+}
+.catalog-group {
+  border-bottom: 1px solid var(--border);
+}
+.catalog-head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  background: none;
+  border: none;
+  color: var(--text);
+  padding: 7px 2px;
+  font-size: 13px;
+  cursor: pointer;
+}
+.catalog-name {
+  flex: 1;
+  text-align: left;
+}
+.catalog-count {
+  font-size: 11px;
+  color: var(--muted);
+  background: var(--bg-3);
+  border-radius: 10px;
+  padding: 1px 7px;
+}
+.catalog-items {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 5px;
+  padding: 2px 0 8px 16px;
+}
+.catalog-item {
+  background: var(--bg-3);
+  border: 1px solid var(--border);
+  color: var(--text);
+  padding: 3px 8px;
+  border-radius: 6px;
+  font-size: 11px;
+  font-family: ui-monospace, monospace;
+  cursor: pointer;
+}
+.catalog-item:hover {
+  border-color: var(--accent);
+  color: var(--accent);
+}
+.catalog-links {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-top: 6px;
+}
+.catalog-link {
+  background: var(--bg-2);
+  border: 1px solid var(--border);
+  color: var(--text);
+  padding: 7px 10px;
+  border-radius: 6px;
+  font-size: 12px;
+  text-align: left;
+  cursor: pointer;
+}
+.catalog-link:hover {
+  border-color: var(--accent);
+}

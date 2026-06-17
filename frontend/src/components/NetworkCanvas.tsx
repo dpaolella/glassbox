@@ -26,12 +26,40 @@ interface Props {
   onSelect: (sel: Selection) => void;
 }
 
+interface Overlays {
+  ac_line: boolean;
+  transformer: boolean;
+  dc_line: boolean;
+  gen: boolean;
+  storage: boolean;
+  load: boolean;
+  interfaces: boolean;
+}
+
+const DEFAULT_OVERLAYS: Overlays = {
+  ac_line: true,
+  transformer: true,
+  dc_line: true,
+  gen: true,
+  storage: true,
+  load: true,
+  interfaces: false,
+};
+
 function CanvasInner({ layer, selection, onSelect }: Props) {
   const [graph, setGraph] = useState<GraphData | null>(null);
+  const [ov, setOv] = useState<Overlays>(DEFAULT_OVERLAYS);
 
   useEffect(() => {
     api.graph().then(setGraph);
   }, []);
+
+  // lines that belong to a binding interface (for the interface overlay)
+  const interfaceLines = useMemo(() => {
+    const m = new Set<string>();
+    graph?.interfaces.forEach((i) => i.member_line_ids.forEach((l) => m.add(l)));
+    return m;
+  }, [graph]);
 
   const { nodes, edges } = useMemo(() => {
     if (!graph) return { nodes: [] as Node[], edges: [] as Edge[] };
@@ -50,9 +78,9 @@ function CanvasInner({ layer, selection, onSelect }: Props) {
             <div className="bus-node-label">
               <strong>{b.id}</strong>
               <div className="bus-badges">
-                {nGen > 0 && <span title="generators">⚡{nGen}</span>}
-                {nStore > 0 && <span title="storage">🔋{nStore}</span>}
-                {nLoad > 0 && <span title="loads">🏠{nLoad}</span>}
+                {ov.gen && nGen > 0 && <span title="generators">⚡{nGen}</span>}
+                {ov.storage && nStore > 0 && <span title="storage">🔋{nStore}</span>}
+                {ov.load && nLoad > 0 && <span title="loads">🏠{nLoad}</span>}
                 {b.bus_type === "slack" && <span title="slack bus">★</span>}
               </div>
             </div>
@@ -70,27 +98,32 @@ function CanvasInner({ layer, selection, onSelect }: Props) {
       };
     });
 
-    const edges: Edge[] = graph.edges.map((e) => {
-      const dashed = e.kind === "dc_line";
-      const candidate = e.is_candidate;
-      const weak = (e.x ?? 0) >= 0.25;
-      return {
-        id: e.id,
-        source: e.from,
-        target: e.to,
-        animated: e.kind === "dc_line",
-        label:
-          e.kind === "transformer" ? "T" : e.kind === "dc_line" ? "DC" : undefined,
-        style: {
-          stroke: candidate ? "#f59e0b" : weak ? "#ef4444" : "#475569",
-          strokeWidth: candidate ? 2 : 1.5,
-          strokeDasharray: dashed || candidate ? "6 3" : undefined,
-        },
-      };
-    });
+    const edges: Edge[] = graph.edges
+      .filter((e) => ov[e.kind as keyof Overlays])
+      .map((e) => {
+        const dashed = e.kind === "dc_line";
+        const candidate = e.is_candidate;
+        const weak = (e.x ?? 0) >= 0.25;
+        const onInterface = ov.interfaces && interfaceLines.has(e.id);
+        let stroke = candidate ? "#f59e0b" : weak ? "#ef4444" : "#475569";
+        if (onInterface) stroke = "#38bdf8";
+        return {
+          id: e.id,
+          source: e.from,
+          target: e.to,
+          animated: e.kind === "dc_line" || onInterface,
+          label:
+            e.kind === "transformer" ? "T" : e.kind === "dc_line" ? "DC" : undefined,
+          style: {
+            stroke,
+            strokeWidth: onInterface ? 3 : candidate ? 2 : 1.5,
+            strokeDasharray: dashed || candidate ? "6 3" : undefined,
+          },
+        };
+      });
 
     return { nodes, edges };
-  }, [graph, selection]);
+  }, [graph, selection, ov, interfaceLines]);
 
   return (
     <ReactFlow
@@ -113,6 +146,29 @@ function CanvasInner({ layer, selection, onSelect }: Props) {
     >
       <Background color="#1e2733" gap={24} />
       <Controls />
+      <div className="canvas-overlays">
+        <div className="legend-title">overlays</div>
+        {(
+          [
+            ["ac_line", "AC lines"],
+            ["transformer", "transformers"],
+            ["dc_line", "DC links"],
+            ["gen", "generators"],
+            ["storage", "storage"],
+            ["load", "loads"],
+            ["interfaces", "interfaces (flowgates)"],
+          ] as [keyof Overlays, string][]
+        ).map(([key, label]) => (
+          <label key={key} className="overlay-row">
+            <input
+              type="checkbox"
+              checked={ov[key]}
+              onChange={(e) => setOv({ ...ov, [key]: e.target.checked })}
+            />
+            {label}
+          </label>
+        ))}
+      </div>
       <div className="canvas-legend">
         <div className="legend-title">zones (bus outline color)</div>
         {graph?.zones.map((z) => (

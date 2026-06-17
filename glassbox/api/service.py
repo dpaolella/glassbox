@@ -219,9 +219,15 @@ class WorldService:
             edges.append({"id": dc.id, "kind": "dc_line",
                           "from": dc.from_bus_id, "to": dc.to_bus_id,
                           "rating_mva": dc.p_max_mw})
+        interfaces = [{"id": iface.id, "name": iface.name,
+                       "member_line_ids": iface.member_line_ids,
+                       "limit_mw": iface.limit_mw,
+                       "limit_source": iface.limit_source.value}
+                      for iface in w.interfaces]
         return {"nodes": nodes, "edges": edges,
                 "zones": [{"id": z.id, "name": z.name,
-                           "member_bus_ids": z.member_bus_ids} for z in w.zones]}
+                           "member_bus_ids": z.member_bus_ids} for z in w.zones],
+                "interfaces": interfaces}
 
 
 def _jsonable(value: Any) -> Any:

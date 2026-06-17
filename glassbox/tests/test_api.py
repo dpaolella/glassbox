@@ -52,6 +52,20 @@ def test_graph_endpoint():
     assert len(g["nodes"]) == 26
     assert g["edges"]
     assert len(g["zones"]) == 3
+    # interfaces drive the flowgate overlay
+    assert g["interfaces"] and g["interfaces"][0]["member_line_ids"]
+
+
+def test_inspect_bus_lists_attached_devices():
+    # a bus with generation exposes click-through devices; a device links back
+    g = client.get("/api/graph").json()
+    bus = next(n["id"] for n in g["nodes"] if n["attached"]["generators"])
+    payload = client.get(f"/api/entity/buses/{bus}?facet=core").json()
+    colls = {a["collection"] for a in payload["attached"]}
+    assert "generators" in colls
+    gid = next(a["id"] for a in payload["attached"] if a["collection"] == "generators")
+    gen = client.get(f"/api/entity/generators/{gid}").json()
+    assert any(a["collection"] == "buses" and a["id"] == bus for a in gen["attached"])
 
 
 def test_timeseries_fetch_and_downsample():

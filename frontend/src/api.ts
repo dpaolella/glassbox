@@ -52,10 +52,19 @@ export interface GraphEdge {
   x?: number;
 }
 
+export interface GraphInterface {
+  id: string;
+  name: string;
+  member_line_ids: string[];
+  limit_mw: number;
+  limit_source: string;
+}
+
 export interface GraphData {
   nodes: GraphNode[];
   edges: GraphEdge[];
   zones: { id: string; name: string; member_bus_ids: string[] }[];
+  interfaces: GraphInterface[];
 }
 
 export interface PerUnit {

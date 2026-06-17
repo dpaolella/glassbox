@@ -7,13 +7,29 @@ import { WeatherPanel } from "./components/WeatherPanel";
 import { TimeSeriesPanel } from "./components/TimeSeriesPanel";
 import { ScenarioLab } from "./components/ScenarioLab";
 import { OraclePanel } from "./components/OraclePanel";
+import { Catalog } from "./components/Catalog";
 
 export interface Selection {
   collection: string;
   id: string;
 }
 
-type Tab = "inspector" | "scenarios" | "math" | "oracles" | "weather" | "series";
+type Tab =
+  | "inspector"
+  | "catalog"
+  | "scenarios"
+  | "math"
+  | "oracles"
+  | "weather"
+  | "series";
+
+// World collections that map to a Catalog group (for clickable status-bar counts)
+const CATALOG_COLLECTIONS = new Set([
+  "buses", "zones", "ac_lines", "transformers", "dc_lines", "shunts",
+  "interfaces", "generators", "hydro_units", "storage_units", "loads",
+  "fuels", "cost_curves", "policies", "reserve_products",
+  "system_constraints", "disturbances",
+]);
 
 export default function App() {
   const [summary, setSummary] = useState<WorldSummary | null>(null);
@@ -22,6 +38,7 @@ export default function App() {
   const [perUnit, setPerUnit] = useState(false);
   const [selection, setSelection] = useState<Selection | null>(null);
   const [tab, setTab] = useState<Tab>("inspector");
+  const [catalogFocus, setCatalogFocus] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
@@ -88,20 +105,34 @@ export default function App() {
               {Object.entries(summary.counts)
                 .filter(([, n]) => n > 0)
                 .map(([k, n]) => (
-                  <span key={k} className="stat">
+                  <button
+                    key={k}
+                    className="stat"
+                    title="browse in the Catalog"
+                    onClick={() => {
+                      if (CATALOG_COLLECTIONS.has(k)) {
+                        setCatalogFocus(k);
+                        setTab("catalog");
+                      }
+                    }}
+                  >
                     {k.replace(/_/g, " ")}: <b>{n}</b>
-                  </span>
+                  </button>
                 ))}
-              <span className="stat">
+              <button
+                className="stat"
+                title="open the Weather tab"
+                onClick={() => setTab("weather")}
+              >
                 weather years: <b>{summary.n_weather_years}</b>
-              </span>
+              </button>
             </div>
           )}
         </div>
 
         <aside className="side-pane">
           <nav className="tabs">
-            {(["inspector", "scenarios", "math", "oracles", "weather", "series"] as Tab[]).map(
+            {(["inspector", "catalog", "scenarios", "math", "oracles", "weather", "series"] as Tab[]).map(
               (t) => (
                 <button
                   key={t}
@@ -120,6 +151,13 @@ export default function App() {
                 layer={layer}
                 perUnit={perUnit}
                 onSelect={setSelection}
+              />
+            )}
+            {tab === "catalog" && (
+              <Catalog
+                onSelect={setSelection}
+                onOpenTab={(t) => setTab(t as Tab)}
+                focus={catalogFocus}
               />
             )}
             {tab === "scenarios" && <ScenarioLab />}
