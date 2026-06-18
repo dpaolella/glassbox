@@ -50,6 +50,8 @@ const DEFAULT_OVERLAYS: Overlays = {
 function CanvasInner({ layer, selection, onSelect }: Props) {
   const [graph, setGraph] = useState<GraphData | null>(null);
   const [ov, setOv] = useState<Overlays>(DEFAULT_OVERLAYS);
+  const [showOverlays, setShowOverlays] = useState(true);
+  const [showLegend, setShowLegend] = useState(true);
 
   useEffect(() => {
     api.graph().then(setGraph);
@@ -156,10 +158,15 @@ function CanvasInner({ layer, selection, onSelect }: Props) {
       <Background color="#1e2733" gap={24} />
       <Controls />
       <div className="canvas-overlays">
-        <div className="legend-title" title="Toggle which layers are drawn on the map">
-          overlays
-        </div>
-        {(
+        <button
+          className="box-toggle"
+          onClick={() => setShowOverlays((v) => !v)}
+          title="Toggle which layers are drawn on the map"
+        >
+          <span>{showOverlays ? "▾" : "▸"}</span> overlays
+        </button>
+        {showOverlays &&
+        (
           [
             ["ac_line", "AC lines", GLOSSARY.ac_line],
             ["transformer", "transformers", GLOSSARY.transformer],
@@ -181,6 +188,15 @@ function CanvasInner({ layer, selection, onSelect }: Props) {
         ))}
       </div>
       <div className="canvas-legend">
+        <button
+          className="box-toggle"
+          onClick={() => setShowLegend((v) => !v)}
+          title={GLOSSARY.zone}
+        >
+          <span>{showLegend ? "▾" : "▸"}</span> legend
+        </button>
+        {showLegend && (
+          <>
         <div className="legend-title" title={GLOSSARY.zone}>
           zones (bus outline color)
         </div>
@@ -214,6 +230,8 @@ function CanvasInner({ layer, selection, onSelect }: Props) {
           hover any item for a definition · click a bus → its devices appear in
           the inspector ({layer} layer)
         </div>
+          </>
+        )}
       </div>
     </ReactFlow>
   );
