@@ -129,6 +129,12 @@ body,
   display: flex;
   flex-direction: column;
   min-width: 0;
+  min-height: 0; /* allow the canvas to shrink so the status bar stays visible */
+}
+/* the react-flow area takes the remaining space and may shrink */
+.canvas-pane .react-flow {
+  flex: 1 1 0;
+  min-height: 0;
 }
 .side-pane {
   width: 420px;
@@ -153,12 +159,14 @@ body,
   position: absolute;
   top: 12px;
   left: 12px;
-  background: rgba(15, 22, 32, 0.9);
+  background: rgba(15, 22, 32, 0.92);
   border: 1px solid var(--border);
   border-radius: 8px;
   padding: 8px 10px;
   font-size: 11px;
   z-index: 5;
+  max-height: calc(100% - 24px);
+  overflow-y: auto;
 }
 .legend-title {
   font-weight: 700;
@@ -187,12 +195,16 @@ body,
 .statusbar {
   display: flex;
   flex-wrap: wrap;
-  gap: 14px;
+  align-content: flex-start;
+  gap: 8px 12px;
   padding: 6px 14px;
   border-top: 1px solid var(--border);
   background: var(--bg-2);
   font-size: 11px;
   color: var(--muted);
+  flex: 0 0 auto;
+  max-height: 84px;     /* never grows tall enough to clip; scrolls instead */
+  overflow-y: auto;
 }
 .stat b {
   color: var(--text);
@@ -558,6 +570,13 @@ code {
   padding: 8px 10px;
   font-size: 11px;
   z-index: 5;
+  max-height: calc(100% - 24px);
+  overflow-y: auto;
+}
+.overlay-row,
+.legend-row[title],
+.catalog-head[title] {
+  cursor: help;
 }
 .overlay-row {
   display: flex;
@@ -676,4 +695,69 @@ code {
   font-size: 11px;
   color: var(--muted);
   line-height: 1.35;
+}
+
+/* react-flow zoom/fit controls — make them legible on the dark canvas ---- */
+.react-flow__controls {
+  box-shadow: 0 1px 6px rgba(0, 0, 0, 0.5);
+  border-radius: 6px;
+  overflow: hidden;
+}
+.react-flow__controls-button {
+  background: var(--bg-3);
+  border-bottom: 1px solid var(--border);
+  color: var(--text);
+  width: 26px;
+  height: 26px;
+}
+.react-flow__controls-button:hover {
+  background: var(--bg-1);
+}
+.react-flow__controls-button svg {
+  fill: var(--text);
+  max-width: 14px;
+  max-height: 14px;
+}
+
+/* visible scrollbars so 'there's more below' is obvious (dark theme) ----- */
+.panel-body,
+.statusbar,
+.canvas-legend,
+.canvas-overlays,
+.symbolic,
+.json {
+  scrollbar-width: thin;
+  scrollbar-color: #3a475a transparent;
+}
+.panel-body::-webkit-scrollbar,
+.statusbar::-webkit-scrollbar,
+.canvas-legend::-webkit-scrollbar,
+.canvas-overlays::-webkit-scrollbar {
+  width: 9px;
+  height: 9px;
+}
+.panel-body::-webkit-scrollbar-thumb,
+.statusbar::-webkit-scrollbar-thumb,
+.canvas-legend::-webkit-scrollbar-thumb,
+.canvas-overlays::-webkit-scrollbar-thumb {
+  background: #3a475a;
+  border-radius: 6px;
+}
+.panel-body::-webkit-scrollbar-thumb:hover {
+  background: #4a576a;
+}
+
+/* tighter tabs so all seven fit the 420px panel without clipping -------- */
+.tab {
+  padding: 9px 4px;
+  font-size: 11px;
+  white-space: nowrap;
+  min-width: 0;
+}
+
+/* a plain section heading inside side panels (never clipped by a chart) -- */
+.panel-h {
+  margin: 8px 0 4px;
+  font-size: 13px;
+  color: var(--text);
 }

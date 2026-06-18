@@ -9,6 +9,7 @@ import {
 } from "@xyflow/react";
 import { api, GraphData } from "../api";
 import { Selection } from "../App";
+import { GLOSSARY } from "../glossary";
 
 const ZONE_COLORS: Record<string, string> = {
   ZA: "#3b82f6",
@@ -78,10 +79,18 @@ function CanvasInner({ layer, selection, onSelect }: Props) {
             <div className="bus-node-label">
               <strong>{b.id}</strong>
               <div className="bus-badges">
-                {ov.gen && nGen > 0 && <span title="generators">⚡{nGen}</span>}
-                {ov.storage && nStore > 0 && <span title="storage">🔋{nStore}</span>}
-                {ov.load && nLoad > 0 && <span title="loads">🏠{nLoad}</span>}
-                {b.bus_type === "slack" && <span title="slack bus">★</span>}
+                {ov.gen && nGen > 0 && (
+                  <span title={GLOSSARY.generators}>⚡{nGen}</span>
+                )}
+                {ov.storage && nStore > 0 && (
+                  <span title={GLOSSARY.storage}>🔋{nStore}</span>
+                )}
+                {ov.load && nLoad > 0 && (
+                  <span title={GLOSSARY.loads}>🏠{nLoad}</span>
+                )}
+                {b.bus_type === "slack" && (
+                  <span title={GLOSSARY.slack}>★</span>
+                )}
               </div>
             </div>
           ),
@@ -147,19 +156,21 @@ function CanvasInner({ layer, selection, onSelect }: Props) {
       <Background color="#1e2733" gap={24} />
       <Controls />
       <div className="canvas-overlays">
-        <div className="legend-title">overlays</div>
+        <div className="legend-title" title="Toggle which layers are drawn on the map">
+          overlays
+        </div>
         {(
           [
-            ["ac_line", "AC lines"],
-            ["transformer", "transformers"],
-            ["dc_line", "DC links"],
-            ["gen", "generators"],
-            ["storage", "storage"],
-            ["load", "loads"],
-            ["interfaces", "interfaces (flowgates)"],
-          ] as [keyof Overlays, string][]
-        ).map(([key, label]) => (
-          <label key={key} className="overlay-row">
+            ["ac_line", "AC lines", GLOSSARY.ac_line],
+            ["transformer", "transformers", GLOSSARY.transformer],
+            ["dc_line", "DC links", GLOSSARY.dc_line],
+            ["gen", "generators", GLOSSARY.generators],
+            ["storage", "storage", GLOSSARY.storage],
+            ["load", "loads", GLOSSARY.loads],
+            ["interfaces", "interfaces (flowgates)", GLOSSARY.interface],
+          ] as [keyof Overlays, string, string][]
+        ).map(([key, label, tip]) => (
+          <label key={key} className="overlay-row" title={tip}>
             <input
               type="checkbox"
               checked={ov[key]}
@@ -170,9 +181,11 @@ function CanvasInner({ layer, selection, onSelect }: Props) {
         ))}
       </div>
       <div className="canvas-legend">
-        <div className="legend-title">zones (bus outline color)</div>
+        <div className="legend-title" title={GLOSSARY.zone}>
+          zones (bus outline color)
+        </div>
         {graph?.zones.map((z) => (
-          <div key={z.id} className="legend-row">
+          <div key={z.id} className="legend-row" title={`${z.name} — ${GLOSSARY.zone}`}>
             <span className="swatch" style={{ background: zoneColor(z.id) }} />
             {z.name}
           </div>
@@ -180,19 +193,26 @@ function CanvasInner({ layer, selection, onSelect }: Props) {
         <div className="legend-title" style={{ marginTop: 8 }}>
           on each bus
         </div>
-        <div className="legend-row">⚡ generators &nbsp; 🔋 storage</div>
-        <div className="legend-row">🏠 loads &nbsp; ★ slack bus</div>
-        <div className="legend-title" style={{ marginTop: 8 }}>lines</div>
         <div className="legend-row">
+          <span title={GLOSSARY.generators}>⚡ generators</span> &nbsp;
+          <span title={GLOSSARY.storage}>🔋 storage</span>
+        </div>
+        <div className="legend-row">
+          <span title={GLOSSARY.loads}>🏠 loads</span> &nbsp;
+          <span title={GLOSSARY.slack}>★ slack bus</span>
+        </div>
+        <div className="legend-title" style={{ marginTop: 8 }}>lines</div>
+        <div className="legend-row" title={GLOSSARY.candidate}>
           <span className="swatch line" style={{ background: "#f59e0b" }} />
           candidate (CEM build option)
         </div>
-        <div className="legend-row">
+        <div className="legend-row" title={GLOSSARY.weak_feeder}>
           <span className="swatch line" style={{ background: "#ef4444" }} />
           weak feeder (low SCR)
         </div>
         <div className="legend-hint">
-          click a bus → its devices appear in the inspector ({layer} layer)
+          hover any item for a definition · click a bus → its devices appear in
+          the inspector ({layer} layer)
         </div>
       </div>
     </ReactFlow>

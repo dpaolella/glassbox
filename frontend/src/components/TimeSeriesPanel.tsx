@@ -133,6 +133,7 @@ export function TimeSeriesPanel() {
 
       {series && (
         <>
+          <h4 className="panel-h">{series.label}</h4>
           <Plot
             height={300}
             data={[
@@ -146,7 +147,6 @@ export function TimeSeriesPanel() {
               },
             ]}
             layout={{
-              title: { text: series.label, font: { size: 12 } },
               xaxis: { title: "hour of year" },
               yaxis: { title: series.unit },
             }}

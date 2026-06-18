@@ -1,6 +1,28 @@
 import { useEffect, useState } from "react";
 import { api } from "../api";
 import { Selection } from "../App";
+import { GLOSSARY } from "../glossary";
+
+// collection name -> glossary key (for hover captions on group headers)
+const GLOSS_KEY: Record<string, string> = {
+  buses: "pq_bus",
+  zones: "zone",
+  ac_lines: "ac_line",
+  transformers: "transformer",
+  dc_lines: "dc_line",
+  shunts: "shunts",
+  interfaces: "interface",
+  generators: "generators",
+  hydro_units: "hydro",
+  storage_units: "storage",
+  loads: "loads",
+  fuels: "fuels",
+  cost_curves: "cost_curves",
+  policies: "policies",
+  reserve_products: "reserve_products",
+  system_constraints: "system_constraints",
+  disturbances: "disturbances",
+};
 
 // Every entity type in the world, browsable. Spatial types are also overlay-able
 // on the map; non-spatial types (fuels, policies, cost curves, reserves, system
@@ -74,7 +96,11 @@ function CollectionGroup({
 
   return (
     <div className="catalog-group">
-      <button className="catalog-head" onClick={() => setExpanded(!expanded)}>
+      <button
+        className="catalog-head"
+        title={GLOSSARY[GLOSS_KEY[collection]] ?? label}
+        onClick={() => setExpanded(!expanded)}
+      >
         <span>{expanded ? "▾" : "▸"}</span>
         <span className="catalog-name">{label}</span>
         {items && <span className="catalog-count">{items.length}</span>}
