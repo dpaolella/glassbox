@@ -1,0 +1,26 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.eggs/
+build/
+dist/
+.pytest_cache/
+.venv/
+venv/
+
+# Generated data artifacts (reproducible via scripts/build_default_world.py).
+# The compact schema is small and committed; the multi-year arrays are large.
+data/**/timeseries.npz
+data/**/*.parquet
+
+# Node / frontend
+node_modules/
+frontend/dist/
+frontend/.vite/
+*.tsbuildinfo
+
+# Editor / OS
+.DS_Store
+.idea/
+.vscode/
