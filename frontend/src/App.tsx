@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { api, FacetInfo, WorldSummary } from "./api";
 import { NetworkCanvas } from "./components/NetworkCanvas";
 import { Inspector } from "./components/Inspector";
@@ -41,10 +41,36 @@ export default function App() {
   const [catalogFocus, setCatalogFocus] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
 
+  // resizable side panel (persisted)
+  const [panelWidth, setPanelWidth] = useState<number>(() => {
+    const saved = Number(localStorage.getItem("glassbox.panelWidth"));
+    return saved >= 320 && saved <= 760 ? saved : 440;
+  });
+
   useEffect(() => {
     api.worldSummary().then(setSummary).catch((e) => setError(String(e)));
     api.facets().then(setFacets).catch((e) => setError(String(e)));
   }, []);
+
+  function startResize(e: React.MouseEvent) {
+    e.preventDefault();
+    const move = (ev: MouseEvent) => {
+      const w = Math.min(760, Math.max(320, window.innerWidth - ev.clientX));
+      setPanelWidth(w);
+    };
+    const up = () => {
+      document.removeEventListener("mousemove", move);
+      document.removeEventListener("mouseup", up);
+      document.body.style.cursor = "";
+      localStorage.setItem("glassbox.panelWidth", String(panelWidthRef.current));
+    };
+    document.addEventListener("mousemove", move);
+    document.addEventListener("mouseup", up);
+    document.body.style.cursor = "col-resize";
+  }
+
+  const panelWidthRef = useRef(panelWidth);
+  panelWidthRef.current = panelWidth;
 
   const activeFacet = facets.find((f) => f.code === layer);
 
@@ -75,10 +101,6 @@ export default function App() {
               </button>
             ))}
           </div>
-          <div className="layer-desc">
-            <span className="layer-full">{activeFacet?.label}</span>
-            <span className="layer-explain">{activeFacet?.description}</span>
-          </div>
         </div>
 
         <label className="unit-toggle">
@@ -90,6 +112,11 @@ export default function App() {
           <span>{perUnit ? "per-unit" : "SI units"}</span>
         </label>
       </header>
+
+      <div className="context-bar">
+        <span className="ctx-layer">{activeFacet?.label ?? layer}</span>
+        <span className="ctx-desc">{activeFacet?.description}</span>
+      </div>
 
       {error && <div className="error-banner">API error: {error}. Is the backend running on :8000?</div>}
 
@@ -133,7 +160,13 @@ export default function App() {
           )}
         </div>
 
-        <aside className="side-pane">
+        <div
+          className="resizer"
+          onMouseDown={startResize}
+          title="Drag to resize the panel"
+        />
+
+        <aside className="side-pane" style={{ width: panelWidth }}>
           <nav className="tabs">
             {(["inspector", "catalog", "scenarios", "math", "oracles", "weather", "series"] as Tab[]).map(
               (t) => (
