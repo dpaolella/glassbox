@@ -74,13 +74,11 @@ def assemble_frequency_system(world: World, dispatch: dict[str, float],
 
     def unit_records():
         for g in world.generators:
-            yield (g.id, g.bus_id, g.dynamic_model_id, g.mva_base, g.p_max_mw,
-                   g.is_vre, g.is_candidate)
+            yield (g.id, g.bus_id, g.dynamic_model_id, g.mva_base, g.p_max_mw, g.is_vre)
         for h in world.hydro_units:
-            yield (h.id, h.bus_id, h.dynamic_model_id, h.mva_base, h.p_max_mw,
-                   False, False)
+            yield (h.id, h.bus_id, h.dynamic_model_id, h.mva_base, h.p_max_mw, False)
 
-    for uid, _bus, mid, mva, pmax, is_vre, is_cand in unit_records():
+    for uid, _bus, mid, mva, pmax, is_vre in unit_records():
         p = dispatch.get(uid, 0.0)
         if p <= 1e-6:
             continue

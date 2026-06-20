@@ -358,9 +358,7 @@
       "r_per_km": null,
       "l_per_km": null,
       "c_per_km": null,
-      "emt_line_model": "pi",
-      "is_candidate": false,
-      "capex_per_mw": null
+      "emt_line_model": "pi"
     },
     {
       "id": "L_A2_A3",
@@ -377,9 +375,7 @@
       "r_per_km": null,
       "l_per_km": null,
       "c_per_km": null,
-      "emt_line_model": "pi",
-      "is_candidate": false,
-      "capex_per_mw": null
+      "emt_line_model": "pi"
     },
     {
       "id": "L_A3_A4",
@@ -396,9 +392,7 @@
       "r_per_km": null,
       "l_per_km": null,
       "c_per_km": null,
-      "emt_line_model": "pi",
-      "is_candidate": false,
-      "capex_per_mw": null
+      "emt_line_model": "pi"
     },
     {
       "id": "L_A4_A5",
@@ -415,9 +409,7 @@
       "r_per_km": null,
       "l_per_km": null,
       "c_per_km": null,
-      "emt_line_model": "pi",
-      "is_candidate": false,
-      "capex_per_mw": null
+      "emt_line_model": "pi"
     },
     {
       "id": "L_A5_A6",
@@ -434,9 +426,7 @@
       "r_per_km": null,
       "l_per_km": null,
       "c_per_km": null,
-      "emt_line_model": "pi",
-      "is_candidate": false,
-      "capex_per_mw": null
+      "emt_line_model": "pi"
     },
     {
       "id": "L_A6_A7",
@@ -453,9 +443,7 @@
       "r_per_km": null,
       "l_per_km": null,
       "c_per_km": null,
-      "emt_line_model": "pi",
-      "is_candidate": false,
-      "capex_per_mw": null
+      "emt_line_model": "pi"
     },
     {
       "id": "L_A7_A8",
@@ -472,9 +460,7 @@
       "r_per_km": null,
       "l_per_km": null,
       "c_per_km": null,
-      "emt_line_model": "pi",
-      "is_candidate": false,
-      "capex_per_mw": null
+      "emt_line_model": "pi"
     },
     {
       "id": "L_A8_A9",
@@ -491,9 +477,7 @@
       "r_per_km": null,
       "l_per_km": null,
       "c_per_km": null,
-      "emt_line_model": "pi",
-      "is_candidate": false,
-      "capex_per_mw": null
+      "emt_line_model": "pi"
     },
     {
       "id": "L_A1_A3",
@@ -510,9 +494,7 @@
       "r_per_km": null,
       "l_per_km": null,
       "c_per_km": null,
-      "emt_line_model": "pi",
-      "is_candidate": false,
-      "capex_per_mw": null
+      "emt_line_model": "pi"
     },
     {
       "id": "L_B1_B2",
@@ -529,9 +511,7 @@
       "r_per_km": null,
       "l_per_km": null,
       "c_per_km": null,
-      "emt_line_model": "pi",
-      "is_candidate": false,
-      "capex_per_mw": null
+      "emt_line_model": "pi"
     },
     {
       "id": "L_B2_B3",
@@ -548,9 +528,7 @@
       "r_per_km": null,
       "l_per_km": null,
       "c_per_km": null,
-      "emt_line_model": "pi",
-      "is_candidate": false,
-      "capex_per_mw": null
+      "emt_line_model": "pi"
     },
     {
       "id": "L_B3_B4",
@@ -567,9 +545,7 @@
       "r_per_km": null,
       "l_per_km": null,
       "c_per_km": null,
-      "emt_line_model": "pi",
-      "is_candidate": false,
-      "capex_per_mw": null
+      "emt_line_model": "pi"
     },
     {
       "id": "L_B4_B5",
@@ -586,9 +562,7 @@
       "r_per_km": null,
       "l_per_km": null,
       "c_per_km": null,
-      "emt_line_model": "pi",
-      "is_candidate": false,
-      "capex_per_mw": null
+      "emt_line_model": "pi"
     },
     {
       "id": "L_B5_B6",
@@ -605,9 +579,7 @@
       "r_per_km": null,
       "l_per_km": null,
       "c_per_km": null,
-      "emt_line_model": "pi",
-      "is_candidate": false,
-      "capex_per_mw": null
+      "emt_line_model": "pi"
     },
     {
       "id": "L_B6_B7",
@@ -624,9 +596,7 @@
       "r_per_km": null,
       "l_per_km": null,
       "c_per_km": null,
-      "emt_line_model": "pi",
-      "is_candidate": false,
-      "capex_per_mw": null
+      "emt_line_model": "pi"
     },
     {
       "id": "L_B7_B8",
@@ -643,9 +613,7 @@
       "r_per_km": null,
       "l_per_km": null,
       "c_per_km": null,
-      "emt_line_model": "pi",
-      "is_candidate": false,
-      "capex_per_mw": null
+      "emt_line_model": "pi"
     },
     {
       "id": "L_B1_B3",
@@ -662,9 +630,7 @@
       "r_per_km": null,
       "l_per_km": null,
       "c_per_km": null,
-      "emt_line_model": "pi",
-      "is_candidate": false,
-      "capex_per_mw": null
+      "emt_line_model": "pi"
     },
     {
       "id": "L_C_slack_C2",
@@ -681,9 +647,7 @@
       "r_per_km": null,
       "l_per_km": null,
       "c_per_km": null,
-      "emt_line_model": "pi",
-      "is_candidate": false,
-      "capex_per_mw": null
+      "emt_line_model": "pi"
     },
     {
       "id": "L_C2_C3",
@@ -700,9 +664,7 @@
       "r_per_km": null,
       "l_per_km": null,
       "c_per_km": null,
-      "emt_line_model": "pi",
-      "is_candidate": false,
-      "capex_per_mw": null
+      "emt_line_model": "pi"
     },
     {
       "id": "L_C3_C4",
@@ -719,9 +681,7 @@
       "r_per_km": null,
       "l_per_km": null,
       "c_per_km": null,
-      "emt_line_model": "pi",
-      "is_candidate": false,
-      "capex_per_mw": null
+      "emt_line_model": "pi"
     },
     {
       "id": "L_C4_C5",
@@ -738,9 +698,7 @@
       "r_per_km": null,
       "l_per_km": null,
       "c_per_km": null,
-      "emt_line_model": "pi",
-      "is_candidate": false,
-      "capex_per_mw": null
+      "emt_line_model": "pi"
     },
     {
       "id": "L_C5_C6",
@@ -757,9 +715,7 @@
       "r_per_km": null,
       "l_per_km": null,
       "c_per_km": null,
-      "emt_line_model": "pi",
-      "is_candidate": false,
-      "capex_per_mw": null
+      "emt_line_model": "pi"
     },
     {
       "id": "L_C6_C7",
@@ -776,9 +732,7 @@
       "r_per_km": null,
       "l_per_km": null,
       "c_per_km": null,
-      "emt_line_model": "pi",
-      "is_candidate": false,
-      "capex_per_mw": null
+      "emt_line_model": "pi"
     },
     {
       "id": "L_C7_C8",
@@ -795,9 +749,7 @@
       "r_per_km": null,
       "l_per_km": null,
       "c_per_km": null,
-      "emt_line_model": "pi",
-      "is_candidate": false,
-      "capex_per_mw": null
+      "emt_line_model": "pi"
     },
     {
       "id": "L_C_slack_C3",
@@ -814,9 +766,7 @@
       "r_per_km": null,
       "l_per_km": null,
       "c_per_km": null,
-      "emt_line_model": "pi",
-      "is_candidate": false,
-      "capex_per_mw": null
+      "emt_line_model": "pi"
     },
     {
       "id": "L_B8_B9",
@@ -833,9 +783,7 @@
       "r_per_km": null,
       "l_per_km": null,
       "c_per_km": null,
-      "emt_line_model": "pi",
-      "is_candidate": false,
-      "capex_per_mw": null
+      "emt_line_model": "pi"
     },
     {
       "id": "L_B2_A1",
@@ -852,9 +800,7 @@
       "r_per_km": null,
       "l_per_km": null,
       "c_per_km": null,
-      "emt_line_model": "pi",
-      "is_candidate": false,
-      "capex_per_mw": null
+      "emt_line_model": "pi"
     },
     {
       "id": "L_B4_A2",
@@ -871,28 +817,7 @@
       "r_per_km": null,
       "l_per_km": null,
       "c_per_km": null,
-      "emt_line_model": "pi",
-      "is_candidate": false,
-      "capex_per_mw": null
-    },
-    {
-      "id": "L_B3_A3",
-      "name": "L_B3_A3",
-      "from_bus_id": "B3",
-      "to_bus_id": "A3",
-      "r": 0.011,
-      "x": 0.11,
-      "b": 0.05750000000000001,
-      "length_km": 230.0,
-      "rating_normal_mva": 700.0,
-      "rating_emergency_mva": 840.0,
-      "rating_lt_mva": 770.0000000000001,
-      "r_per_km": null,
-      "l_per_km": null,
-      "c_per_km": null,
-      "emt_line_model": "pi",
-      "is_candidate": true,
-      "capex_per_mw": 900000.0
+      "emt_line_model": "pi"
     },
     {
       "id": "L_C_slack_A4",
@@ -909,9 +834,7 @@
       "r_per_km": null,
       "l_per_km": null,
       "c_per_km": null,
-      "emt_line_model": "pi",
-      "is_candidate": false,
-      "capex_per_mw": null
+      "emt_line_model": "pi"
     },
     {
       "id": "L_C2_A5",
@@ -928,9 +851,7 @@
       "r_per_km": null,
       "l_per_km": null,
       "c_per_km": null,
-      "emt_line_model": "pi",
-      "is_candidate": false,
-      "capex_per_mw": null
+      "emt_line_model": "pi"
     }
   ],
   "transformers": [
@@ -958,8 +879,6 @@
       "to_bus_id": "A6",
       "p_max_mw": 400.0,
       "loss_fraction": 0.03,
-      "is_candidate": false,
-      "capex_per_mw": null,
       "dynamic_model_id": "cnv_hvdc"
     }
   ],
@@ -970,11 +889,9 @@
       "name": "Remote->Center Intertie",
       "member_line_ids": [
         "L_B2_A1",
-        "L_B4_A2",
-        "L_B3_A3"
+        "L_B4_A2"
       ],
       "direction_weights": [
-        1.0,
         1.0,
         1.0
       ],
@@ -992,15 +909,9 @@
       "prime_mover": "nuclear",
       "in_service": true,
       "retirement_year": null,
-      "capex_per_mw": null,
+      "status": "existing",
       "fom_per_mw_yr": 30000.0,
       "lifetime_yr": 40,
-      "is_existing": true,
-      "is_candidate": false,
-      "p_nom_existing_mw": 1200.0,
-      "build_min_mw": 0.0,
-      "build_max_mw": null,
-      "resource_class": null,
       "p_max_mw": 1200.0,
       "p_min_pu": 0.7,
       "heat_rate_mmbtu_per_mwh": 10.4,
@@ -1036,15 +947,9 @@
       "prime_mover": "steam",
       "in_service": true,
       "retirement_year": null,
-      "capex_per_mw": null,
+      "status": "existing",
       "fom_per_mw_yr": 30000.0,
       "lifetime_yr": 40,
-      "is_existing": true,
-      "is_candidate": false,
-      "p_nom_existing_mw": 450.0,
-      "build_min_mw": 0.0,
-      "build_max_mw": null,
-      "resource_class": null,
       "p_max_mw": 450.0,
       "p_min_pu": 0.4,
       "heat_rate_mmbtu_per_mwh": 6.9,
@@ -1080,15 +985,9 @@
       "prime_mover": "steam",
       "in_service": true,
       "retirement_year": null,
-      "capex_per_mw": null,
+      "status": "existing",
       "fom_per_mw_yr": 30000.0,
       "lifetime_yr": 40,
-      "is_existing": true,
-      "is_candidate": false,
-      "p_nom_existing_mw": 500.0,
-      "build_min_mw": 0.0,
-      "build_max_mw": null,
-      "resource_class": null,
       "p_max_mw": 500.0,
       "p_min_pu": 0.4,
       "heat_rate_mmbtu_per_mwh": 9.5,
@@ -1124,15 +1023,9 @@
       "prime_mover": "steam",
       "in_service": true,
       "retirement_year": null,
-      "capex_per_mw": null,
+      "status": "existing",
       "fom_per_mw_yr": 30000.0,
       "lifetime_yr": 40,
-      "is_existing": true,
-      "is_candidate": false,
-      "p_nom_existing_mw": 600.0,
-      "build_min_mw": 0.0,
-      "build_max_mw": null,
-      "resource_class": null,
       "p_max_mw": 600.0,
       "p_min_pu": 0.4,
       "heat_rate_mmbtu_per_mwh": 6.8,
@@ -1168,15 +1061,9 @@
       "prime_mover": "steam",
       "in_service": true,
       "retirement_year": null,
-      "capex_per_mw": null,
+      "status": "existing",
       "fom_per_mw_yr": 30000.0,
       "lifetime_yr": 40,
-      "is_existing": true,
-      "is_candidate": false,
-      "p_nom_existing_mw": 300.0,
-      "build_min_mw": 0.0,
-      "build_max_mw": null,
-      "resource_class": null,
       "p_max_mw": 300.0,
       "p_min_pu": 0.2,
       "heat_rate_mmbtu_per_mwh": 10.5,
@@ -1204,67 +1091,17 @@
       "dynamic_model_id": "sm_ocgt_5"
     },
     {
-      "id": "ccgt_6",
-      "name": "ccgt_6",
-      "bus_id": "A9",
-      "technology": "ccgt",
-      "fuel_id": "gas",
-      "prime_mover": "steam",
-      "in_service": true,
-      "retirement_year": null,
-      "capex_per_mw": 1100000.0,
-      "fom_per_mw_yr": 33000.0,
-      "lifetime_yr": 40,
-      "is_existing": false,
-      "is_candidate": true,
-      "p_nom_existing_mw": 0.0,
-      "build_min_mw": 0.0,
-      "build_max_mw": 800.0,
-      "resource_class": null,
-      "p_max_mw": 400.0,
-      "p_min_pu": 0.4,
-      "heat_rate_mmbtu_per_mwh": 6.7,
-      "cost_curve_id": null,
-      "vom_per_mwh": 3.0,
-      "ramp_up_mw_per_min": 4.0,
-      "ramp_down_mw_per_min": 4.0,
-      "min_up_time_h": 4.0,
-      "min_down_time_h": 4.0,
-      "start_cost": 32000.0,
-      "no_load_cost": 800.0,
-      "reserve_eligible": [
-        "spin",
-        "nonspin"
-      ],
-      "availability_profile_id": null,
-      "mttf_h": 2000.0,
-      "mttr_h": 50.0,
-      "maintenance_weeks": 3.0,
-      "p_setpoint_mw": null,
-      "q_min_mvar": -160.0,
-      "q_max_mvar": 200.0,
-      "v_setpoint_pu": 1.0,
-      "mva_base": 444.44444444444446,
-      "dynamic_model_id": "sm_ccgt_6"
-    },
-    {
-      "id": "wind_7",
-      "name": "wind_7",
+      "id": "wind_6",
+      "name": "wind_6",
       "bus_id": "B1",
       "technology": "wind",
       "fuel_id": null,
       "prime_mover": "inverter",
       "in_service": true,
       "retirement_year": null,
-      "capex_per_mw": null,
+      "status": "existing",
       "fom_per_mw_yr": 24000.0,
       "lifetime_yr": 25,
-      "is_existing": true,
-      "is_candidate": false,
-      "p_nom_existing_mw": 800.0,
-      "build_min_mw": 0.0,
-      "build_max_mw": null,
-      "resource_class": "wind",
       "p_max_mw": 800.0,
       "p_min_pu": 0.0,
       "heat_rate_mmbtu_per_mwh": null,
@@ -1286,26 +1123,20 @@
       "q_max_mvar": 264.0,
       "v_setpoint_pu": null,
       "mva_base": 888.8888888888889,
-      "dynamic_model_id": "cnv_wind_7"
+      "dynamic_model_id": "cnv_wind_6"
     },
     {
-      "id": "wind_8",
-      "name": "wind_8",
+      "id": "wind_7",
+      "name": "wind_7",
       "bus_id": "B3",
       "technology": "wind",
       "fuel_id": null,
       "prime_mover": "inverter",
       "in_service": true,
       "retirement_year": null,
-      "capex_per_mw": null,
+      "status": "existing",
       "fom_per_mw_yr": 24000.0,
       "lifetime_yr": 25,
-      "is_existing": true,
-      "is_candidate": false,
-      "p_nom_existing_mw": 700.0,
-      "build_min_mw": 0.0,
-      "build_max_mw": null,
-      "resource_class": "wind",
       "p_max_mw": 700.0,
       "p_min_pu": 0.0,
       "heat_rate_mmbtu_per_mwh": null,
@@ -1327,26 +1158,20 @@
       "q_max_mvar": 231.0,
       "v_setpoint_pu": null,
       "mva_base": 777.7777777777777,
-      "dynamic_model_id": "cnv_wind_8"
+      "dynamic_model_id": "cnv_wind_7"
     },
     {
-      "id": "solar_pv_9",
-      "name": "solar_pv_9",
+      "id": "solar_pv_8",
+      "name": "solar_pv_8",
       "bus_id": "B5",
       "technology": "solar_pv",
       "fuel_id": null,
       "prime_mover": "inverter",
       "in_service": true,
       "retirement_year": null,
-      "capex_per_mw": null,
+      "status": "existing",
       "fom_per_mw_yr": 24000.0,
       "lifetime_yr": 25,
-      "is_existing": true,
-      "is_candidate": false,
-      "p_nom_existing_mw": 600.0,
-      "build_min_mw": 0.0,
-      "build_max_mw": null,
-      "resource_class": "solar_pv",
       "p_max_mw": 600.0,
       "p_min_pu": 0.0,
       "heat_rate_mmbtu_per_mwh": null,
@@ -1368,26 +1193,20 @@
       "q_max_mvar": 198.0,
       "v_setpoint_pu": null,
       "mva_base": 666.6666666666666,
-      "dynamic_model_id": "cnv_solar_pv_9"
+      "dynamic_model_id": "cnv_solar_pv_8"
     },
     {
-      "id": "solar_pv_10",
-      "name": "solar_pv_10",
+      "id": "solar_pv_9",
+      "name": "solar_pv_9",
       "bus_id": "B6",
       "technology": "solar_pv",
       "fuel_id": null,
       "prime_mover": "inverter",
       "in_service": true,
       "retirement_year": null,
-      "capex_per_mw": null,
+      "status": "existing",
       "fom_per_mw_yr": 24000.0,
       "lifetime_yr": 25,
-      "is_existing": true,
-      "is_candidate": false,
-      "p_nom_existing_mw": 500.0,
-      "build_min_mw": 0.0,
-      "build_max_mw": null,
-      "resource_class": "solar_pv",
       "p_max_mw": 500.0,
       "p_min_pu": 0.0,
       "heat_rate_mmbtu_per_mwh": null,
@@ -1409,26 +1228,20 @@
       "q_max_mvar": 165.0,
       "v_setpoint_pu": null,
       "mva_base": 555.5555555555555,
-      "dynamic_model_id": "cnv_solar_pv_10"
+      "dynamic_model_id": "cnv_solar_pv_9"
     },
     {
-      "id": "wind_11",
-      "name": "wind_11",
+      "id": "wind_10",
+      "name": "wind_10",
       "bus_id": "B9",
       "technology": "wind",
       "fuel_id": null,
       "prime_mover": "inverter",
       "in_service": true,
       "retirement_year": null,
-      "capex_per_mw": null,
+      "status": "existing",
       "fom_per_mw_yr": 24000.0,
       "lifetime_yr": 25,
-      "is_existing": true,
-      "is_candidate": false,
-      "p_nom_existing_mw": 350.0,
-      "build_min_mw": 0.0,
-      "build_max_mw": null,
-      "resource_class": "wind",
       "p_max_mw": 350.0,
       "p_min_pu": 0.0,
       "heat_rate_mmbtu_per_mwh": null,
@@ -1450,108 +1263,20 @@
       "q_max_mvar": 115.5,
       "v_setpoint_pu": null,
       "mva_base": 388.88888888888886,
-      "dynamic_model_id": "cnv_wind_11"
+      "dynamic_model_id": "cnv_wind_10"
     },
     {
-      "id": "wind_12",
-      "name": "wind_12",
-      "bus_id": "B2",
-      "technology": "wind",
-      "fuel_id": null,
-      "prime_mover": "inverter",
-      "in_service": true,
-      "retirement_year": null,
-      "capex_per_mw": 1300000.0,
-      "fom_per_mw_yr": 26000.0,
-      "lifetime_yr": 25,
-      "is_existing": false,
-      "is_candidate": true,
-      "p_nom_existing_mw": 0.0,
-      "build_min_mw": 0.0,
-      "build_max_mw": 1200.0,
-      "resource_class": "wind",
-      "p_max_mw": 300.0,
-      "p_min_pu": 0.0,
-      "heat_rate_mmbtu_per_mwh": null,
-      "cost_curve_id": null,
-      "vom_per_mwh": 0.5,
-      "ramp_up_mw_per_min": null,
-      "ramp_down_mw_per_min": null,
-      "min_up_time_h": 0.0,
-      "min_down_time_h": 0.0,
-      "start_cost": 0.0,
-      "no_load_cost": 0.0,
-      "reserve_eligible": [],
-      "availability_profile_id": "availability__wind_B1",
-      "mttf_h": null,
-      "mttr_h": null,
-      "maintenance_weeks": 0.0,
-      "p_setpoint_mw": null,
-      "q_min_mvar": -99.0,
-      "q_max_mvar": 99.0,
-      "v_setpoint_pu": null,
-      "mva_base": 333.3333333333333,
-      "dynamic_model_id": "cnv_wind_12"
-    },
-    {
-      "id": "solar_pv_13",
-      "name": "solar_pv_13",
-      "bus_id": "B7",
-      "technology": "solar_pv",
-      "fuel_id": null,
-      "prime_mover": "inverter",
-      "in_service": true,
-      "retirement_year": null,
-      "capex_per_mw": 900000.0,
-      "fom_per_mw_yr": 18000.0,
-      "lifetime_yr": 25,
-      "is_existing": false,
-      "is_candidate": true,
-      "p_nom_existing_mw": 0.0,
-      "build_min_mw": 0.0,
-      "build_max_mw": 1200.0,
-      "resource_class": "solar_pv",
-      "p_max_mw": 300.0,
-      "p_min_pu": 0.0,
-      "heat_rate_mmbtu_per_mwh": null,
-      "cost_curve_id": null,
-      "vom_per_mwh": 0.5,
-      "ramp_up_mw_per_min": null,
-      "ramp_down_mw_per_min": null,
-      "min_up_time_h": 0.0,
-      "min_down_time_h": 0.0,
-      "start_cost": 0.0,
-      "no_load_cost": 0.0,
-      "reserve_eligible": [],
-      "availability_profile_id": "availability__solar_B6",
-      "mttf_h": null,
-      "mttr_h": null,
-      "maintenance_weeks": 0.0,
-      "p_setpoint_mw": null,
-      "q_min_mvar": -99.0,
-      "q_max_mvar": 99.0,
-      "v_setpoint_pu": null,
-      "mva_base": 333.3333333333333,
-      "dynamic_model_id": "cnv_solar_pv_13"
-    },
-    {
-      "id": "solar_pv_14",
-      "name": "solar_pv_14",
+      "id": "solar_pv_11",
+      "name": "solar_pv_11",
       "bus_id": "B8",
       "technology": "solar_pv",
       "fuel_id": null,
       "prime_mover": "inverter",
       "in_service": true,
       "retirement_year": null,
-      "capex_per_mw": null,
+      "status": "existing",
       "fom_per_mw_yr": 24000.0,
       "lifetime_yr": 25,
-      "is_existing": true,
-      "is_candidate": false,
-      "p_nom_existing_mw": 250.0,
-      "build_min_mw": 0.0,
-      "build_max_mw": null,
-      "resource_class": "solar_pv",
       "p_max_mw": 250.0,
       "p_min_pu": 0.0,
       "heat_rate_mmbtu_per_mwh": null,
@@ -1573,7 +1298,7 @@
       "q_max_mvar": 82.5,
       "v_setpoint_pu": null,
       "mva_base": 277.77777777777777,
-      "dynamic_model_id": "cnv_solar_pv_14"
+      "dynamic_model_id": "cnv_solar_pv_11"
     }
   ],
   "hydro_units": [
@@ -1606,39 +1331,13 @@
       "soc_min_pu": 0.05,
       "soc_max_pu": 1.0,
       "vom_per_mwh": 1.0,
-      "capex_per_mw": 250000.0,
-      "capex_per_mwh": 200000.0,
       "fom_per_mw_yr": 6000.0,
       "lifetime_yr": 15,
-      "is_candidate": false,
+      "status": "existing",
       "mttf_h": 3000.0,
       "mttr_h": 24.0,
       "mva_base": 200.0,
       "dynamic_model_id": "cnv_batt1"
-    },
-    {
-      "id": "batt2",
-      "name": "Remote Candidate Battery",
-      "bus_id": "B4",
-      "technology": "battery",
-      "p_charge_max_mw": 100.0,
-      "p_discharge_max_mw": 100.0,
-      "energy_capacity_mwh": 400.0,
-      "efficiency_charge": 0.94,
-      "efficiency_discharge": 0.94,
-      "self_discharge_per_h": 0.0,
-      "soc_min_pu": 0.05,
-      "soc_max_pu": 1.0,
-      "vom_per_mwh": 1.0,
-      "capex_per_mw": 240000.0,
-      "capex_per_mwh": 180000.0,
-      "fom_per_mw_yr": 6000.0,
-      "lifetime_yr": 15,
-      "is_candidate": true,
-      "mttf_h": 3000.0,
-      "mttr_h": 24.0,
-      "mva_base": 100.0,
-      "dynamic_model_id": "cnv_batt2"
     }
   ],
   "loads": [
@@ -1806,6 +1505,148 @@
       "voll_per_mwh": 10000.0,
       "dr_sheddable_mw": 0.0,
       "dr_shiftable_mw": 0.0
+    }
+  ],
+  "expansion_candidates": [
+    {
+      "id": "cand_ccgt_A9",
+      "name": "CCGT @ A9",
+      "kind": "generator",
+      "technology": "ccgt",
+      "bus_id": "A9",
+      "zone_id": "ZA",
+      "from_bus_id": null,
+      "to_bus_id": null,
+      "build_min_mw": 0.0,
+      "build_max_mw": 800.0,
+      "capex_per_mw": 1100000.0,
+      "capex_per_mwh": null,
+      "fom_per_mw_yr": 33000.0,
+      "lifetime_yr": 30,
+      "fuel_id": "gas",
+      "heat_rate_mmbtu_per_mwh": 6.7,
+      "vom_per_mwh": 3.0,
+      "p_min_pu": 0.4,
+      "availability_profile_id": null,
+      "resource_class": null,
+      "duration_h": null,
+      "efficiency_charge": 0.95,
+      "efficiency_discharge": 0.95,
+      "reactance_pu": null,
+      "expected_capacity_factor": 0.5,
+      "lcoe_per_mwh": 54.2
+    },
+    {
+      "id": "cand_wind_B1",
+      "name": "Wind @ B1",
+      "kind": "generator",
+      "technology": "wind",
+      "bus_id": "B2",
+      "zone_id": "ZB",
+      "from_bus_id": null,
+      "to_bus_id": null,
+      "build_min_mw": 0.0,
+      "build_max_mw": 1200.0,
+      "capex_per_mw": 1300000.0,
+      "capex_per_mwh": null,
+      "fom_per_mw_yr": 26000.0,
+      "lifetime_yr": 25,
+      "fuel_id": null,
+      "heat_rate_mmbtu_per_mwh": null,
+      "vom_per_mwh": 0.5,
+      "p_min_pu": 0.0,
+      "availability_profile_id": "availability__wind_B1",
+      "resource_class": "wind",
+      "duration_h": null,
+      "efficiency_charge": 0.95,
+      "efficiency_discharge": 0.95,
+      "reactance_pu": null,
+      "expected_capacity_factor": 0.32,
+      "lcoe_per_mwh": 49.6
+    },
+    {
+      "id": "cand_solar_B6",
+      "name": "Solar @ B6",
+      "kind": "generator",
+      "technology": "solar_pv",
+      "bus_id": "B7",
+      "zone_id": "ZB",
+      "from_bus_id": null,
+      "to_bus_id": null,
+      "build_min_mw": 0.0,
+      "build_max_mw": 1200.0,
+      "capex_per_mw": 900000.0,
+      "capex_per_mwh": null,
+      "fom_per_mw_yr": 18000.0,
+      "lifetime_yr": 25,
+      "fuel_id": null,
+      "heat_rate_mmbtu_per_mwh": null,
+      "vom_per_mwh": 0.5,
+      "p_min_pu": 0.0,
+      "availability_profile_id": "availability__solar_B6",
+      "resource_class": "solar_pv",
+      "duration_h": null,
+      "efficiency_charge": 0.95,
+      "efficiency_discharge": 0.95,
+      "reactance_pu": null,
+      "expected_capacity_factor": 0.18,
+      "lcoe_per_mwh": 60.9
+    },
+    {
+      "id": "cand_batt_B3",
+      "name": "Battery @ B3",
+      "kind": "storage",
+      "technology": "battery",
+      "bus_id": "B4",
+      "zone_id": "ZB",
+      "from_bus_id": null,
+      "to_bus_id": null,
+      "build_min_mw": 0.0,
+      "build_max_mw": 400.0,
+      "capex_per_mw": 240000.0,
+      "capex_per_mwh": 180000.0,
+      "fom_per_mw_yr": 6000.0,
+      "lifetime_yr": 15,
+      "fuel_id": null,
+      "heat_rate_mmbtu_per_mwh": null,
+      "vom_per_mwh": 1.0,
+      "p_min_pu": 0.0,
+      "availability_profile_id": null,
+      "resource_class": null,
+      "duration_h": 4.0,
+      "efficiency_charge": 0.94,
+      "efficiency_discharge": 0.94,
+      "reactance_pu": null,
+      "expected_capacity_factor": null,
+      "lcoe_per_mwh": null
+    },
+    {
+      "id": "cand_line_B2_A2",
+      "name": "Line B2->A2",
+      "kind": "line",
+      "technology": "line",
+      "bus_id": null,
+      "zone_id": "ZB",
+      "from_bus_id": "B3",
+      "to_bus_id": "A3",
+      "build_min_mw": 0.0,
+      "build_max_mw": 700.0,
+      "capex_per_mw": 900000.0,
+      "capex_per_mwh": null,
+      "fom_per_mw_yr": 0.0,
+      "lifetime_yr": 40,
+      "fuel_id": null,
+      "heat_rate_mmbtu_per_mwh": null,
+      "vom_per_mwh": 0.0,
+      "p_min_pu": 0.0,
+      "availability_profile_id": null,
+      "resource_class": null,
+      "duration_h": null,
+      "efficiency_charge": 0.95,
+      "efficiency_discharge": 0.95,
+      "reactance_pu": 0.11,
+      "expected_capacity_factor": null,
+      "lcoe_per_mwh": null
     }
   ],
   "dynamic_models": [
@@ -2096,54 +1937,40 @@
       }
     },
     {
-      "id": "sm_ccgt_6",
-      "kind": "synchronous",
-      "h_s": 4.5,
-      "damping_d": 2.0,
-      "xd": 1.8,
-      "xq": 1.75,
-      "xd_t": 0.3,
-      "xq_t": 0.55,
-      "xd_st": 0.23,
-      "xq_st": 0.23,
-      "td0_t": 8.0,
-      "tq0_t": 0.4,
-      "td0_st": 0.03,
-      "tq0_st": 0.05,
-      "saturation_params": {},
-      "governor": {
-        "type": "TGOV1",
-        "droop_r": 0.05,
+      "id": "cnv_wind_6",
+      "kind": "converter",
+      "control_mode": "grid_following",
+      "current_limit_pu": 1.2,
+      "pll_bandwidth_hz": 20.0,
+      "outer_loop": {
+        "p_gain": 0.5,
+        "q_or_v_gain": 0.5,
         "time_constants": {
-          "t1": 0.5,
-          "t2": 1.0,
-          "t3": 5.0
-        },
-        "p_min": 0.0,
-        "p_max": 1.0
+          "tp": 0.02,
+          "tq": 0.02
+        }
       },
-      "exciter": {
-        "type": "IEEET1",
+      "inner_current_loop": {
+        "bandwidth_hz": 600.0,
         "gains": {
-          "ka": 200.0
-        },
-        "time_constants": {
-          "ta": 0.02,
-          "te": 0.8
-        },
-        "v_ref": 1.0,
-        "limits": {
-          "vrmax": 5.0,
-          "vrmin": -5.0
+          "kp": 0.3,
+          "ki": 10.0
         }
       },
-      "pss": null,
-      "turbine": {
-        "type": "ccgt",
-        "time_constants": {
-          "tch": 0.3
-        }
-      }
+      "droop_p_f": 0.05,
+      "droop_q_v": 0.05,
+      "virtual_inertia_s": 0.0,
+      "fault_ride_through": {
+        "v_thresholds": {},
+        "current_injection": {}
+      },
+      "dc_link": null,
+      "lcl_filter": {
+        "l1": 0.05,
+        "c": 0.03,
+        "l2": 0.05
+      },
+      "emt_switching_model": "averaged"
     },
     {
       "id": "cnv_wind_7",
@@ -2182,7 +2009,7 @@
       "emt_switching_model": "averaged"
     },
     {
-      "id": "cnv_wind_8",
+      "id": "cnv_solar_pv_8",
       "kind": "converter",
       "control_mode": "grid_following",
       "current_limit_pu": 1.2,
@@ -2254,43 +2081,7 @@
       "emt_switching_model": "averaged"
     },
     {
-      "id": "cnv_solar_pv_10",
-      "kind": "converter",
-      "control_mode": "grid_following",
-      "current_limit_pu": 1.2,
-      "pll_bandwidth_hz": 20.0,
-      "outer_loop": {
-        "p_gain": 0.5,
-        "q_or_v_gain": 0.5,
-        "time_constants": {
-          "tp": 0.02,
-          "tq": 0.02
-        }
-      },
-      "inner_current_loop": {
-        "bandwidth_hz": 600.0,
-        "gains": {
-          "kp": 0.3,
-          "ki": 10.0
-        }
-      },
-      "droop_p_f": 0.05,
-      "droop_q_v": 0.05,
-      "virtual_inertia_s": 0.0,
-      "fault_ride_through": {
-        "v_thresholds": {},
-        "current_injection": {}
-      },
-      "dc_link": null,
-      "lcl_filter": {
-        "l1": 0.05,
-        "c": 0.03,
-        "l2": 0.05
-      },
-      "emt_switching_model": "averaged"
-    },
-    {
-      "id": "cnv_wind_11",
+      "id": "cnv_wind_10",
       "kind": "converter",
       "control_mode": "grid_following",
       "current_limit_pu": 1.2,
@@ -2326,79 +2117,7 @@
       "emt_switching_model": "averaged"
     },
     {
-      "id": "cnv_wind_12",
-      "kind": "converter",
-      "control_mode": "grid_following",
-      "current_limit_pu": 1.2,
-      "pll_bandwidth_hz": 20.0,
-      "outer_loop": {
-        "p_gain": 0.5,
-        "q_or_v_gain": 0.5,
-        "time_constants": {
-          "tp": 0.02,
-          "tq": 0.02
-        }
-      },
-      "inner_current_loop": {
-        "bandwidth_hz": 600.0,
-        "gains": {
-          "kp": 0.3,
-          "ki": 10.0
-        }
-      },
-      "droop_p_f": 0.05,
-      "droop_q_v": 0.05,
-      "virtual_inertia_s": 0.0,
-      "fault_ride_through": {
-        "v_thresholds": {},
-        "current_injection": {}
-      },
-      "dc_link": null,
-      "lcl_filter": {
-        "l1": 0.05,
-        "c": 0.03,
-        "l2": 0.05
-      },
-      "emt_switching_model": "averaged"
-    },
-    {
-      "id": "cnv_solar_pv_13",
-      "kind": "converter",
-      "control_mode": "grid_following",
-      "current_limit_pu": 1.2,
-      "pll_bandwidth_hz": 20.0,
-      "outer_loop": {
-        "p_gain": 0.5,
-        "q_or_v_gain": 0.5,
-        "time_constants": {
-          "tp": 0.02,
-          "tq": 0.02
-        }
-      },
-      "inner_current_loop": {
-        "bandwidth_hz": 600.0,
-        "gains": {
-          "kp": 0.3,
-          "ki": 10.0
-        }
-      },
-      "droop_p_f": 0.05,
-      "droop_q_v": 0.05,
-      "virtual_inertia_s": 0.0,
-      "fault_ride_through": {
-        "v_thresholds": {},
-        "current_injection": {}
-      },
-      "dc_link": null,
-      "lcl_filter": {
-        "l1": 0.05,
-        "c": 0.03,
-        "l2": 0.05
-      },
-      "emt_switching_model": "averaged"
-    },
-    {
-      "id": "cnv_solar_pv_14",
+      "id": "cnv_solar_pv_11",
       "kind": "converter",
       "control_mode": "grid_forming",
       "current_limit_pu": 1.2,
@@ -2518,42 +2237,6 @@
         "l2": 0.05
       },
       "emt_switching_model": "averaged"
-    },
-    {
-      "id": "cnv_batt2",
-      "kind": "converter",
-      "control_mode": "grid_forming",
-      "current_limit_pu": 1.2,
-      "pll_bandwidth_hz": 20.0,
-      "outer_loop": {
-        "p_gain": 0.5,
-        "q_or_v_gain": 0.5,
-        "time_constants": {
-          "tp": 0.02,
-          "tq": 0.02
-        }
-      },
-      "inner_current_loop": {
-        "bandwidth_hz": 600.0,
-        "gains": {
-          "kp": 0.3,
-          "ki": 10.0
-        }
-      },
-      "droop_p_f": 0.05,
-      "droop_q_v": 0.05,
-      "virtual_inertia_s": 4.0,
-      "fault_ride_through": {
-        "v_thresholds": {},
-        "current_injection": {}
-      },
-      "dc_link": null,
-      "lcl_filter": {
-        "l1": 0.05,
-        "c": 0.03,
-        "l2": 0.05
-      },
-      "emt_switching_model": "averaged"
     }
   ],
   "fuels": [
@@ -2662,18 +2345,6 @@
       "name": "Outage L_B4_A2",
       "affected_element_ids": [
         "L_B4_A2"
-      ],
-      "kind": "element_outage",
-      "fault_type": null,
-      "fault_impedance_ohm": null,
-      "apply_time_s": null,
-      "clear_time_s": null
-    },
-    {
-      "id": "N1_L_B3_A3",
-      "name": "Outage L_B3_A3",
-      "affected_element_ids": [
-        "L_B3_A3"
       ],
       "kind": "element_outage",
       "fault_type": null,
@@ -2848,6 +2519,14 @@
       "scale": 1.0
     },
     {
+      "id": "solar_B7",
+      "name": "solar@B8",
+      "kind": "solar",
+      "x": 120.0,
+      "y": 300.0,
+      "scale": 1.0
+    },
+    {
       "id": "wind_B1",
       "name": "wind@B2",
       "kind": "wind",
@@ -2860,14 +2539,6 @@
       "name": "solar@B7",
       "kind": "solar",
       "x": 60.0,
-      "y": 300.0,
-      "scale": 1.0
-    },
-    {
-      "id": "solar_B7",
-      "name": "solar@B8",
-      "kind": "solar",
-      "x": 120.0,
       "y": 300.0,
       "scale": 1.0
     }
@@ -3000,8 +2671,8 @@
         ],
         "hours_per_year": 8760
       },
-      "availability__solar_B6": {
-        "id": "availability__solar_B6",
+      "availability__solar_B7": {
+        "id": "availability__solar_B7",
         "kind": "availability",
         "unit": "pu",
         "resolution": "hourly",
@@ -3021,8 +2692,8 @@
         ],
         "hours_per_year": 8760
       },
-      "availability__solar_B7": {
-        "id": "availability__solar_B7",
+      "availability__solar_B6": {
+        "id": "availability__solar_B6",
         "kind": "availability",
         "unit": "pu",
         "resolution": "hourly",

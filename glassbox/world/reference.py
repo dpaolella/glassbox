@@ -24,12 +24,14 @@ from ..schema import (
     ACLine,
     Bus,
     BusType,
+    CandidateKind,
     ConverterModel,
     CostCurve,
     CostCurveSegment,
     DCLine,
     Disturbance,
     DisturbanceKind,
+    ExpansionCandidate,
     FaultType,
     Fuel,
     Generator,
@@ -62,6 +64,14 @@ from ..schema.dynamic_models import (
     OuterLoop,
     TurbineModel,
 )
+
+
+def _crf(rate: float, lifetime_yr: int) -> float:
+    """Capital recovery factor for rough LCOE estimates on candidates."""
+    if rate <= 0:
+        return 1.0 / lifetime_yr
+    f = (1 + rate) ** lifetime_yr
+    return rate * f / (f - 1)
 
 
 @dataclass
@@ -169,14 +179,12 @@ class ReferenceSystemBuilder:
         self.world.buses.append(b)
         return b
 
-    def _line(self, fid: str, tid: str, x: float, mva: float, length: float = 80.0,
-              candidate: bool = False) -> ACLine:
+    def _line(self, fid: str, tid: str, x: float, mva: float, length: float = 80.0) -> ACLine:
         lid = f"L_{fid}_{tid}"
         ln = ACLine(id=lid, name=lid, from_bus_id=fid, to_bus_id=tid,
                     r=x / 10.0, x=x, b=0.02 * length / 80.0, length_km=length,
                     rating_normal_mva=mva, rating_emergency_mva=mva * 1.2,
-                    rating_lt_mva=mva * 1.1, is_candidate=candidate,
-                    capex_per_mw=(900_000.0 if candidate else None))
+                    rating_lt_mva=mva * 1.1)
         self.world.ac_lines.append(ln)
         return ln
 
@@ -188,6 +196,7 @@ class ReferenceSystemBuilder:
         self._build_generators()
         self._build_hydro()
         self._build_storage()
+        self._build_candidates()
         self._build_loads()
         self._build_fuels_policies_reserves()
         self._build_interfaces_and_constraints()
@@ -255,9 +264,7 @@ class ReferenceSystemBuilder:
                    mva=p.intertie_remote_to_center_mva, length=220.0)
         self._line(self._b_buses[3], self._a_buses[1], x=0.12,
                    mva=p.intertie_remote_to_center_mva, length=240.0)
-        # candidate reinforcement line on the binding corridor (CEM choice)
-        self._line(self._b_buses[2], self._a_buses[2], x=0.11,
-                   mva=p.intertie_remote_to_center_mva, length=230.0, candidate=True)
+        # (a candidate reinforcement line on this corridor is an ExpansionCandidate)
         # north -> center (less constrained)
         self._line(self._c_buses[0], self._a_buses[3], x=0.09,
                    mva=p.intertie_north_to_center_mva, length=180.0)
@@ -283,18 +290,15 @@ class ReferenceSystemBuilder:
 
     def _add_sync_gen(self, bus: str, tech: GenTechnology, pmax: float, h: float,
                       fuel: str, hr: float, vom: float, pmin_pu: float,
-                      candidate: bool = False, capex: float | None = None,
                       pss: bool = False) -> Generator:
+        """Create an existing synchronous generation asset."""
         gid = self._next_gen_id(tech.value + "_")
         mid = f"sm_{gid}"
         self.world.dynamic_models.append(_sync_machine(mid, h, tech.value, with_pss=pss))
         g = Generator(
             id=gid, name=gid, bus_id=bus, technology=tech, fuel_id=fuel,
             prime_mover="steam" if tech != GenTechnology.NUCLEAR else "nuclear",
-            capex_per_mw=capex, fom_per_mw_yr=(capex or 1e6) * 0.03 if capex else 30000.0,
-            lifetime_yr=40, is_existing=not candidate, is_candidate=candidate,
-            p_nom_existing_mw=0.0 if candidate else pmax,
-            build_max_mw=pmax * 2 if candidate else None,
+            fom_per_mw_yr=30000.0, lifetime_yr=40,
             p_max_mw=pmax, p_min_pu=pmin_pu,
             heat_rate_mmbtu_per_mwh=hr, vom_per_mwh=vom,
             ramp_up_mw_per_min=pmax * 0.01, ramp_down_mw_per_min=pmax * 0.01,
@@ -310,9 +314,9 @@ class ReferenceSystemBuilder:
         return g
 
     def _add_vre_gen(self, bus: str, tech: GenTechnology, pmax: float,
-                     site_id: str, candidate: bool = False,
-                     capex: float | None = None, weak: bool = False,
+                     site_id: str, weak: bool = False,
                      grid_forming: bool = False) -> Generator:
+        """Create an existing inverter-based (VRE) generation asset."""
         gid = self._next_gen_id(tech.value + "_")
         mid = f"cnv_{gid}"
         self.world.dynamic_models.append(
@@ -320,13 +324,7 @@ class ReferenceSystemBuilder:
                        weak=weak))
         g = Generator(
             id=gid, name=gid, bus_id=bus, technology=tech, fuel_id=None,
-            prime_mover="inverter",
-            capex_per_mw=capex,
-            fom_per_mw_yr=(capex or 1.2e6) * 0.02,
-            lifetime_yr=25, is_existing=not candidate, is_candidate=candidate,
-            p_nom_existing_mw=0.0 if candidate else pmax,
-            build_max_mw=pmax * 4 if candidate else None,
-            resource_class=tech.value,
+            prime_mover="inverter", fom_per_mw_yr=24000.0, lifetime_yr=25,
             p_max_mw=pmax, p_min_pu=0.0,
             heat_rate_mmbtu_per_mwh=None, vom_per_mwh=0.5,
             availability_profile_id=f"availability__{site_id}",
@@ -351,10 +349,6 @@ class ReferenceSystemBuilder:
                            fuel="gas", hr=6.8, vom=3.0, pmin_pu=0.4)
         self._add_sync_gen(self._a_buses[7], GenTechnology.OCGT, 300.0, h=3.0,
                            fuel="gas", hr=10.5, vom=8.0, pmin_pu=0.2)
-        # candidate firm generation in the load center
-        self._add_sync_gen(self._a_buses[8], GenTechnology.CCGT, 400.0, h=4.5,
-                           fuel="gas", hr=6.7, vom=3.0, pmin_pu=0.4,
-                           candidate=True, capex=1.1e6)
 
         # Zone B (renewable remote): wind + solar; weak pocket has a fast-PLL GFL
         self._add_vre_gen(self._b_buses[0], GenTechnology.WIND, 800.0, "wind_B0")
@@ -364,11 +358,6 @@ class ReferenceSystemBuilder:
         # weak inverter-heavy pocket: grid-following wind on a thin feeder
         self._add_vre_gen(self._b_buses[-1], GenTechnology.WIND, 350.0, "wind_Bweak",
                           weak=True)
-        # candidate VRE buildout (CEM): more remote wind + solar
-        self._add_vre_gen(self._b_buses[1], GenTechnology.WIND, 300.0, "wind_B1",
-                          candidate=True, capex=1.3e6)
-        self._add_vre_gen(self._b_buses[6], GenTechnology.SOLAR_PV, 300.0, "solar_B6",
-                          candidate=True, capex=0.9e6)
         # one grid-forming battery-adjacent solar to contrast GFM vs GFL
         self._add_vre_gen(self._b_buses[7], GenTechnology.SOLAR_PV, 250.0, "solar_B7",
                           grid_forming=True)
@@ -391,22 +380,59 @@ class ReferenceSystemBuilder:
             p_charge_max_mw=200.0, p_discharge_max_mw=200.0, energy_capacity_mwh=800.0,
             efficiency_charge=0.95, efficiency_discharge=0.95,
             soc_min_pu=0.05, soc_max_pu=1.0, vom_per_mwh=1.0,
-            capex_per_mw=250_000.0, capex_per_mwh=200_000.0,
-            fom_per_mw_yr=6_000.0, is_candidate=False,
+            fom_per_mw_yr=6_000.0,
             mttf_h=3000.0, mttr_h=24.0, mva_base=200.0,
             dynamic_model_id="cnv_batt1"))
-        # candidate storage in the renewable remote zone (CEM sizing demo)
-        self.world.dynamic_models.append(_converter("cnv_batt2", mode="grid_forming"))
-        self.world.storage_units.append(Storage(
-            id="batt2", name="Remote Candidate Battery", bus_id=self._b_buses[3],
-            technology=StorageTechnology.BATTERY,
-            p_charge_max_mw=100.0, p_discharge_max_mw=100.0, energy_capacity_mwh=400.0,
-            efficiency_charge=0.94, efficiency_discharge=0.94,
-            soc_min_pu=0.05, soc_max_pu=1.0, vom_per_mwh=1.0,
-            capex_per_mw=240_000.0, capex_per_mwh=180_000.0,
-            fom_per_mw_yr=6_000.0, is_candidate=True,
-            mttf_h=3000.0, mttr_h=24.0, mva_base=100.0,
-            dynamic_model_id="cnv_batt2"))
+
+    def _build_candidates(self) -> None:
+        """Buildable investment options (the inv layer's Resource Potential)."""
+        gas = "gas"
+
+        def lcoe(capex, fom, lifetime, cf, vom=0.0, hr=None, fuel_price=None):
+            crf = _crf(0.07, lifetime)
+            fixed = (capex * crf + fom) / max(cf * 8760.0, 1.0)
+            energy = vom + (hr * fuel_price if hr and fuel_price else 0.0)
+            return round(fixed + energy, 1)
+
+        c = self.world.expansion_candidates
+        # firm dispatchable in the load center
+        c.append(ExpansionCandidate(
+            id="cand_ccgt_A9", name="CCGT @ A9", kind=CandidateKind.GENERATOR,
+            technology="ccgt", bus_id=self._a_buses[8], zone_id="ZA",
+            build_max_mw=800.0, capex_per_mw=1.1e6, fom_per_mw_yr=33_000.0,
+            lifetime_yr=30, fuel_id=gas, heat_rate_mmbtu_per_mwh=6.7,
+            vom_per_mwh=3.0, p_min_pu=0.4, expected_capacity_factor=0.5,
+            lcoe_per_mwh=lcoe(1.1e6, 33_000.0, 30, 0.5, 3.0, 6.7, 3.5)))
+        # remote VRE buildout (resource potential in the renewable zone)
+        c.append(ExpansionCandidate(
+            id="cand_wind_B1", name="Wind @ B1", kind=CandidateKind.GENERATOR,
+            technology="wind", bus_id=self._b_buses[1], zone_id="ZB",
+            build_max_mw=1200.0, capex_per_mw=1.3e6, fom_per_mw_yr=26_000.0,
+            lifetime_yr=25, vom_per_mwh=0.5, resource_class="wind",
+            availability_profile_id="availability__wind_B1",
+            expected_capacity_factor=0.32,
+            lcoe_per_mwh=lcoe(1.3e6, 26_000.0, 25, 0.32, 0.5)))
+        c.append(ExpansionCandidate(
+            id="cand_solar_B6", name="Solar @ B6", kind=CandidateKind.GENERATOR,
+            technology="solar_pv", bus_id=self._b_buses[6], zone_id="ZB",
+            build_max_mw=1200.0, capex_per_mw=0.9e6, fom_per_mw_yr=18_000.0,
+            lifetime_yr=25, vom_per_mwh=0.5, resource_class="solar_pv",
+            availability_profile_id="availability__solar_B6",
+            expected_capacity_factor=0.18,
+            lcoe_per_mwh=lcoe(0.9e6, 18_000.0, 25, 0.18, 0.5)))
+        # candidate storage in the remote zone (independent power/energy sizing)
+        c.append(ExpansionCandidate(
+            id="cand_batt_B3", name="Battery @ B3", kind=CandidateKind.STORAGE,
+            technology="battery", bus_id=self._b_buses[3], zone_id="ZB",
+            build_max_mw=400.0, duration_h=4.0, capex_per_mw=240_000.0,
+            capex_per_mwh=180_000.0, fom_per_mw_yr=6_000.0, lifetime_yr=15,
+            efficiency_charge=0.94, efficiency_discharge=0.94, vom_per_mwh=1.0))
+        # candidate transmission reinforcement on the binding corridor
+        c.append(ExpansionCandidate(
+            id="cand_line_B2_A2", name="Line B2->A2", kind=CandidateKind.LINE,
+            technology="line", from_bus_id=self._b_buses[2],
+            to_bus_id=self._a_buses[2], zone_id="ZB", build_max_mw=700.0,
+            capex_per_mw=900_000.0, lifetime_yr=40, reactance_pu=0.11))
 
     def _build_loads(self) -> None:
         # demand concentrated in the load center; small loads elsewhere
@@ -490,15 +516,21 @@ class ReferenceSystemBuilder:
             apply_time_s=1.0, clear_time_s=1.08))
 
     def _build_weather(self) -> None:
-        # VRE sites bound to availability profile ids referenced by generators
+        # VRE sites bound to availability profile ids referenced by existing
+        # generators AND by candidate VRE (so candidate profiles are generated).
+        def add_site(profile_id, bus_id, tech):
+            site_id = profile_id.split("__", 1)[1]
+            b = self.world.bus(bus_id)
+            kind = "wind" if "wind" in tech else "solar"
+            self.world.weather_sites.append(
+                WeatherSite(id=site_id, name=f"{kind}@{bus_id}", kind=kind, x=b.x, y=b.y))
+
         for g in self.world.generators:
             if g.availability_profile_id:
-                site_id = g.availability_profile_id.split("__", 1)[1]
-                b = self.world.bus(g.bus_id)
-                kind = "wind" if g.technology == GenTechnology.WIND else "solar"
-                self.world.weather_sites.append(
-                    WeatherSite(id=site_id, name=f"{kind}@{g.bus_id}", kind=kind,
-                                x=b.x, y=b.y))
+                add_site(g.availability_profile_id, g.bus_id, g.technology.value)
+        for cand in self.world.expansion_candidates:
+            if cand.availability_profile_id and cand.bus_id:
+                add_site(cand.availability_profile_id, cand.bus_id, cand.technology)
 
         # load shape is per-unit (~1.0 mean); each load site's peak MW is carried
         # by WeatherSite.scale, applied inside the generator.

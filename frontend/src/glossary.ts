@@ -45,6 +45,16 @@ export const GLOSSARY: Record<string, string> = {
   loads: "Electrical demand attached to this bus.",
   hydro: "Hydro units (reservoir, run-of-river, pumped) attached to this bus.",
 
+  // investment / resource potential
+  resource_potential:
+    "Resource Potential: buildable investment options (ExpansionCandidate) — " +
+    "where new generation/storage/transmission could be added, with rough cost " +
+    "and performance. Only the capacity-expansion (inv) layer sees these; they " +
+    "are not physical assets until the CEM chooses to build them.",
+  expansion_candidates:
+    "Expansion candidates: buildable options the capacity-expansion engine can " +
+    "invest in (capex, build limits / resource potential, operating template).",
+
   // catalog collections
   shunts: "Shunt devices: fixed or controllable reactive compensation (capacitors/reactors, SVC/STATCOM).",
   fuels: "Fuels: prices and CO₂ content used to cost thermal generation.",

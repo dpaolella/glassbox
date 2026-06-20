@@ -29,11 +29,24 @@ def test_generator_facet_partitioning():
     dyn = fields_in_facet(Generator, "dyn")
     assert "heat_rate_mmbtu_per_mwh" in ops
     assert "ramp_up_mw_per_min" in ops
+    # an existing generator carries only its fixed-cost/lifecycle inv fields;
+    # build options (capex, build limits) live on ExpansionCandidate now
+    assert "fom_per_mw_yr" in inv
+    assert "capex_per_mw" not in inv
+    assert "build_max_mw" not in inv
+    assert "dynamic_model_id" in dyn
+
+
+def test_candidate_is_separate_from_existing_asset():
+    """Build options are a distinct entity with their own investment fields."""
+    from glassbox.schema import ExpansionCandidate
+
+    inv = fields_in_facet(ExpansionCandidate, "inv")
     assert "capex_per_mw" in inv
     assert "build_max_mw" in inv
-    assert "dynamic_model_id" in dyn
-    # ops must NOT leak investment-only fields
-    assert "capex_per_mw" not in ops
+    # the existing-asset Generator no longer has the redundant booleans
+    assert "is_candidate" not in Generator.model_fields
+    assert "is_existing" not in Generator.model_fields
 
 
 def test_field_metadata_has_units_and_facets():

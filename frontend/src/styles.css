@@ -825,3 +825,14 @@ code {
 .tab {
   flex: 1 0 auto;
 }
+
+/* resource-potential candidate markers on the map --------------------- */
+.cand-node-label {
+  text-align: center;
+  line-height: 1.2;
+}
+.cand-meta {
+  font-size: 9px;
+  color: #d8a657;
+  margin-top: 1px;
+}

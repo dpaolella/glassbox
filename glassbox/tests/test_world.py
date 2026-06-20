@@ -53,11 +53,16 @@ def test_has_storage_and_hydro():
 
 
 def test_has_candidates_for_cem():
+    """Build options live in expansion_candidates, separate from existing assets."""
     world = build_default_world()
-    cand_gens = [g for g in world.generators if g.is_candidate]
-    cand_lines = [ln for ln in world.ac_lines if ln.is_candidate]
-    assert cand_gens
-    assert cand_lines
+    kinds = {c.kind.value for c in world.expansion_candidates}
+    assert "generator" in kinds
+    assert "line" in kinds
+    # existing assets carry no candidate flag anymore
+    assert all(not hasattr(g, "is_candidate") for g in world.generators)
+    # candidate generators have a build ceiling (resource potential)
+    gen_cands = [c for c in world.expansion_candidates if c.kind.value == "generator"]
+    assert gen_cands and all(c.build_max_mw and c.build_max_mw > 0 for c in gen_cands)
 
 
 def test_weak_pocket_present():

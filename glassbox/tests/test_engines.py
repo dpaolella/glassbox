@@ -48,6 +48,19 @@ def _pcm(world, mode="aggregate", hours=48):
     return run_scenario(world, sc)
 
 
+def test_cem_builds_from_expansion_candidates(world):
+    """CEM invests in ExpansionCandidates (separate from existing assets)."""
+    # nodal is transmission-constrained -> the engine builds candidate capacity
+    run = _cem(world, mode="identity")
+    built = {**run.result.built_capacity_mw, **run.result.built_storage_power_mw}
+    assert built, "expected CEM to build at least one candidate"
+    # every built id is an expansion candidate, not an existing asset
+    cand_ids = {c.id for c in world.expansion_candidates}
+    existing_ids = {g.id for g in world.generators}
+    assert set(built) <= cand_ids
+    assert not (set(built) & existing_ids)
+
+
 def test_cem_solves_and_builds(world):
     run = _cem(world)
     assert run.result.total_cost > 0

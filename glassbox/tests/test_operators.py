@@ -27,9 +27,14 @@ def test_attribute_projection_matches_facet_metadata():
 def test_attribute_projection_drops_unseen_detail():
     world = build_default_world()
     inv_view = AttributeProjection(Facet.INV).apply(world)
+    # existing generators expose only their fixed-cost inv fields at the inv layer
     g0 = inv_view["generators"][0]
-    assert "capex_per_mw" in g0
+    assert "fom_per_mw_yr" in g0
     assert "heat_rate_mmbtu_per_mwh" not in g0  # ops-only, invisible to inv
+    # build options (capex, build limits) are visible at the inv layer
+    cand = inv_view["expansion_candidates"][0]
+    assert "capex_per_mw" in cand
+    assert "build_max_mw" in cand
     ex = AttributeProjection(Facet.INV).explain()
     assert ex.information_loss  # must state what it hides
 

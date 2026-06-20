@@ -77,11 +77,28 @@ export interface GraphInterface {
   limit_source: string;
 }
 
+export interface GraphCandidate {
+  id: string;
+  name: string;
+  kind: string; // generator | storage | line
+  technology: string;
+  bus_id: string | null;
+  from_bus_id: string | null;
+  to_bus_id: string | null;
+  x: number;
+  y: number;
+  build_max_mw: number | null;
+  capex_per_mw: number | null;
+  lcoe_per_mwh: number | null;
+  expected_capacity_factor: number | null;
+}
+
 export interface GraphData {
   nodes: GraphNode[];
   edges: GraphEdge[];
   zones: { id: string; name: string; member_bus_ids: string[] }[];
   interfaces: GraphInterface[];
+  candidates: GraphCandidate[];
 }
 
 export interface PerUnit {

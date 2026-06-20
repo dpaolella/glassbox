@@ -45,7 +45,7 @@ def build_dispatch_data(world: World, hour: int, weather_year: int = 0) -> Dispa
     abs_h = weather_year * HOURS_PER_YEAR + hour
     gens: list[dict] = []
     for g in world.generators:
-        if not g.in_service or g.is_candidate or g.p_max_mw <= 0:
+        if not g.in_service or g.p_max_mw <= 0:
             continue
         mc, _ = _gen_marginal_cost(world, g)
         p_max_pu = 1.0

@@ -36,6 +36,7 @@ interface Overlays {
   hydro: boolean;
   load: boolean;
   interfaces: boolean;
+  candidates: boolean;
 }
 
 const DEFAULT_OVERLAYS: Overlays = {
@@ -47,6 +48,11 @@ const DEFAULT_OVERLAYS: Overlays = {
   hydro: true,
   load: true,
   interfaces: false,
+  candidates: false,
+};
+
+const CAND_ICON: Record<string, string> = {
+  generator: "⚡", storage: "🔋", line: "〜",
 };
 
 function CanvasInner({ layer, selection, onSelect }: Props) {
@@ -58,6 +64,12 @@ function CanvasInner({ layer, selection, onSelect }: Props) {
   useEffect(() => {
     api.graph().then(setGraph);
   }, []);
+
+  // the Resource Potential layer is the capacity-expansion view: build options
+  // are only visible to the `inv` layer (mirrors the schema's facet split)
+  useEffect(() => {
+    setOv((o) => ({ ...o, candidates: layer === "inv" }));
+  }, [layer]);
 
   // lines that belong to a binding interface (for the interface overlay)
   const interfaceLines = useMemo(() => {
@@ -119,10 +131,9 @@ function CanvasInner({ layer, selection, onSelect }: Props) {
       .filter((e) => ov[e.kind as keyof Overlays])
       .map((e) => {
         const dashed = e.kind === "dc_line";
-        const candidate = e.is_candidate;
         const weak = (e.x ?? 0) >= 0.25;
         const onInterface = ov.interfaces && interfaceLines.has(e.id);
-        let stroke = candidate ? "#f59e0b" : weak ? "#ef4444" : "#475569";
+        let stroke = weak ? "#ef4444" : "#475569";
         if (onInterface) stroke = "#38bdf8";
         return {
           id: e.id,
@@ -133,11 +144,43 @@ function CanvasInner({ layer, selection, onSelect }: Props) {
             e.kind === "transformer" ? "T" : e.kind === "dc_line" ? "DC" : undefined,
           style: {
             stroke,
-            strokeWidth: onInterface ? 3 : candidate ? 2 : 1.5,
-            strokeDasharray: dashed || candidate ? "6 3" : undefined,
+            strokeWidth: onInterface ? 3 : 1.5,
+            strokeDasharray: dashed ? "6 3" : undefined,
           },
         };
       });
+
+    // Resource Potential layer: candidate build options as offset markers
+    if (ov.candidates) {
+      graph.candidates.forEach((c, i) => {
+        const sel = selection?.collection === "expansion_candidates" && selection.id === c.id;
+        const cost = c.lcoe_per_mwh != null ? `~$${Math.round(c.lcoe_per_mwh)}/MWh`
+          : c.capex_per_mw != null ? `$${(c.capex_per_mw / 1e6).toFixed(1)}M/MW` : "";
+        nodes.push({
+          id: `cand:${c.id}`,
+          position: { x: c.x + 42, y: c.y - 44 + (i % 2) * 16 },
+          data: {
+            label: (
+              <div className="cand-node-label">
+                <div>{CAND_ICON[c.kind] ?? "+"} {c.technology}</div>
+                <div className="cand-meta">
+                  {c.build_max_mw ? `≤${Math.round(c.build_max_mw)} MW` : ""} {cost}
+                </div>
+              </div>
+            ),
+          },
+          style: {
+            background: "#241a09",
+            border: "1.5px dashed #f59e0b",
+            borderRadius: 8,
+            color: "#fcd9a0",
+            width: 104,
+            fontSize: 10,
+            boxShadow: sel ? "0 0 0 3px #f59e0b88" : "none",
+          },
+        });
+      });
+    }
 
     return { nodes, edges };
   }, [graph, selection, ov, interfaceLines]);
@@ -148,7 +191,11 @@ function CanvasInner({ layer, selection, onSelect }: Props) {
       edges={edges}
       fitView
       minZoom={0.2}
-      onNodeClick={(_, node) => onSelect({ collection: "buses", id: node.id })}
+      onNodeClick={(_, node) =>
+        node.id.startsWith("cand:")
+          ? onSelect({ collection: "expansion_candidates", id: node.id.slice(5) })
+          : onSelect({ collection: "buses", id: node.id })
+      }
       onEdgeClick={(_, edge) => {
         const e = graph?.edges.find((x) => x.id === edge.id);
         const coll =
@@ -182,6 +229,7 @@ function CanvasInner({ layer, selection, onSelect }: Props) {
             ["hydro", "hydro", GLOSSARY.hydro],
             ["load", "loads", GLOSSARY.loads],
             ["interfaces", "interfaces (flowgates)", GLOSSARY.interface],
+            ["candidates", "resource potential", GLOSSARY.resource_potential],
           ] as [keyof Overlays, string, string][]
         ).map(([key, label, tip]) => (
           <label key={key} className="overlay-row" title={tip}>
@@ -233,6 +281,10 @@ function CanvasInner({ layer, selection, onSelect }: Props) {
         <div className="legend-row" title={GLOSSARY.weak_feeder}>
           <span className="swatch line" style={{ background: "#ef4444" }} />
           weak feeder (low SCR)
+        </div>
+        <div className="legend-row" title={GLOSSARY.resource_potential}>
+          <span className="swatch" style={{ background: "#241a09", border: "1.5px dashed #f59e0b" }} />
+          build option (inv layer)
         </div>
         <div className="legend-hint">
           hover any item for a definition · click a bus → its devices appear in
