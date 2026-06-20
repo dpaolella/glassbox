@@ -286,6 +286,9 @@ def _summarize(scenario: Scenario, view, result) -> dict[str, Any]:
         cap += built.get(g.id, 0.0)
         mix[g.tech] = mix.get(g.tech, 0.0) + cap
     s["capacity_mix_mw"] = {k: round(v, 1) for k, v in mix.items()}
+    built_tx = getattr(result, "built_transmission_mw", {}) or {}
+    if built_tx:
+        s["built_transmission_mw"] = {k: round(v, 1) for k, v in built_tx.items()}
     s["total_cost"] = round(getattr(result, "total_cost", 0.0)
                             or getattr(result, "objective", 0.0), 1)
 

@@ -89,10 +89,13 @@ class LineSpec:
     a: str        # from node
     b: str        # to node
     x: float      # reactance (pu)
-    rating: float  # MW
+    rating: float  # MW (existing capacity, or the build ceiling for a candidate)
     is_candidate: bool = False
     capex_annual_per_mw: float = 0.0
     build_max: float = 0.0
+    transport_only: bool = False  # candidate additions are modeled as transport
+                                  # corridors (standard CEM simplification), so
+                                  # they carry no DC angle coupling
 
 
 @dataclass
@@ -316,6 +319,25 @@ def assemble_view(
                 continue
             lines.append(LineSpec(id=tr.id, a=a, b=b, x=max(tr.x, 1e-4),
                                   rating=tr.rating_mva))
+
+    # candidate transmission (a real CEM build decision). Modeled as a transport
+    # corridor with a built-capacity variable — the standard CEM simplification
+    # (the DC angle coupling of a not-yet-built line is nonconvex).
+    if investment:
+        for c in world.expansion_candidates:
+            if c.kind.value != "line":
+                continue
+            a = bus_to_node.get(c.from_bus_id)
+            b = bus_to_node.get(c.to_bus_id)
+            if a is None or b is None or a == b:
+                continue
+            crf = capital_recovery_factor(discount_rate, c.lifetime_yr)
+            capex_annual = (c.capex_per_mw or 0.0) * crf + c.fom_per_mw_yr
+            ceiling = c.build_max_mw or 0.0
+            lines.append(LineSpec(id=c.id, a=a, b=b, x=max(c.reactance_pu or 0.1, 1e-4),
+                                  rating=ceiling, is_candidate=True,
+                                  capex_annual_per_mw=capex_annual, build_max=ceiling,
+                                  transport_only=True))
 
     # --- interfaces (only meaningful when lines are individually modeled) ---
     interfaces = []
@@ -577,29 +599,51 @@ def build_dispatch_model(view: EconomicView, options: EngineOptions) -> BuiltMod
     # --- transmission ---
     flow = None
     theta = None
+    line_build = None
     line_ids = [ln.id for ln in view.lines]
+    fixed_lines = [ln for ln in view.lines if not ln.is_candidate]
+    cand_lines = [ln for ln in view.lines if ln.is_candidate]
     if view.lines:
         l_idx = pd.Index(line_ids, name="l")
-        rating_da = xr.DataArray([ln.rating for ln in view.lines],
-                                 coords=[l_idx], dims=["l"])
-        if view.network_mode == "dc":
+        flow = m.add_variables(coords=[l_idx, t_idx], name="flow")
+
+        # DC angle coupling applies only to fixed (existing) lines; candidate
+        # additions are transport corridors (no angle equation).
+        if view.network_mode == "dc" and fixed_lines:
             theta = m.add_variables(coords=[n_idx, t_idx], name="theta")
-            # reference angle = 0
             m.add_constraints(theta.sel(n=view.reference_node) == 0, name="ref_angle")
-            flow = m.add_variables(coords=[l_idx, t_idx], name="flow")
-            # DC power flow per line (vectorized over t): flow = (θ_a − θ_b)/x
-            from_nodes = xr.DataArray([ln.a for ln in view.lines], coords=[l_idx], dims=["l"])
-            to_nodes = xr.DataArray([ln.b for ln in view.lines], coords=[l_idx], dims=["l"])
-            susc_da = xr.DataArray([1.0 / ln.x for ln in view.lines], coords=[l_idx], dims=["l"])
+            fl_idx = pd.Index([ln.id for ln in fixed_lines], name="l")
+            from_nodes = xr.DataArray([ln.a for ln in fixed_lines], coords=[fl_idx], dims=["l"])
+            to_nodes = xr.DataArray([ln.b for ln in fixed_lines], coords=[fl_idx], dims=["l"])
+            susc_da = xr.DataArray([1.0 / ln.x for ln in fixed_lines], coords=[fl_idx], dims=["l"])
             theta_a = theta.sel(n=from_nodes)
             theta_b = theta.sel(n=to_nodes)
-            m.add_constraints(flow - susc_da * (theta_a - theta_b) == 0, name="dcpf")
-            m.add_constraints(flow <= rating_da, name="flim_hi")
-            m.add_constraints(flow >= -rating_da, name="flim_lo")
-        else:
-            flow = m.add_variables(coords=[l_idx, t_idx], name="flow")
-            m.add_constraints(flow <= rating_da, name="flim_hi")
-            m.add_constraints(flow >= -rating_da, name="flim_lo")
+            m.add_constraints(flow.sel(l=[ln.id for ln in fixed_lines])
+                              - susc_da * (theta_a - theta_b) == 0, name="dcpf")
+
+        # thermal limits on fixed lines (fixed rating)
+        if fixed_lines:
+            fl_idx = pd.Index([ln.id for ln in fixed_lines], name="l")
+            rating_da = xr.DataArray([ln.rating for ln in fixed_lines],
+                                     coords=[fl_idx], dims=["l"])
+            ff = flow.sel(l=[ln.id for ln in fixed_lines])
+            m.add_constraints(ff <= rating_da, name="flim_hi")
+            m.add_constraints(ff >= -rating_da, name="flim_lo")
+
+        # candidate lines: flow bounded by the built capacity (a decision)
+        if cand_lines:
+            cids = [ln.id for ln in cand_lines]
+            cl_idx = pd.Index(cids, name="l")
+            cf = flow.sel(l=cids)
+            if options.investment:
+                bmax = xr.DataArray([ln.build_max for ln in cand_lines],
+                                    coords=[cl_idx], dims=["l"])
+                line_build = m.add_variables(lower=0.0, upper=bmax, coords=[cl_idx],
+                                             name="line_build")
+                m.add_constraints(cf - line_build <= 0, name="candflim_hi")
+                m.add_constraints(cf + line_build >= 0, name="candflim_lo")
+            else:
+                m.add_constraints(cf == 0, name="cand_unbuilt")
 
     # interface limits (sum of member flows <= limit)
     if flow is not None:
@@ -704,6 +748,9 @@ def build_dispatch_model(view: EconomicView, options: EngineOptions) -> BuiltMod
                 if s.is_candidate:
                     obj = obj + sto_build_p.sel(s=s.id) * s.capex_annual_per_mw
                     obj = obj + sto_build_e.sel(s=s.id) * s.capex_annual_per_mwh
+        if line_build is not None:
+            for ln in cand_lines:
+                obj = obj + line_build.sel(l=ln.id) * ln.capex_annual_per_mw
 
     m.add_objective(obj)
 

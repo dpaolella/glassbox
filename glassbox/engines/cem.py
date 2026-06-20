@@ -55,6 +55,13 @@ class CapacityExpansionEngine(Engine):
                     if p_mw > 1e-3 or e_mwh > 1e-3:
                         result.built_storage_power_mw[s.id] = p_mw
                         result.built_storage_energy_mwh[s.id] = e_mwh
+        if "line_build" in model.m.variables:
+            lb = model.m.variables["line_build"].solution
+            for ln in view.lines:
+                if ln.is_candidate:
+                    mw = float(lb.sel(l=ln.id))
+                    if mw > 1e-3:
+                        result.built_transmission_mw[ln.id] = mw
 
         # cost breakdown
         invest_cost = 0.0
@@ -65,6 +72,9 @@ class CapacityExpansionEngine(Engine):
             if s.is_candidate and s.id in result.built_storage_power_mw:
                 invest_cost += (result.built_storage_power_mw[s.id] * s.capex_annual_per_mw
                                 + result.built_storage_energy_mwh[s.id] * s.capex_annual_per_mwh)
+        for ln in view.lines:
+            if ln.is_candidate and ln.id in result.built_transmission_mw:
+                invest_cost += result.built_transmission_mw[ln.id] * ln.capex_annual_per_mw
         total = float(model.m.objective.value)
         result.total_cost = total
         result.cost_breakdown = {"investment_annualized": invest_cost,
@@ -117,6 +127,7 @@ class CapacityExpansionEngine(Engine):
                 "built_capacity_mw": result.built_capacity_mw,
                 "built_storage_power_mw": result.built_storage_power_mw,
                 "built_storage_energy_mwh": result.built_storage_energy_mwh,
+                "built_transmission_mw": result.built_transmission_mw,
                 "realized_capacity_factor": (result.operational.realized_capacity_factor
                                              if result.operational else {}),
             },

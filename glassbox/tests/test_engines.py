@@ -4,12 +4,51 @@ from __future__ import annotations
 
 import warnings
 
+import numpy as np
 import pytest
 
+from glassbox.engines.economic_core import (
+    EconomicView,
+    EngineOptions,
+    GenSpec,
+    LineSpec,
+    build_dispatch_model,
+    solve_model,
+)
 from glassbox.scenario import Layer, Override, Scenario, SpatialOperator, run_scenario
 from glassbox.world import build_default_world_with_weather
 
 warnings.filterwarnings("ignore")
+
+
+def test_line_investment_is_a_decision():
+    """A candidate line is built when it's the cheapest way to deliver power.
+
+    Cheap generation sits at node A, all load at node B, and there is no existing
+    line. CEM must build the candidate corridor (transport addition) to avoid
+    unserved energy at VOLL.
+    """
+    gen = GenSpec(id="g", node="A", tech="ccgt", is_vre=False, marginal_cost=10.0,
+                  emissions_t_per_mwh=0.0, p_nom_existing=500.0, is_candidate=False,
+                  capex_annual_per_mw=0.0, build_max=0.0, p_min_pu=0.0,
+                  ramp_per_h=500.0, min_up_h=0, min_down_h=0, start_cost=0.0,
+                  no_load_cost=0.0, reserve_eligible=True)
+    cand = LineSpec(id="cand_AB", a="A", b="B", x=0.1, rating=200.0,
+                    is_candidate=True, capex_annual_per_mw=1000.0, build_max=200.0,
+                    transport_only=True)
+    view = EconomicView(
+        nodes=["A", "B"], T=1, period_ids=np.array([0]),
+        period_weight=np.array([1.0]), annual_divisor=1.0, gens=[gen], storages=[],
+        load=np.array([[0.0], [100.0]]), lines=[cand], network_mode="dc",
+        reference_node="A", voll=10000.0)
+    model = build_dispatch_model(view, EngineOptions(investment=True, reserves=False,
+                                                     label="cem"))
+    solve_model(model)
+    built = float(model.m.variables["line_build"].solution.sel(l="cand_AB"))
+    unserved = float((model.m.variables["unserved"].solution.values
+                      * view.period_weight).sum())
+    assert built >= 99.0, f"expected the corridor built ~100 MW, got {built:.1f}"
+    assert unserved < 1.0  # the built line delivers the load
 
 
 @pytest.fixture(scope="module")
