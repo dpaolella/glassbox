@@ -33,6 +33,7 @@ interface Overlays {
   dc_line: boolean;
   gen: boolean;
   storage: boolean;
+  hydro: boolean;
   load: boolean;
   interfaces: boolean;
 }
@@ -43,6 +44,7 @@ const DEFAULT_OVERLAYS: Overlays = {
   dc_line: true,
   gen: true,
   storage: true,
+  hydro: true,
   load: true,
   interfaces: false,
 };
@@ -70,6 +72,7 @@ function CanvasInner({ layer, selection, onSelect }: Props) {
     const nodes: Node[] = graph.nodes.map((b) => {
       const nGen = b.attached.generators.length;
       const nStore = b.attached.storage.length;
+      const nHydro = b.attached.hydro.length;
       const nLoad = b.attached.loads.length;
       const selected =
         selection?.collection === "buses" && selection.id === b.id;
@@ -86,6 +89,9 @@ function CanvasInner({ layer, selection, onSelect }: Props) {
                 )}
                 {ov.storage && nStore > 0 && (
                   <span title={GLOSSARY.storage}>🔋{nStore}</span>
+                )}
+                {ov.hydro && nHydro > 0 && (
+                  <span title={GLOSSARY.hydro}>💧{nHydro}</span>
                 )}
                 {ov.load && nLoad > 0 && (
                   <span title={GLOSSARY.loads}>🏠{nLoad}</span>
@@ -173,6 +179,7 @@ function CanvasInner({ layer, selection, onSelect }: Props) {
             ["dc_line", "DC links", GLOSSARY.dc_line],
             ["gen", "generators", GLOSSARY.generators],
             ["storage", "storage", GLOSSARY.storage],
+            ["hydro", "hydro", GLOSSARY.hydro],
             ["load", "loads", GLOSSARY.loads],
             ["interfaces", "interfaces (flowgates)", GLOSSARY.interface],
           ] as [keyof Overlays, string, string][]
@@ -214,6 +221,7 @@ function CanvasInner({ layer, selection, onSelect }: Props) {
           <span title={GLOSSARY.storage}>🔋 storage</span>
         </div>
         <div className="legend-row">
+          <span title={GLOSSARY.hydro}>💧 hydro</span> &nbsp;
           <span title={GLOSSARY.loads}>🏠 loads</span> &nbsp;
           <span title={GLOSSARY.slack}>★ slack bus</span>
         </div>
