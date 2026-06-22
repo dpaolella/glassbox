@@ -1631,7 +1631,7 @@
       "to_bus_id": "A3",
       "build_min_mw": 0.0,
       "build_max_mw": 700.0,
-      "capex_per_mw": 900000.0,
+      "capex_per_mw": 150000.0,
       "capex_per_mwh": null,
       "fom_per_mw_yr": 0.0,
       "lifetime_yr": 40,

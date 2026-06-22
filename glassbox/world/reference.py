@@ -427,12 +427,16 @@ class ReferenceSystemBuilder:
             build_max_mw=400.0, duration_h=4.0, capex_per_mw=240_000.0,
             capex_per_mwh=180_000.0, fom_per_mw_yr=6_000.0, lifetime_yr=15,
             efficiency_charge=0.94, efficiency_discharge=0.94, vom_per_mwh=1.0))
-        # candidate transmission reinforcement on the binding corridor
+        # Candidate transmission reinforcement on the binding remote->center
+        # corridor. Capex is tuned so the nodal CEM finds it economic to relieve
+        # the congestion that strands remote solar: the line builds under the
+        # nodal view but not the zonal one (which never sees the congestion) —
+        # the core "nodal reveals the need for transmission" lesson.
         c.append(ExpansionCandidate(
             id="cand_line_B2_A2", name="Line B2->A2", kind=CandidateKind.LINE,
             technology="line", from_bus_id=self._b_buses[2],
             to_bus_id=self._a_buses[2], zone_id="ZB", build_max_mw=700.0,
-            capex_per_mw=900_000.0, lifetime_yr=40, reactance_pu=0.11))
+            capex_per_mw=150_000.0, lifetime_yr=40, reactance_pu=0.11))
 
     def _build_loads(self) -> None:
         # demand concentrated in the load center; small loads elsewhere
