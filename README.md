@@ -128,6 +128,12 @@ data/          # serialized default world + generated weather artifacts
 - **Facet-tagged schema.** Every field is tagged with the modeling layer(s) that
   consume it. This is machine-readable and drives both the attribute operator
   and the layer-filtered inspector.
+- **Investment vs operations (Sienna-style).** Existing physical assets
+  (`Generator`, `Storage`, …) carry a `status` lifecycle, not an `is_candidate`
+  flag. Buildable options are a separate `ExpansionCandidate` entity (siting,
+  build limits / resource potential, capex, operating template) that only the
+  capacity-expansion layer sees and that the CEM materializes when it builds.
+  The map renders these as a **Resource Potential** overlay on the `inv` layer.
 
 ## Run it
 

@@ -88,7 +88,7 @@ def assemble_adequacy_system(world: World, weather_years: list[int]) -> Adequacy
         if g.is_vre or not g.in_service:
             continue
         # existing dispatchable capacity with a two-state forced-outage process
-        cap = g.p_max_mw if not g.is_candidate else g.p_nom_existing_mw
+        cap = g.p_max_mw
         if cap <= 0:
             continue
         dispatchable.append(DispatchUnit(
@@ -103,15 +103,15 @@ def assemble_adequacy_system(world: World, weather_years: list[int]) -> Adequacy
     vre: list[VREUnit] = []
     for g in world.generators:
         if g.is_vre and g.in_service and g.availability_profile_id:
-            cap = g.p_max_mw if not g.is_candidate else g.p_nom_existing_mw
+            cap = g.p_max_mw
             if cap > 0:
                 vre.append(VREUnit(id=g.id, capacity_mw=cap,
                                    profile_id=g.availability_profile_id,
                                    tech=g.technology.value))
 
     # storage fleet (aggregate power and energy across existing units)
-    p = sum(s.p_discharge_max_mw for s in world.storage_units if not s.is_candidate)
-    e = sum(s.energy_capacity_mwh for s in world.storage_units if not s.is_candidate)
+    p = sum(s.p_discharge_max_mw for s in world.storage_units)
+    e = sum(s.energy_capacity_mwh for s in world.storage_units)
     eff_c = np.mean([s.efficiency_charge for s in world.storage_units]) if world.storage_units else 0.95
     eff_d = np.mean([s.efficiency_discharge for s in world.storage_units]) if world.storage_units else 0.95
     storage = StorageFleet(power_mw=p, energy_mwh=e, eff_c=float(eff_c), eff_d=float(eff_d))

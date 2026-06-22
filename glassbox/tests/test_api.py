@@ -52,7 +52,14 @@ def test_inspect_generator_layer_filtered():
 
     inv = client.get(f"/api/entity/generators/{gid}?facet=inv").json()
     inv_names = {f["name"] for f in inv["fields"]}
-    assert "capex_per_mw" in inv_names
+    assert "fom_per_mw_yr" in inv_names
+
+    # build options carry the capex/build fields, on a separate entity
+    cands = client.get("/api/entities/expansion_candidates").json()
+    cid = cands[0]["id"]
+    cinv = client.get(f"/api/entity/expansion_candidates/{cid}?facet=inv").json()
+    cnames = {f["name"] for f in cinv["fields"]}
+    assert "capex_per_mw" in cnames and "build_max_mw" in cnames
 
 
 def test_per_unit_toggle_present_for_power_fields():
@@ -71,6 +78,9 @@ def test_graph_endpoint():
     assert len(g["zones"]) == 3
     # interfaces drive the flowgate overlay
     assert g["interfaces"] and g["interfaces"][0]["member_line_ids"]
+    # build options drive the Resource Potential layer; existing edges aren't candidates
+    assert g["candidates"] and {c["kind"] for c in g["candidates"]} >= {"generator", "line"}
+    assert all("is_candidate" not in e for e in g["edges"])
 
 
 def test_inspect_bus_lists_attached_devices():

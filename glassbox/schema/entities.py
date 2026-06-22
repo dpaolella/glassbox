@@ -59,6 +59,20 @@ class StorageTechnology(str, Enum):
     LDES = "ldes"
 
 
+class ResourceStatus(str, Enum):
+    """Lifecycle of a physical asset. Build *options* are not a status — they are
+    a separate ExpansionCandidate entity (Section: investment vs operations)."""
+
+    EXISTING = "existing"
+    RETIRED = "retired"
+
+
+class CandidateKind(str, Enum):
+    GENERATOR = "generator"
+    STORAGE = "storage"
+    LINE = "line"
+
+
 class FuelEmissionsScope(str, Enum):
     pass
 
@@ -116,9 +130,6 @@ class ACLine(BaseModel):
     l_per_km: Optional[float] = facet_field(facets=["emt"], unit="H/km", default=None)
     c_per_km: Optional[float] = facet_field(facets=["emt"], unit="F/km", default=None)
     emt_line_model: EMTLineModel = facet_field(facets=["emt"], default=EMTLineModel.PI)
-    is_candidate: bool = facet_field(facets=["inv"], default=False,
-                                     description="available to transmission expansion")
-    capex_per_mw: Optional[float] = facet_field(facets=["inv"], unit="currency/MW", default=None)
 
 
 class Transformer(BaseModel):
@@ -150,8 +161,6 @@ class DCLine(BaseModel):
     to_bus_id: str = facet_field(facets=["core", "pf"])
     p_max_mw: float = facet_field(facets=["ops", "pf", "inv"], unit="MW", default=500.0)
     loss_fraction: float = facet_field(facets=["ops", "pf"], default=0.02)
-    is_candidate: bool = facet_field(facets=["inv"], default=False)
-    capex_per_mw: Optional[float] = facet_field(facets=["inv"], unit="currency/MW", default=None)
     dynamic_model_id: Optional[str] = facet_field(facets=["dyn", "emt"], default=None,
                                                   description="converter model (IBR)")
 
@@ -208,22 +217,18 @@ class Generator(BaseModel):
     prime_mover: str = facet_field(facets=["core"], default="")
     in_service: bool = facet_field(facets=["core"], default=True)
     retirement_year: Optional[int] = facet_field(facets=["core"], default=None)
+    status: ResourceStatus = facet_field(
+        facets=["core", "inv"], default=ResourceStatus.EXISTING,
+        description="lifecycle of this physical asset (existing/retired); "
+                    "build options live in ExpansionCandidate, not here")
 
-    # investment (inv)
-    capex_per_mw: Optional[float] = facet_field(facets=["inv"], unit="currency/MW", default=None)
+    # investment / fixed cost of the existing asset (inv)
     fom_per_mw_yr: float = facet_field(facets=["inv"], unit="currency/MW/yr", default=0.0)
     lifetime_yr: int = facet_field(facets=["inv"], unit="yr", default=30)
-    is_existing: bool = facet_field(facets=["inv"], default=True)
-    is_candidate: bool = facet_field(facets=["inv"], default=False)
-    p_nom_existing_mw: float = facet_field(facets=["inv"], unit="MW", default=0.0)
-    build_min_mw: float = facet_field(facets=["inv"], unit="MW", default=0.0)
-    build_max_mw: Optional[float] = facet_field(facets=["inv"], unit="MW", default=None)
-    resource_class: Optional[str] = facet_field(facets=["inv"], default=None,
-                                                description="VRE class -> availability profile")
 
     # operations (ops)
     p_max_mw: float = facet_field(facets=["ops"], unit="MW", default=100.0,
-                                  description="nameplate, or decided by inv")
+                                  description="installed nameplate capacity")
     p_min_pu: float = facet_field(facets=["ops"], unit="pu", default=0.0,
                                   description="min stable level")
     heat_rate_mmbtu_per_mwh: Optional[float] = facet_field(facets=["ops"], unit="MMBtu/MWh",
@@ -301,13 +306,10 @@ class Storage(BaseModel):
     soc_min_pu: float = facet_field(facets=["ops"], unit="pu", default=0.0)
     soc_max_pu: float = facet_field(facets=["ops"], unit="pu", default=1.0)
     vom_per_mwh: float = facet_field(facets=["ops"], unit="currency/MWh", default=0.0)
-    capex_per_mw: Optional[float] = facet_field(facets=["inv"], unit="currency/MW", default=None,
-                                                description="separate power capex")
-    capex_per_mwh: Optional[float] = facet_field(facets=["inv"], unit="currency/MWh", default=None,
-                                                 description="separate energy capex")
     fom_per_mw_yr: float = facet_field(facets=["inv"], unit="currency/MW/yr", default=0.0)
     lifetime_yr: int = facet_field(facets=["inv"], unit="yr", default=15)
-    is_candidate: bool = facet_field(facets=["inv"], default=False)
+    status: ResourceStatus = facet_field(facets=["core", "inv"],
+                                         default=ResourceStatus.EXISTING)
     mttf_h: Optional[float] = facet_field(facets=["adq"], unit="h", default=None)
     mttr_h: Optional[float] = facet_field(facets=["adq"], unit="h", default=None)
     mva_base: float = facet_field(facets=["pf", "dyn"], unit="MVA", default=100.0)
@@ -334,6 +336,66 @@ class Load(BaseModel):
                                       description="value of lost load")
     dr_sheddable_mw: float = facet_field(facets=["ops"], unit="MW", default=0.0)
     dr_shiftable_mw: float = facet_field(facets=["ops"], unit="MW", default=0.0)
+
+
+class ExpansionCandidate(BaseModel):
+    """A buildable investment option — *not* a physical asset (Sienna-style:
+    the Investments domain, separate from Operations).
+
+    Only the capacity-expansion (`inv`) layer consumes these. They carry the
+    siting, build limits / resource potential, economics, and an operating
+    template describing how the resource would run once built. When CEM chooses
+    to build one, it materializes a Generator / Storage / line of that size.
+    """
+
+    id: str = facet_field(facets=["core"])
+    name: str = facet_field(facets=["core"], default="")
+    kind: CandidateKind = facet_field(facets=["core", "inv"],
+                                      default=CandidateKind.GENERATOR)
+    technology: str = facet_field(facets=["core", "inv"], default="",
+                                  description="ccgt, wind, solar_pv, battery, line, …")
+
+    # siting (a bus for generators/storage; a pair for transmission)
+    bus_id: Optional[str] = facet_field(facets=["core"], default=None)
+    zone_id: Optional[str] = facet_field(facets=["core"], default=None)
+    from_bus_id: Optional[str] = facet_field(facets=["core"], default=None)
+    to_bus_id: Optional[str] = facet_field(facets=["core"], default=None)
+
+    # build limits / resource potential
+    build_min_mw: float = facet_field(facets=["inv"], unit="MW", default=0.0)
+    build_max_mw: Optional[float] = facet_field(
+        facets=["inv"], unit="MW", default=None,
+        description="maximum buildable potential at this site (resource ceiling)")
+
+    # economics (annualized inside the engine via a capital recovery factor)
+    capex_per_mw: Optional[float] = facet_field(facets=["inv"], unit="currency/MW", default=None)
+    capex_per_mwh: Optional[float] = facet_field(facets=["inv"], unit="currency/MWh",
+                                                 default=None, description="storage energy capex")
+    fom_per_mw_yr: float = facet_field(facets=["inv"], unit="currency/MW/yr", default=0.0)
+    lifetime_yr: int = facet_field(facets=["inv"], unit="yr", default=30)
+
+    # operating template — how it would run once built
+    fuel_id: Optional[str] = facet_field(facets=["inv"], default=None)
+    heat_rate_mmbtu_per_mwh: Optional[float] = facet_field(facets=["inv"], unit="MMBtu/MWh",
+                                                           default=None)
+    vom_per_mwh: float = facet_field(facets=["inv"], unit="currency/MWh", default=0.0)
+    p_min_pu: float = facet_field(facets=["inv"], unit="pu", default=0.0)
+    availability_profile_id: Optional[str] = facet_field(
+        facets=["inv"], default=None, description="VRE candidate availability profile")
+    resource_class: Optional[str] = facet_field(facets=["inv"], default=None)
+
+    # storage template
+    duration_h: Optional[float] = facet_field(facets=["inv"], unit="h", default=None,
+                                              description="energy/power ratio for storage")
+    efficiency_charge: float = facet_field(facets=["inv"], default=0.95)
+    efficiency_discharge: float = facet_field(facets=["inv"], default=0.95)
+
+    # transmission template
+    reactance_pu: Optional[float] = facet_field(facets=["inv"], unit="pu", default=None)
+
+    # rough metrics surfaced on the Resource Potential map (optional/derivable)
+    expected_capacity_factor: Optional[float] = facet_field(facets=["inv"], default=None)
+    lcoe_per_mwh: Optional[float] = facet_field(facets=["inv"], unit="currency/MWh", default=None)
 
 
 # --- supporting objects -------------------------------------------------------

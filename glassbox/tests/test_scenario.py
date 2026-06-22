@@ -40,7 +40,7 @@ def test_overrides_do_not_mutate_original(world):
 
 
 def test_set_field_override_retires_unit(world):
-    gid = next(g.id for g in world.generators if not g.is_candidate)
+    gid = world.generators[0].id
     w2 = apply_overrides(world, [Override(kind="set_field", collection="generators",
                                           id=gid, field="in_service", value=False)])
     assert next(g for g in w2.generators if g.id == gid).in_service is False

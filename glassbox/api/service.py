@@ -33,6 +33,7 @@ COLLECTION_MODELS: dict[str, str] = {
     "hydro_units": "Hydro",
     "storage_units": "Storage",
     "loads": "Load",
+    "expansion_candidates": "ExpansionCandidate",
     "fuels": "Fuel",
     "cost_curves": "CostCurve",
     "policies": "Policy",
@@ -209,8 +210,7 @@ class WorldService:
         for ln in w.ac_lines:
             edges.append({"id": ln.id, "kind": "ac_line",
                           "from": ln.from_bus_id, "to": ln.to_bus_id,
-                          "rating_mva": ln.rating_normal_mva,
-                          "is_candidate": ln.is_candidate, "x": ln.x})
+                          "rating_mva": ln.rating_normal_mva, "x": ln.x})
         for tr in w.transformers:
             edges.append({"id": tr.id, "kind": "transformer",
                           "from": tr.from_bus_id, "to": tr.to_bus_id,
@@ -224,10 +224,26 @@ class WorldService:
                        "limit_mw": iface.limit_mw,
                        "limit_source": iface.limit_source.value}
                       for iface in w.interfaces]
+        # Resource Potential layer: buildable candidates with siting + rough metrics
+        bus_xy = {b.id: (b.x, b.y) for b in w.buses}
+        candidates = []
+        for c in w.expansion_candidates:
+            site = c.bus_id or c.from_bus_id
+            xy = bus_xy.get(site, (0.0, 0.0))
+            candidates.append({
+                "id": c.id, "name": c.name, "kind": c.kind.value,
+                "technology": c.technology, "bus_id": c.bus_id,
+                "from_bus_id": c.from_bus_id, "to_bus_id": c.to_bus_id,
+                "x": xy[0], "y": xy[1],
+                "build_max_mw": c.build_max_mw,
+                "capex_per_mw": c.capex_per_mw,
+                "lcoe_per_mwh": c.lcoe_per_mwh,
+                "expected_capacity_factor": c.expected_capacity_factor,
+            })
         return {"nodes": nodes, "edges": edges,
                 "zones": [{"id": z.id, "name": z.name,
                            "member_bus_ids": z.member_bus_ids} for z in w.zones],
-                "interfaces": interfaces}
+                "interfaces": interfaces, "candidates": candidates}
 
 
 def _jsonable(value: Any) -> Any:

@@ -19,6 +19,7 @@ from .entities import (
     CostCurve,
     DCLine,
     Disturbance,
+    ExpansionCandidate,
     Fuel,
     Generator,
     Hydro,
@@ -115,11 +116,14 @@ class World(BaseModel):
     shunts: list[Shunt] = Field(default_factory=list)
     interfaces: list[Interface] = Field(default_factory=list)
 
-    # resources
+    # resources (physical, existing assets)
     generators: list[Generator] = Field(default_factory=list)
     hydro_units: list[Hydro] = Field(default_factory=list)
     storage_units: list[Storage] = Field(default_factory=list)
     loads: list[Load] = Field(default_factory=list)
+
+    # investment options (buildable; consumed only by the capacity-expansion layer)
+    expansion_candidates: list[ExpansionCandidate] = Field(default_factory=list)
 
     # dynamic models attached by id from generators/storage/dc_lines/shunts
     dynamic_models: list[SynchronousMachineModel | ConverterModel] = Field(default_factory=list)
@@ -171,6 +175,6 @@ class World(BaseModel):
     ENTITY_COLLECTIONS: ClassVar[tuple[str, ...]] = (
         "buses", "zones", "ac_lines", "transformers", "dc_lines", "shunts",
         "interfaces", "generators", "hydro_units", "storage_units", "loads",
-        "fuels", "cost_curves", "policies", "reserve_products",
-        "system_constraints", "disturbances",
+        "expansion_candidates", "fuels", "cost_curves", "policies",
+        "reserve_products", "system_constraints", "disturbances",
     )

@@ -89,10 +89,13 @@ class LineSpec:
     a: str        # from node
     b: str        # to node
     x: float      # reactance (pu)
-    rating: float  # MW
+    rating: float  # MW (existing capacity, or the build ceiling for a candidate)
     is_candidate: bool = False
     capex_annual_per_mw: float = 0.0
     build_max: float = 0.0
+    transport_only: bool = False  # candidate additions are modeled as transport
+                                  # corridors (standard CEM simplification), so
+                                  # they carry no DC angle coupling
 
 
 @dataclass
@@ -148,6 +151,24 @@ def _gen_marginal_cost(world: World, g) -> tuple[float, float]:
     return hr * fuel_price + g.vom_per_mwh, hr * emis
 
 
+def _candidate_marginal_cost(world: World, c) -> float:
+    """Marginal operating cost ($/MWh) of a candidate generator."""
+    if c.technology in ("wind", "solar_pv"):
+        return c.vom_per_mwh
+    hr = c.heat_rate_mmbtu_per_mwh or 0.0
+    fuel = next((f for f in world.fuels if f.id == c.fuel_id), None)
+    return hr * (fuel.price_per_mmbtu if fuel else 0.0) + c.vom_per_mwh
+
+
+def _candidate_emissions(world: World, c) -> float:
+    """Emissions (tCO2/MWh) of a candidate generator."""
+    if c.technology in ("wind", "solar_pv"):
+        return 0.0
+    hr = c.heat_rate_mmbtu_per_mwh or 0.0
+    fuel = next((f for f in world.fuels if f.id == c.fuel_id), None)
+    return hr * (fuel.emissions_tco2_per_mmbtu if fuel else 0.0)
+
+
 def assemble_view(
     world: World,
     spatial_view: SpatialView,
@@ -177,7 +198,7 @@ def assemble_view(
         series = store.get(ld.demand_profile_id)[abs_timesteps]
         load[node_idx[node]] += series
 
-    # --- generators ---
+    # --- existing generators (physical assets; capacity fixed) ---
     gens: list[GenSpec] = []
     for g in world.generators:
         node = bus_to_node.get(g.bus_id)
@@ -187,23 +208,45 @@ def assemble_view(
         avail = None
         if g.is_vre and g.availability_profile_id and g.availability_profile_id in store:
             avail = store.get(g.availability_profile_id)[abs_timesteps]
-        capex_annual = 0.0
-        if g.is_candidate and g.capex_per_mw:
-            crf = capital_recovery_factor(discount_rate, g.lifetime_yr)
-            capex_annual = g.capex_per_mw * crf + g.fom_per_mw_yr
         ramp = (g.ramp_up_mw_per_min or g.p_max_mw / 60.0) * 60.0  # MW/h
         gens.append(GenSpec(
             id=g.id, node=node, tech=g.technology.value, is_vre=g.is_vre,
             marginal_cost=mc, emissions_t_per_mwh=emis,
-            p_nom_existing=(0.0 if g.is_candidate else g.p_max_mw),
-            is_candidate=g.is_candidate, capex_annual_per_mw=capex_annual,
-            build_max=(g.build_max_mw or g.p_max_mw * 3),
+            p_nom_existing=g.p_max_mw, is_candidate=False,
+            capex_annual_per_mw=0.0, build_max=0.0,
             p_min_pu=(0.0 if g.is_vre else g.p_min_pu),
             ramp_per_h=ramp,
             min_up_h=int(round(g.min_up_time_h)), min_down_h=int(round(g.min_down_time_h)),
             start_cost=g.start_cost, no_load_cost=g.no_load_cost,
             reserve_eligible=bool(g.reserve_eligible) and not g.is_vre,
             availability=avail))
+
+    # --- candidate generators (investment options; only built by CEM) ---
+    if investment:
+        for c in world.expansion_candidates:
+            if c.kind.value != "generator":
+                continue
+            node = bus_to_node.get(c.bus_id)
+            if node is None:
+                continue
+            is_vre = c.technology in ("wind", "solar_pv")
+            mc = _candidate_marginal_cost(world, c)
+            emis = _candidate_emissions(world, c)
+            avail = None
+            if is_vre and c.availability_profile_id and c.availability_profile_id in store:
+                avail = store.get(c.availability_profile_id)[abs_timesteps]
+            crf = capital_recovery_factor(discount_rate, c.lifetime_yr)
+            capex_annual = (c.capex_per_mw or 0.0) * crf + c.fom_per_mw_yr
+            gens.append(GenSpec(
+                id=c.id, node=node, tech=c.technology, is_vre=is_vre,
+                marginal_cost=mc, emissions_t_per_mwh=emis,
+                p_nom_existing=0.0, is_candidate=True,
+                capex_annual_per_mw=capex_annual,
+                build_max=(c.build_max_mw or 0.0),
+                p_min_pu=(0.0 if is_vre else c.p_min_pu),
+                ramp_per_h=(c.build_max_mw or 0.0),
+                min_up_h=0, min_down_h=0, start_cost=0.0, no_load_cost=0.0,
+                reserve_eligible=not is_vre, availability=avail))
 
     # --- hydro as energy-limited dispatchable gens ---
     for h in world.hydro_units:
@@ -222,27 +265,37 @@ def assemble_view(
             start_cost=0.0, no_load_cost=0.0, reserve_eligible=True,
             energy_limit_per_period=budget))
 
-    # --- storage ---
+    # --- existing storage (fixed) + candidate storage (built by CEM) ---
     storages: list[StorageSpec] = []
     for s in world.storage_units:
         node = bus_to_node.get(s.bus_id)
         if node is None:
             continue
-        capex_p = capex_e = 0.0
-        if s.is_candidate:
-            crf = capital_recovery_factor(discount_rate, s.lifetime_yr)
-            capex_p = (s.capex_per_mw or 0.0) * crf + s.fom_per_mw_yr
-            capex_e = (s.capex_per_mwh or 0.0) * crf
         storages.append(StorageSpec(
             id=s.id, node=node,
-            p_nom_existing=(0.0 if s.is_candidate else s.p_discharge_max_mw),
-            e_nom_existing=(0.0 if s.is_candidate else s.energy_capacity_mwh),
-            is_candidate=s.is_candidate,
-            capex_annual_per_mw=capex_p, capex_annual_per_mwh=capex_e,
+            p_nom_existing=s.p_discharge_max_mw, e_nom_existing=s.energy_capacity_mwh,
+            is_candidate=False, capex_annual_per_mw=0.0, capex_annual_per_mwh=0.0,
             eff_c=s.efficiency_charge, eff_d=s.efficiency_discharge,
             soc_min_pu=s.soc_min_pu, soc_max_pu=s.soc_max_pu, vom=s.vom_per_mwh,
-            build_max_mw=s.p_discharge_max_mw * 4 if s.is_candidate else 0.0,
-            build_max_mwh=s.energy_capacity_mwh * 4 if s.is_candidate else 0.0))
+            build_max_mw=0.0, build_max_mwh=0.0))
+    if investment:
+        for c in world.expansion_candidates:
+            if c.kind.value != "storage":
+                continue
+            node = bus_to_node.get(c.bus_id)
+            if node is None:
+                continue
+            crf = capital_recovery_factor(discount_rate, c.lifetime_yr)
+            capex_p = (c.capex_per_mw or 0.0) * crf + c.fom_per_mw_yr
+            capex_e = (c.capex_per_mwh or 0.0) * crf
+            dur = c.duration_h or 4.0
+            storages.append(StorageSpec(
+                id=c.id, node=node, p_nom_existing=0.0, e_nom_existing=0.0,
+                is_candidate=True, capex_annual_per_mw=capex_p,
+                capex_annual_per_mwh=capex_e, eff_c=c.efficiency_charge,
+                eff_d=c.efficiency_discharge, soc_min_pu=0.05, soc_max_pu=1.0,
+                vom=c.vom_per_mwh, build_max_mw=(c.build_max_mw or 0.0),
+                build_max_mwh=(c.build_max_mw or 0.0) * dur))
 
     # --- transmission ---
     lines: list[LineSpec] = []
@@ -257,14 +310,8 @@ def assemble_view(
             b = bus_to_node.get(ln.to_bus_id)
             if a is None or b is None or a == b:
                 continue
-            capex_annual = 0.0
-            if ln.is_candidate and ln.capex_per_mw:
-                capex_annual = ln.capex_per_mw * capital_recovery_factor(discount_rate, 40)
             lines.append(LineSpec(id=ln.id, a=a, b=b, x=max(ln.x, 1e-4),
-                                  rating=ln.rating_normal_mva,
-                                  is_candidate=ln.is_candidate and investment,
-                                  capex_annual_per_mw=capex_annual,
-                                  build_max=ln.rating_normal_mva))
+                                  rating=ln.rating_normal_mva))
         for tr in world.transformers:
             a = bus_to_node.get(tr.from_bus_id)
             b = bus_to_node.get(tr.to_bus_id)
@@ -272,6 +319,25 @@ def assemble_view(
                 continue
             lines.append(LineSpec(id=tr.id, a=a, b=b, x=max(tr.x, 1e-4),
                                   rating=tr.rating_mva))
+
+    # candidate transmission (a real CEM build decision). Modeled as a transport
+    # corridor with a built-capacity variable — the standard CEM simplification
+    # (the DC angle coupling of a not-yet-built line is nonconvex).
+    if investment:
+        for c in world.expansion_candidates:
+            if c.kind.value != "line":
+                continue
+            a = bus_to_node.get(c.from_bus_id)
+            b = bus_to_node.get(c.to_bus_id)
+            if a is None or b is None or a == b:
+                continue
+            crf = capital_recovery_factor(discount_rate, c.lifetime_yr)
+            capex_annual = (c.capex_per_mw or 0.0) * crf + c.fom_per_mw_yr
+            ceiling = c.build_max_mw or 0.0
+            lines.append(LineSpec(id=c.id, a=a, b=b, x=max(c.reactance_pu or 0.1, 1e-4),
+                                  rating=ceiling, is_candidate=True,
+                                  capex_annual_per_mw=capex_annual, build_max=ceiling,
+                                  transport_only=True))
 
     # --- interfaces (only meaningful when lines are individually modeled) ---
     interfaces = []
@@ -533,29 +599,51 @@ def build_dispatch_model(view: EconomicView, options: EngineOptions) -> BuiltMod
     # --- transmission ---
     flow = None
     theta = None
+    line_build = None
     line_ids = [ln.id for ln in view.lines]
+    fixed_lines = [ln for ln in view.lines if not ln.is_candidate]
+    cand_lines = [ln for ln in view.lines if ln.is_candidate]
     if view.lines:
         l_idx = pd.Index(line_ids, name="l")
-        rating_da = xr.DataArray([ln.rating for ln in view.lines],
-                                 coords=[l_idx], dims=["l"])
-        if view.network_mode == "dc":
+        flow = m.add_variables(coords=[l_idx, t_idx], name="flow")
+
+        # DC angle coupling applies only to fixed (existing) lines; candidate
+        # additions are transport corridors (no angle equation).
+        if view.network_mode == "dc" and fixed_lines:
             theta = m.add_variables(coords=[n_idx, t_idx], name="theta")
-            # reference angle = 0
             m.add_constraints(theta.sel(n=view.reference_node) == 0, name="ref_angle")
-            flow = m.add_variables(coords=[l_idx, t_idx], name="flow")
-            # DC power flow per line (vectorized over t): flow = (θ_a − θ_b)/x
-            from_nodes = xr.DataArray([ln.a for ln in view.lines], coords=[l_idx], dims=["l"])
-            to_nodes = xr.DataArray([ln.b for ln in view.lines], coords=[l_idx], dims=["l"])
-            susc_da = xr.DataArray([1.0 / ln.x for ln in view.lines], coords=[l_idx], dims=["l"])
+            fl_idx = pd.Index([ln.id for ln in fixed_lines], name="l")
+            from_nodes = xr.DataArray([ln.a for ln in fixed_lines], coords=[fl_idx], dims=["l"])
+            to_nodes = xr.DataArray([ln.b for ln in fixed_lines], coords=[fl_idx], dims=["l"])
+            susc_da = xr.DataArray([1.0 / ln.x for ln in fixed_lines], coords=[fl_idx], dims=["l"])
             theta_a = theta.sel(n=from_nodes)
             theta_b = theta.sel(n=to_nodes)
-            m.add_constraints(flow - susc_da * (theta_a - theta_b) == 0, name="dcpf")
-            m.add_constraints(flow <= rating_da, name="flim_hi")
-            m.add_constraints(flow >= -rating_da, name="flim_lo")
-        else:
-            flow = m.add_variables(coords=[l_idx, t_idx], name="flow")
-            m.add_constraints(flow <= rating_da, name="flim_hi")
-            m.add_constraints(flow >= -rating_da, name="flim_lo")
+            m.add_constraints(flow.sel(l=[ln.id for ln in fixed_lines])
+                              - susc_da * (theta_a - theta_b) == 0, name="dcpf")
+
+        # thermal limits on fixed lines (fixed rating)
+        if fixed_lines:
+            fl_idx = pd.Index([ln.id for ln in fixed_lines], name="l")
+            rating_da = xr.DataArray([ln.rating for ln in fixed_lines],
+                                     coords=[fl_idx], dims=["l"])
+            ff = flow.sel(l=[ln.id for ln in fixed_lines])
+            m.add_constraints(ff <= rating_da, name="flim_hi")
+            m.add_constraints(ff >= -rating_da, name="flim_lo")
+
+        # candidate lines: flow bounded by the built capacity (a decision)
+        if cand_lines:
+            cids = [ln.id for ln in cand_lines]
+            cl_idx = pd.Index(cids, name="l")
+            cf = flow.sel(l=cids)
+            if options.investment:
+                bmax = xr.DataArray([ln.build_max for ln in cand_lines],
+                                    coords=[cl_idx], dims=["l"])
+                line_build = m.add_variables(lower=0.0, upper=bmax, coords=[cl_idx],
+                                             name="line_build")
+                m.add_constraints(cf - line_build <= 0, name="candflim_hi")
+                m.add_constraints(cf + line_build >= 0, name="candflim_lo")
+            else:
+                m.add_constraints(cf == 0, name="cand_unbuilt")
 
     # interface limits (sum of member flows <= limit)
     if flow is not None:
@@ -660,6 +748,9 @@ def build_dispatch_model(view: EconomicView, options: EngineOptions) -> BuiltMod
                 if s.is_candidate:
                     obj = obj + sto_build_p.sel(s=s.id) * s.capex_annual_per_mw
                     obj = obj + sto_build_e.sel(s=s.id) * s.capex_annual_per_mwh
+        if line_build is not None:
+            for ln in cand_lines:
+                obj = obj + line_build.sel(l=ln.id) * ln.capex_annual_per_mw
 
     m.add_objective(obj)
 
