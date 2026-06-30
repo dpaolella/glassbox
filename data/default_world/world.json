@@ -1537,62 +1537,6 @@
       "lcoe_per_mwh": 54.2
     },
     {
-      "id": "cand_wind_B1",
-      "name": "Wind @ B1",
-      "kind": "generator",
-      "technology": "wind",
-      "bus_id": "B2",
-      "zone_id": "ZB",
-      "from_bus_id": null,
-      "to_bus_id": null,
-      "build_min_mw": 0.0,
-      "build_max_mw": 1200.0,
-      "capex_per_mw": 1300000.0,
-      "capex_per_mwh": null,
-      "fom_per_mw_yr": 26000.0,
-      "lifetime_yr": 25,
-      "fuel_id": null,
-      "heat_rate_mmbtu_per_mwh": null,
-      "vom_per_mwh": 0.5,
-      "p_min_pu": 0.0,
-      "availability_profile_id": "availability__wind_B1",
-      "resource_class": "wind",
-      "duration_h": null,
-      "efficiency_charge": 0.95,
-      "efficiency_discharge": 0.95,
-      "reactance_pu": null,
-      "expected_capacity_factor": 0.32,
-      "lcoe_per_mwh": 49.6
-    },
-    {
-      "id": "cand_solar_B6",
-      "name": "Solar @ B6",
-      "kind": "generator",
-      "technology": "solar_pv",
-      "bus_id": "B7",
-      "zone_id": "ZB",
-      "from_bus_id": null,
-      "to_bus_id": null,
-      "build_min_mw": 0.0,
-      "build_max_mw": 1200.0,
-      "capex_per_mw": 900000.0,
-      "capex_per_mwh": null,
-      "fom_per_mw_yr": 18000.0,
-      "lifetime_yr": 25,
-      "fuel_id": null,
-      "heat_rate_mmbtu_per_mwh": null,
-      "vom_per_mwh": 0.5,
-      "p_min_pu": 0.0,
-      "availability_profile_id": "availability__solar_B6",
-      "resource_class": "solar_pv",
-      "duration_h": null,
-      "efficiency_charge": 0.95,
-      "efficiency_discharge": 0.95,
-      "reactance_pu": null,
-      "expected_capacity_factor": 0.18,
-      "lcoe_per_mwh": 60.9
-    },
-    {
       "id": "cand_batt_B3",
       "name": "Battery @ B3",
       "kind": "storage",
@@ -1647,6 +1591,146 @@
       "reactance_pu": 0.11,
       "expected_capacity_factor": null,
       "lcoe_per_mwh": null
+    }
+  ],
+  "resource_potentials": [
+    {
+      "id": "rp_solar_ZB",
+      "name": "Solar potential \u2014 Remote (ZB)",
+      "kind": "generator",
+      "technology": "solar_pv",
+      "zone_id": "ZB",
+      "bus_id": "B3",
+      "resource_class": "solar_pv",
+      "availability_profile_id": "availability__solar_ZB",
+      "fuel_id": null,
+      "heat_rate_mmbtu_per_mwh": null,
+      "vom_per_mwh": 0.5,
+      "p_min_pu": 0.0,
+      "fom_per_mw_yr": 18000.0,
+      "lifetime_yr": 25,
+      "duration_h": null,
+      "efficiency_charge": 0.95,
+      "efficiency_discharge": 0.95,
+      "capex_per_mwh": null,
+      "tranches": [
+        {
+          "build_max_mw": 400.0,
+          "capex_per_mw": 800000.0,
+          "capex_per_mwh": null,
+          "fom_per_mw_yr": null,
+          "expected_capacity_factor": 0.2,
+          "availability_profile_id": null,
+          "lcoe_per_mwh": 50.0
+        },
+        {
+          "build_max_mw": 400.0,
+          "capex_per_mw": 950000.0,
+          "capex_per_mwh": null,
+          "fom_per_mw_yr": null,
+          "expected_capacity_factor": 0.18,
+          "availability_profile_id": null,
+          "lcoe_per_mwh": 63.6
+        },
+        {
+          "build_max_mw": 400.0,
+          "capex_per_mw": 1150000.0,
+          "capex_per_mwh": null,
+          "fom_per_mw_yr": null,
+          "expected_capacity_factor": 0.16,
+          "availability_profile_id": null,
+          "lcoe_per_mwh": 83.7
+        }
+      ]
+    },
+    {
+      "id": "rp_wind_ZB",
+      "name": "Wind potential \u2014 Remote (ZB)",
+      "kind": "generator",
+      "technology": "wind",
+      "zone_id": "ZB",
+      "bus_id": "B3",
+      "resource_class": "wind",
+      "availability_profile_id": "availability__wind_ZB",
+      "fuel_id": null,
+      "heat_rate_mmbtu_per_mwh": null,
+      "vom_per_mwh": 0.5,
+      "p_min_pu": 0.0,
+      "fom_per_mw_yr": 26000.0,
+      "lifetime_yr": 25,
+      "duration_h": null,
+      "efficiency_charge": 0.95,
+      "efficiency_discharge": 0.95,
+      "capex_per_mwh": null,
+      "tranches": [
+        {
+          "build_max_mw": 400.0,
+          "capex_per_mw": 1200000.0,
+          "capex_per_mwh": null,
+          "fom_per_mw_yr": null,
+          "expected_capacity_factor": 0.36,
+          "availability_profile_id": null,
+          "lcoe_per_mwh": 41.4
+        },
+        {
+          "build_max_mw": 400.0,
+          "capex_per_mw": 1450000.0,
+          "capex_per_mwh": null,
+          "fom_per_mw_yr": null,
+          "expected_capacity_factor": 0.31,
+          "availability_profile_id": null,
+          "lcoe_per_mwh": 55.9
+        },
+        {
+          "build_max_mw": 400.0,
+          "capex_per_mw": 1750000.0,
+          "capex_per_mwh": null,
+          "fom_per_mw_yr": null,
+          "expected_capacity_factor": 0.27,
+          "availability_profile_id": null,
+          "lcoe_per_mwh": 75.0
+        }
+      ]
+    },
+    {
+      "id": "rp_solar_ZA",
+      "name": "Solar potential \u2014 Load center (ZA)",
+      "kind": "generator",
+      "technology": "solar_pv",
+      "zone_id": "ZA",
+      "bus_id": "A5",
+      "resource_class": "solar_pv",
+      "availability_profile_id": "availability__solar_ZA",
+      "fuel_id": null,
+      "heat_rate_mmbtu_per_mwh": null,
+      "vom_per_mwh": 0.5,
+      "p_min_pu": 0.0,
+      "fom_per_mw_yr": 18000.0,
+      "lifetime_yr": 25,
+      "duration_h": null,
+      "efficiency_charge": 0.95,
+      "efficiency_discharge": 0.95,
+      "capex_per_mwh": null,
+      "tranches": [
+        {
+          "build_max_mw": 300.0,
+          "capex_per_mw": 1000000.0,
+          "capex_per_mwh": null,
+          "fom_per_mw_yr": null,
+          "expected_capacity_factor": 0.16,
+          "availability_profile_id": null,
+          "lcoe_per_mwh": 74.6
+        },
+        {
+          "build_max_mw": 300.0,
+          "capex_per_mw": 1300000.0,
+          "capex_per_mwh": null,
+          "fom_per_mw_yr": null,
+          "expected_capacity_factor": 0.15,
+          "availability_profile_id": null,
+          "lcoe_per_mwh": 99.1
+        }
+      ]
     }
   ],
   "dynamic_models": [
@@ -2527,19 +2611,27 @@
       "scale": 1.0
     },
     {
-      "id": "wind_B1",
-      "name": "wind@B2",
-      "kind": "wind",
-      "x": 120.0,
+      "id": "solar_ZB",
+      "name": "solar@B3",
+      "kind": "solar",
+      "x": 180.0,
       "y": 180.0,
       "scale": 1.0
     },
     {
-      "id": "solar_B6",
-      "name": "solar@B7",
+      "id": "wind_ZB",
+      "name": "wind@B3",
+      "kind": "wind",
+      "x": 180.0,
+      "y": 180.0,
+      "scale": 1.0
+    },
+    {
+      "id": "solar_ZA",
+      "name": "solar@A5",
       "kind": "solar",
-      "x": 60.0,
-      "y": 300.0,
+      "x": 660.0,
+      "y": 260.0,
       "scale": 1.0
     }
   ],
@@ -2608,8 +2700,8 @@
         ],
         "hours_per_year": 8760
       },
-      "availability__wind_B1": {
-        "id": "availability__wind_B1",
+      "availability__wind_ZB": {
+        "id": "availability__wind_ZB",
         "kind": "availability",
         "unit": "pu",
         "resolution": "hourly",
@@ -2692,8 +2784,29 @@
         ],
         "hours_per_year": 8760
       },
-      "availability__solar_B6": {
-        "id": "availability__solar_B6",
+      "availability__solar_ZB": {
+        "id": "availability__solar_ZB",
+        "kind": "availability",
+        "unit": "pu",
+        "resolution": "hourly",
+        "start": "2030-01-01T00:00:00",
+        "length": 87600,
+        "years": [
+          0,
+          1,
+          2,
+          3,
+          4,
+          5,
+          6,
+          7,
+          8,
+          9
+        ],
+        "hours_per_year": 8760
+      },
+      "availability__solar_ZA": {
+        "id": "availability__solar_ZA",
         "kind": "availability",
         "unit": "pu",
         "resolution": "hourly",

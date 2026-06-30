@@ -278,17 +278,26 @@ def _summarize(scenario: Scenario, view, result) -> dict[str, Any]:
     dispatch = getattr(result, "operational", None) or getattr(result, "dispatch", None)
     network = getattr(result, "network", None)
 
-    # capacity mix by technology (existing + built)
+    # capacity mix by technology (existing + nodal-candidate + zonal builds)
     mix: dict[str, float] = {}
+    built = getattr(result, "built_capacity_mw", {}) or {}
     for g in view.gens:
-        cap = g.p_nom_existing
-        built = getattr(result, "built_capacity_mw", {}) or {}
-        cap += built.get(g.id, 0.0)
+        cap = g.p_nom_existing + built.get(g.id, 0.0)
         mix[g.tech] = mix.get(g.tech, 0.0) + cap
+    # zonal resource-potential builds are aggregated per supply curve; add them
+    # back by technology (the curve's tranches share a technology)
+    rp_built = getattr(result, "built_resource_potential_mw", {}) or {}
+    parent_tech = {g.parent_id: g.tech for g in view.gens if getattr(g, "parent_id", None)}
+    for rid, mw in rp_built.items():
+        tech = parent_tech.get(rid)
+        if tech:
+            mix[tech] = mix.get(tech, 0.0) + mw
     s["capacity_mix_mw"] = {k: round(v, 1) for k, v in mix.items()}
     built_tx = getattr(result, "built_transmission_mw", {}) or {}
     if built_tx:
         s["built_transmission_mw"] = {k: round(v, 1) for k, v in built_tx.items()}
+    if rp_built:
+        s["built_resource_potential_mw"] = {k: round(v, 1) for k, v in rp_built.items()}
     s["total_cost"] = round(getattr(result, "total_cost", 0.0)
                             or getattr(result, "objective", 0.0), 1)
 

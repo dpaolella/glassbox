@@ -38,43 +38,54 @@ class CapacityExpansionEngine(Engine):
         view = model.view
         result = CEMResult(engine="cem", engine_version=ENGINE_VERSION)
 
+        # Build decisions. Nodal candidates report under their own id; zonal
+        # resource-potential tranches (parent_id set) aggregate back to the
+        # supply curve they came from. invest_cost is summed straight from the
+        # build variables so it stays exact across both channels.
+        invest_cost = 0.0
         build_sol = model.m.variables["gen_build"].solution if "gen_build" in model.m.variables else None
         if build_sol is not None:
             for g in view.gens:
-                if g.is_candidate:
-                    mw = float(build_sol.sel(g=g.id))
-                    if mw > 1e-3:
-                        result.built_capacity_mw[g.id] = mw
+                if not g.is_candidate:
+                    continue
+                mw = float(build_sol.sel(g=g.id))
+                invest_cost += mw * g.capex_annual_per_mw
+                if mw <= 1e-3:
+                    continue
+                if g.parent_id:
+                    result.built_resource_potential_mw[g.parent_id] = (
+                        result.built_resource_potential_mw.get(g.parent_id, 0.0) + mw)
+                else:
+                    result.built_capacity_mw[g.id] = mw
         if "sto_build_p" in model.m.variables:
             bp = model.m.variables["sto_build_p"].solution
             be = model.m.variables["sto_build_e"].solution
             for s in view.storages:
-                if s.is_candidate:
-                    p_mw = float(bp.sel(s=s.id))
-                    e_mwh = float(be.sel(s=s.id))
-                    if p_mw > 1e-3 or e_mwh > 1e-3:
-                        result.built_storage_power_mw[s.id] = p_mw
-                        result.built_storage_energy_mwh[s.id] = e_mwh
+                if not s.is_candidate:
+                    continue
+                p_mw = float(bp.sel(s=s.id))
+                e_mwh = float(be.sel(s=s.id))
+                invest_cost += p_mw * s.capex_annual_per_mw + e_mwh * s.capex_annual_per_mwh
+                if p_mw <= 1e-3 and e_mwh <= 1e-3:
+                    continue
+                if s.parent_id:
+                    result.built_resource_potential_mw[s.parent_id] = (
+                        result.built_resource_potential_mw.get(s.parent_id, 0.0) + p_mw)
+                    result.built_resource_potential_energy_mwh[s.parent_id] = (
+                        result.built_resource_potential_energy_mwh.get(s.parent_id, 0.0) + e_mwh)
+                else:
+                    result.built_storage_power_mw[s.id] = p_mw
+                    result.built_storage_energy_mwh[s.id] = e_mwh
         if "line_build" in model.m.variables:
             lb = model.m.variables["line_build"].solution
             for ln in view.lines:
-                if ln.is_candidate:
-                    mw = float(lb.sel(l=ln.id))
-                    if mw > 1e-3:
-                        result.built_transmission_mw[ln.id] = mw
+                if not ln.is_candidate:
+                    continue
+                mw = float(lb.sel(l=ln.id))
+                invest_cost += mw * ln.capex_annual_per_mw
+                if mw > 1e-3:
+                    result.built_transmission_mw[ln.id] = mw
 
-        # cost breakdown
-        invest_cost = 0.0
-        for g in view.gens:
-            if g.is_candidate and g.id in result.built_capacity_mw:
-                invest_cost += result.built_capacity_mw[g.id] * g.capex_annual_per_mw
-        for s in view.storages:
-            if s.is_candidate and s.id in result.built_storage_power_mw:
-                invest_cost += (result.built_storage_power_mw[s.id] * s.capex_annual_per_mw
-                                + result.built_storage_energy_mwh[s.id] * s.capex_annual_per_mwh)
-        for ln in view.lines:
-            if ln.is_candidate and ln.id in result.built_transmission_mw:
-                invest_cost += result.built_transmission_mw[ln.id] * ln.capex_annual_per_mw
         total = float(model.m.objective.value)
         result.total_cost = total
         result.cost_breakdown = {"investment_annualized": invest_cost,
@@ -128,6 +139,7 @@ class CapacityExpansionEngine(Engine):
                 "built_storage_power_mw": result.built_storage_power_mw,
                 "built_storage_energy_mwh": result.built_storage_energy_mwh,
                 "built_transmission_mw": result.built_transmission_mw,
+                "built_resource_potential_mw": result.built_resource_potential_mw,
                 "realized_capacity_factor": (result.operational.realized_capacity_factor
                                              if result.operational else {}),
             },

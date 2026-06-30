@@ -398,6 +398,73 @@ class ExpansionCandidate(BaseModel):
     lcoe_per_mwh: Optional[float] = facet_field(facets=["inv"], unit="currency/MWh", default=None)
 
 
+class SupplyTranche(BaseModel):
+    """One step of a zonal resource supply curve.
+
+    The best (cheapest, highest-yield) sites in a zone are exhausted first, so a
+    technology's buildable potential is a *rising* curve of $/MW, not a single
+    price. Each tranche is an incremental block of capacity at its own cost.
+    """
+
+    build_max_mw: float = facet_field(facets=["inv"], unit="MW", default=0.0,
+                                      description="incremental buildable capacity in this step")
+    capex_per_mw: float = facet_field(facets=["inv"], unit="currency/MW", default=0.0)
+    capex_per_mwh: Optional[float] = facet_field(facets=["inv"], unit="currency/MWh",
+                                                 default=None, description="storage energy capex")
+    fom_per_mw_yr: Optional[float] = facet_field(
+        facets=["inv"], unit="currency/MW/yr", default=None,
+        description="overrides the parent FOM for this tranche if set")
+    expected_capacity_factor: Optional[float] = facet_field(
+        facets=["inv"], default=None, description="better sites (early tranches) yield more")
+    availability_profile_id: Optional[str] = facet_field(
+        facets=["inv"], default=None, description="overrides the parent profile if set")
+    lcoe_per_mwh: Optional[float] = facet_field(facets=["inv"], unit="currency/MWh", default=None)
+
+
+class ResourcePotential(BaseModel):
+    """A *zonal* supply curve of buildable resource (early-screening granularity).
+
+    Where an ``ExpansionCandidate`` is a specific plant at a specific bus, a
+    ResourcePotential is the aggregate buildable potential of a technology across
+    a whole zone, expressed as a stepped supply curve (``tranches``). The two
+    coexist: zonal supply curves answer "how much wind *could* this region host
+    and at what rising cost", while nodal candidates answer "should we build
+    *this* plant *here*". CEM builds tranches cheapest-first up to the potential,
+    siting the build at the zone's interconnection hub.
+    """
+
+    id: str = facet_field(facets=["core"])
+    name: str = facet_field(facets=["core"], default="")
+    kind: CandidateKind = facet_field(facets=["core", "inv"],
+                                      default=CandidateKind.GENERATOR)
+    technology: str = facet_field(facets=["core", "inv"], default="",
+                                  description="wind, solar_pv, battery, …")
+    zone_id: str = facet_field(facets=["core", "inv"], default="",
+                               description="the zone whose resource potential this describes")
+    bus_id: Optional[str] = facet_field(
+        facets=["core"], default=None,
+        description="representative interconnection bus; defaults to the zone hub")
+    resource_class: Optional[str] = facet_field(facets=["inv"], default=None)
+
+    # operating template shared by all tranches (how the resource runs once built)
+    availability_profile_id: Optional[str] = facet_field(facets=["inv"], default=None)
+    fuel_id: Optional[str] = facet_field(facets=["inv"], default=None)
+    heat_rate_mmbtu_per_mwh: Optional[float] = facet_field(facets=["inv"], unit="MMBtu/MWh",
+                                                           default=None)
+    vom_per_mwh: float = facet_field(facets=["inv"], unit="currency/MWh", default=0.0)
+    p_min_pu: float = facet_field(facets=["inv"], unit="pu", default=0.0)
+    fom_per_mw_yr: float = facet_field(facets=["inv"], unit="currency/MW/yr", default=0.0)
+    lifetime_yr: int = facet_field(facets=["inv"], unit="yr", default=25)
+
+    # storage template
+    duration_h: Optional[float] = facet_field(facets=["inv"], unit="h", default=None)
+    efficiency_charge: float = facet_field(facets=["inv"], default=0.95)
+    efficiency_discharge: float = facet_field(facets=["inv"], default=0.95)
+    capex_per_mwh: Optional[float] = facet_field(facets=["inv"], unit="currency/MWh", default=None)
+
+    tranches: list[SupplyTranche] = facet_field(facets=["inv"], default_factory=list)
+
+
 # --- supporting objects -------------------------------------------------------
 
 

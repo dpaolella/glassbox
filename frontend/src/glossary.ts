@@ -47,13 +47,24 @@ export const GLOSSARY: Record<string, string> = {
 
   // investment / resource potential
   resource_potential:
-    "Resource Potential: buildable investment options (ExpansionCandidate) — " +
-    "where new generation/storage/transmission could be added, with rough cost " +
-    "and performance. Only the capacity-expansion (inv) layer sees these; they " +
-    "are not physical assets until the CEM chooses to build them.",
+    "Resource Potential (zonal): a supply curve of buildable resource across a " +
+    "whole zone — the best sites are cheapest, so cost rises in steps (tranches). " +
+    "Early-screening granularity. CEM builds tranches cheapest-first up to the " +
+    "zone's potential. Only the capacity-expansion (inv) layer sees these.",
+  resource_potentials:
+    "Resource Potential (zonal): a stepped supply curve of how much of a " +
+    "technology a zone could host and at what rising cost. Distinct from a " +
+    "node-specific candidate plant.",
+  supply_curve:
+    "Supply curve: buildable capacity ordered cheapest-first. Each step (tranche) " +
+    "is a block of MW at its own $/MW — better sites are used before costlier ones.",
   expansion_candidates:
-    "Expansion candidates: buildable options the capacity-expansion engine can " +
-    "invest in (capex, build limits / resource potential, operating template).",
+    "Expansion candidates (nodal): specific buildable plants/lines at specific " +
+    "buses (capex, build limit, operating template) — 'should we build this here?'. " +
+    "Distinct from a zonal resource-potential supply curve.",
+  candidate_nodal:
+    "A node-specific build option: a concrete plant, battery, or line at a given " +
+    "bus that the CEM can choose to build.",
 
   // catalog collections
   shunts: "Shunt devices: fixed or controllable reactive compensation (capacitors/reactors, SVC/STATCOM).",

@@ -63,6 +63,8 @@ class GenSpec:
     reserve_eligible: bool
     availability: Optional[np.ndarray] = None   # len T, VRE only
     energy_limit_per_period: Optional[float] = None  # hydro reservoir budget
+    parent_id: Optional[str] = None  # set on supply-curve tranches: the zonal
+                                     # ResourcePotential this tranche belongs to
 
 
 @dataclass
@@ -81,6 +83,7 @@ class StorageSpec:
     vom: float
     build_max_mw: float
     build_max_mwh: float
+    parent_id: Optional[str] = None  # set on supply-curve tranches
 
 
 @dataclass
@@ -169,6 +172,17 @@ def _candidate_emissions(world: World, c) -> float:
     return hr * (fuel.emissions_tco2_per_mmbtu if fuel else 0.0)
 
 
+def _zone_hub_bus(world: World, rp) -> Optional[str]:
+    """The bus a zonal resource potential interconnects at: its explicit
+    ``bus_id`` if given, else the zone's first member bus (its hub)."""
+    if rp.bus_id:
+        return rp.bus_id
+    zone = next((z for z in world.zones if z.id == rp.zone_id), None)
+    if zone and zone.member_bus_ids:
+        return zone.member_bus_ids[0]
+    return None
+
+
 def assemble_view(
     world: World,
     spatial_view: SpatialView,
@@ -248,6 +262,34 @@ def assemble_view(
                 min_up_h=0, min_down_h=0, start_cost=0.0, no_load_cost=0.0,
                 reserve_eligible=not is_vre, availability=avail))
 
+        # --- zonal resource potential: expand each supply curve into one
+        # candidate gen per tranche (cheapest first), sited at the zone hub ---
+        for rp in world.resource_potentials:
+            if rp.kind.value != "generator":
+                continue
+            node = bus_to_node.get(_zone_hub_bus(world, rp))
+            if node is None:
+                continue
+            is_vre = rp.technology in ("wind", "solar_pv")
+            mc = _candidate_marginal_cost(world, rp)
+            emis = _candidate_emissions(world, rp)
+            crf = capital_recovery_factor(discount_rate, rp.lifetime_yr)
+            for k, tr in enumerate(rp.tranches):
+                fom = tr.fom_per_mw_yr if tr.fom_per_mw_yr is not None else rp.fom_per_mw_yr
+                capex_annual = tr.capex_per_mw * crf + fom
+                prof_id = tr.availability_profile_id or rp.availability_profile_id
+                avail = (store.get(prof_id)[abs_timesteps]
+                         if is_vre and prof_id and prof_id in store else None)
+                gens.append(GenSpec(
+                    id=f"{rp.id}#t{k}", node=node, tech=rp.technology, is_vre=is_vre,
+                    marginal_cost=mc, emissions_t_per_mwh=emis,
+                    p_nom_existing=0.0, is_candidate=True,
+                    capex_annual_per_mw=capex_annual, build_max=tr.build_max_mw,
+                    p_min_pu=(0.0 if is_vre else rp.p_min_pu),
+                    ramp_per_h=tr.build_max_mw, min_up_h=0, min_down_h=0,
+                    start_cost=0.0, no_load_cost=0.0,
+                    reserve_eligible=not is_vre, availability=avail, parent_id=rp.id))
+
     # --- hydro as energy-limited dispatchable gens ---
     for h in world.hydro_units:
         node = bus_to_node.get(h.bus_id)
@@ -296,6 +338,28 @@ def assemble_view(
                 eff_d=c.efficiency_discharge, soc_min_pu=0.05, soc_max_pu=1.0,
                 vom=c.vom_per_mwh, build_max_mw=(c.build_max_mw or 0.0),
                 build_max_mwh=(c.build_max_mw or 0.0) * dur))
+
+        # zonal storage resource potential (supply curve of buildable storage)
+        for rp in world.resource_potentials:
+            if rp.kind.value != "storage":
+                continue
+            node = bus_to_node.get(_zone_hub_bus(world, rp))
+            if node is None:
+                continue
+            crf = capital_recovery_factor(discount_rate, rp.lifetime_yr)
+            dur = rp.duration_h or 4.0
+            for k, tr in enumerate(rp.tranches):
+                fom = tr.fom_per_mw_yr if tr.fom_per_mw_yr is not None else rp.fom_per_mw_yr
+                capex_p = tr.capex_per_mw * crf + fom
+                capex_e = (tr.capex_per_mwh if tr.capex_per_mwh is not None
+                           else (rp.capex_per_mwh or 0.0)) * crf
+                storages.append(StorageSpec(
+                    id=f"{rp.id}#t{k}", node=node, p_nom_existing=0.0, e_nom_existing=0.0,
+                    is_candidate=True, capex_annual_per_mw=capex_p,
+                    capex_annual_per_mwh=capex_e, eff_c=rp.efficiency_charge,
+                    eff_d=rp.efficiency_discharge, soc_min_pu=0.05, soc_max_pu=1.0,
+                    vom=rp.vom_per_mwh, build_max_mw=tr.build_max_mw,
+                    build_max_mwh=tr.build_max_mw * dur, parent_id=rp.id))
 
     # --- transmission ---
     lines: list[LineSpec] = []
