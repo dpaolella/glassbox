@@ -370,6 +370,34 @@ body,
   color: var(--muted);
   margin-top: 2px;
 }
+/* a field name with an available definition: dotted underline + help cursor */
+.has-tip {
+  text-decoration: underline dotted var(--muted);
+  text-underline-offset: 2px;
+  cursor: help;
+}
+/* nested object-array (supply-curve tranches, cost-curve segments) */
+.nested-table {
+  border-collapse: collapse;
+  font-size: 11px;
+  font-family: ui-monospace, monospace;
+  margin-left: auto; /* right-align within the value cell */
+}
+.nested-table th,
+.nested-table td {
+  padding: 2px 8px;
+  text-align: right;
+  border-bottom: 1px solid var(--border);
+  white-space: nowrap;
+}
+.nested-table th {
+  color: var(--muted);
+  font-weight: 600;
+  cursor: help;
+}
+.nested-table tbody tr:last-child td {
+  border-bottom: none;
+}
 
 /* operator math ------------------------------------------------------- */
 .op-tabs,

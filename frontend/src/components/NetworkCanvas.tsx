@@ -536,9 +536,20 @@ export function NetworkCanvas({ layer, selection, onSelect }: Props) {
                       />
                     );
                   })}
-                  <title>{`${rp.name} — zonal supply curve, ${rp.tranches.length} steps, ≤${Math.round(
+                  <title>{`${rp.name}\nzonal supply curve — best sites first, ≤${Math.round(
                     rp.total_build_max_mw,
-                  )} MW (best sites first)`}</title>
+                  )} MW total\n${rp.tranches
+                    .map(
+                      (t, i) =>
+                        `  step ${i + 1}: ${Math.round(t.build_max_mw)} MW @ $${Math.round(
+                          t.capex_per_mw,
+                        ).toLocaleString()}/MW` +
+                        (t.expected_capacity_factor != null
+                          ? `, CF ${t.expected_capacity_factor}`
+                          : "") +
+                        (t.lcoe_per_mwh != null ? `, ~$${t.lcoe_per_mwh}/MWh` : ""),
+                    )
+                    .join("\n")}`}</title>
                 </g>
               );
             })}
