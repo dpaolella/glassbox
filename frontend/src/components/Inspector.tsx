@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { api, InspectPayload } from "../api";
 import { Selection } from "../App";
+import { FIELD_GLOSSARY } from "../glossary";
 
 interface Props {
   selection: Selection | null;
@@ -9,13 +10,74 @@ interface Props {
   onSelect: (sel: Selection) => void;
 }
 
+function fmt(v: unknown): string {
+  if (v === null || v === undefined) return "—";
+  if (typeof v === "number") {
+    if (Number.isInteger(v)) return v.toLocaleString();
+    if (Math.abs(v) >= 1000) return Math.round(v).toLocaleString();
+    return String(Number(v.toFixed(4)));
+  }
+  if (typeof v === "boolean") return v ? "true" : "false";
+  return String(v);
+}
+
 function renderValue(v: unknown): string {
   if (v === null || v === undefined) return "—";
-  if (typeof v === "number") return Number.isInteger(v) ? String(v) : v.toFixed(4);
-  if (typeof v === "boolean") return v ? "true" : "false";
   if (Array.isArray(v)) return v.length ? `[${v.length}]` : "[]";
   if (typeof v === "object") return JSON.stringify(v);
-  return String(v);
+  return fmt(v);
+}
+
+// short column headers for nested object-array tables (e.g. supply-curve tranches)
+const COL_LABEL: Record<string, string> = {
+  build_max_mw: "MW",
+  capex_per_mw: "$/MW",
+  capex_per_mwh: "$/MWh(e)",
+  fom_per_mw_yr: "FOM $/MW-yr",
+  expected_capacity_factor: "CF",
+  lcoe_per_mwh: "LCOE $/MWh",
+  breakpoint_mw: "MW",
+  marginal_cost_per_mwh: "$/MWh",
+};
+
+// Is this an array of plain objects (a table), e.g. tranches / cost-curve segments?
+function isObjectArray(v: unknown): v is Record<string, unknown>[] {
+  return (
+    Array.isArray(v) &&
+    v.length > 0 &&
+    v.every((x) => x !== null && typeof x === "object" && !Array.isArray(x))
+  );
+}
+
+function NestedTable({ rows }: { rows: Record<string, unknown>[] }) {
+  // union of keys in first-row order, dropping columns null in every row
+  const keys: string[] = [];
+  for (const r of rows) for (const k of Object.keys(r)) if (!keys.includes(k)) keys.push(k);
+  const cols = keys.filter((k) => rows.some((r) => r[k] !== null && r[k] !== undefined));
+  return (
+    <table className="nested-table">
+      <thead>
+        <tr>
+          <th>#</th>
+          {cols.map((c) => (
+            <th key={c} title={FIELD_GLOSSARY[c] ?? c}>
+              {COL_LABEL[c] ?? c}
+            </th>
+          ))}
+        </tr>
+      </thead>
+      <tbody>
+        {rows.map((r, i) => (
+          <tr key={i}>
+            <td className="muted">{i + 1}</td>
+            {cols.map((c) => (
+              <td key={c}>{fmt(r[c])}</td>
+            ))}
+          </tr>
+        ))}
+      </tbody>
+    </table>
+  );
 }
 
 export function Inspector({ selection, layer, perUnit, onSelect }: Props) {
@@ -94,10 +156,14 @@ export function Inspector({ selection, layer, perUnit, onSelect }: Props) {
             const showPu = perUnit && f.per_unit;
             const value = showPu ? f.per_unit!.value : f.value;
             const unit = showPu ? f.per_unit!.unit : f.unit;
+            const tip = f.description || FIELD_GLOSSARY[f.name] || "";
+            const table = isObjectArray(f.value) ? f.value : null;
             return (
-              <tr key={f.name} title={f.description}>
+              <tr key={f.name}>
                 <td className="field-name">
-                  {f.name}
+                  <span className={tip ? "has-tip" : ""} title={tip}>
+                    {f.name}
+                  </span>
                   <div className="field-facets">
                     {f.facets.map((fc) => (
                       <span
@@ -110,10 +176,16 @@ export function Inspector({ selection, layer, perUnit, onSelect }: Props) {
                   </div>
                 </td>
                 <td className="field-value">
-                  {renderValue(value)}
-                  {unit && <span className="unit"> {unit}</span>}
-                  {showPu && f.per_unit!.note && (
-                    <div className="pu-note">{f.per_unit!.note}</div>
+                  {table ? (
+                    <NestedTable rows={table} />
+                  ) : (
+                    <>
+                      {renderValue(value)}
+                      {unit && <span className="unit"> {unit}</span>}
+                      {showPu && f.per_unit!.note && (
+                        <div className="pu-note">{f.per_unit!.note}</div>
+                      )}
+                    </>
                   )}
                 </td>
               </tr>

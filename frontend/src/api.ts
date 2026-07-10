@@ -93,12 +93,33 @@ export interface GraphCandidate {
   expected_capacity_factor: number | null;
 }
 
+export interface SupplyTranche {
+  build_max_mw: number;
+  capex_per_mw: number;
+  expected_capacity_factor: number | null;
+  lcoe_per_mwh: number | null;
+}
+
+export interface GraphResourcePotential {
+  id: string;
+  name: string;
+  kind: string; // generator | storage
+  technology: string;
+  zone_id: string;
+  bus_id: string | null;
+  x: number;
+  y: number;
+  total_build_max_mw: number;
+  tranches: SupplyTranche[];
+}
+
 export interface GraphData {
   nodes: GraphNode[];
   edges: GraphEdge[];
   zones: { id: string; name: string; member_bus_ids: string[] }[];
   interfaces: GraphInterface[];
   candidates: GraphCandidate[];
+  resource_potentials: GraphResourcePotential[];
 }
 
 export interface PerUnit {
@@ -297,6 +318,8 @@ export const COLLECTIONS = [
   "hydro_units",
   "storage_units",
   "loads",
+  "expansion_candidates",
+  "resource_potentials",
   "fuels",
   "cost_curves",
   "policies",

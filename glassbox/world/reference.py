@@ -45,7 +45,9 @@ from ..schema import (
     PolicyKind,
     ReserveKind,
     ReserveProduct,
+    ResourcePotential,
     Storage,
+    SupplyTranche,
     StorageTechnology,
     SynchronousMachineModel,
     SystemConstraint,
@@ -197,6 +199,7 @@ class ReferenceSystemBuilder:
         self._build_hydro()
         self._build_storage()
         self._build_candidates()
+        self._build_resource_potentials()
         self._build_loads()
         self._build_fuels_policies_reserves()
         self._build_interfaces_and_constraints()
@@ -403,23 +406,10 @@ class ReferenceSystemBuilder:
             lifetime_yr=30, fuel_id=gas, heat_rate_mmbtu_per_mwh=6.7,
             vom_per_mwh=3.0, p_min_pu=0.4, expected_capacity_factor=0.5,
             lcoe_per_mwh=lcoe(1.1e6, 33_000.0, 30, 0.5, 3.0, 6.7, 3.5)))
-        # remote VRE buildout (resource potential in the renewable zone)
-        c.append(ExpansionCandidate(
-            id="cand_wind_B1", name="Wind @ B1", kind=CandidateKind.GENERATOR,
-            technology="wind", bus_id=self._b_buses[1], zone_id="ZB",
-            build_max_mw=1200.0, capex_per_mw=1.3e6, fom_per_mw_yr=26_000.0,
-            lifetime_yr=25, vom_per_mwh=0.5, resource_class="wind",
-            availability_profile_id="availability__wind_B1",
-            expected_capacity_factor=0.32,
-            lcoe_per_mwh=lcoe(1.3e6, 26_000.0, 25, 0.32, 0.5)))
-        c.append(ExpansionCandidate(
-            id="cand_solar_B6", name="Solar @ B6", kind=CandidateKind.GENERATOR,
-            technology="solar_pv", bus_id=self._b_buses[6], zone_id="ZB",
-            build_max_mw=1200.0, capex_per_mw=0.9e6, fom_per_mw_yr=18_000.0,
-            lifetime_yr=25, vom_per_mwh=0.5, resource_class="solar_pv",
-            availability_profile_id="availability__solar_B6",
-            expected_capacity_factor=0.18,
-            lcoe_per_mwh=lcoe(0.9e6, 18_000.0, 25, 0.18, 0.5)))
+        # The bulk remote VRE build-out is modeled zonally as a *supply curve*
+        # (see _build_resource_potentials) rather than as two specific plants —
+        # that is the "resource potential" view. The candidates here are the
+        # specific, sited plants: a firm gas unit, a battery, and the line.
         # candidate storage in the remote zone (independent power/energy sizing)
         c.append(ExpansionCandidate(
             id="cand_batt_B3", name="Battery @ B3", kind=CandidateKind.STORAGE,
@@ -437,6 +427,70 @@ class ReferenceSystemBuilder:
             technology="line", from_bus_id=self._b_buses[2],
             to_bus_id=self._a_buses[2], zone_id="ZB", build_max_mw=700.0,
             capex_per_mw=150_000.0, lifetime_yr=40, reactance_pu=0.11))
+
+    def _build_resource_potentials(self) -> None:
+        """Zonal supply curves — the early-screening 'how much could this region
+        host, at what rising cost' view. Best sites are cheapest; CEM builds
+        tranches cheapest-first. Distinct from the sited candidates above."""
+
+        def trench_lcoe(capex, fom, cf, vom=0.5, lifetime=25):
+            fixed = (capex * _crf(0.07, lifetime) + fom) / max(cf * 8760.0, 1.0)
+            return round(fixed + vom, 1)
+
+        rp = self.world.resource_potentials
+        # Remote zone (ZB) solar: large, good resource, but interconnects at the
+        # corridor head (B2) — so building it pressures the binding intertie.
+        rp.append(ResourcePotential(
+            id="rp_solar_ZB", name="Solar potential — Remote (ZB)",
+            kind=CandidateKind.GENERATOR, technology="solar_pv", zone_id="ZB",
+            bus_id=self._b_buses[2], resource_class="solar_pv", vom_per_mwh=0.5,
+            fom_per_mw_yr=18_000.0, lifetime_yr=25,
+            availability_profile_id="availability__solar_ZB",
+            tranches=[
+                SupplyTranche(build_max_mw=400.0, capex_per_mw=0.80e6,
+                              expected_capacity_factor=0.20,
+                              lcoe_per_mwh=trench_lcoe(0.80e6, 18_000.0, 0.20)),
+                SupplyTranche(build_max_mw=400.0, capex_per_mw=0.95e6,
+                              expected_capacity_factor=0.18,
+                              lcoe_per_mwh=trench_lcoe(0.95e6, 18_000.0, 0.18)),
+                SupplyTranche(build_max_mw=400.0, capex_per_mw=1.15e6,
+                              expected_capacity_factor=0.16,
+                              lcoe_per_mwh=trench_lcoe(1.15e6, 18_000.0, 0.16)),
+            ]))
+        # Remote zone (ZB) wind: best class is cheap per-MWh; tail gets pricey.
+        rp.append(ResourcePotential(
+            id="rp_wind_ZB", name="Wind potential — Remote (ZB)",
+            kind=CandidateKind.GENERATOR, technology="wind", zone_id="ZB",
+            bus_id=self._b_buses[2], resource_class="wind", vom_per_mwh=0.5,
+            fom_per_mw_yr=26_000.0, lifetime_yr=25,
+            availability_profile_id="availability__wind_ZB",
+            tranches=[
+                SupplyTranche(build_max_mw=400.0, capex_per_mw=1.20e6,
+                              expected_capacity_factor=0.36,
+                              lcoe_per_mwh=trench_lcoe(1.20e6, 26_000.0, 0.36)),
+                SupplyTranche(build_max_mw=400.0, capex_per_mw=1.45e6,
+                              expected_capacity_factor=0.31,
+                              lcoe_per_mwh=trench_lcoe(1.45e6, 26_000.0, 0.31)),
+                SupplyTranche(build_max_mw=400.0, capex_per_mw=1.75e6,
+                              expected_capacity_factor=0.27,
+                              lcoe_per_mwh=trench_lcoe(1.75e6, 26_000.0, 0.27)),
+            ]))
+        # Load center (ZA) solar: sited at demand (no corridor needed) but a
+        # weaker resource — the locational trade-off vs the remote zone.
+        rp.append(ResourcePotential(
+            id="rp_solar_ZA", name="Solar potential — Load center (ZA)",
+            kind=CandidateKind.GENERATOR, technology="solar_pv", zone_id="ZA",
+            bus_id=self._a_buses[4], resource_class="solar_pv", vom_per_mwh=0.5,
+            fom_per_mw_yr=18_000.0, lifetime_yr=25,
+            availability_profile_id="availability__solar_ZA",
+            tranches=[
+                SupplyTranche(build_max_mw=300.0, capex_per_mw=1.00e6,
+                              expected_capacity_factor=0.16,
+                              lcoe_per_mwh=trench_lcoe(1.00e6, 18_000.0, 0.16)),
+                SupplyTranche(build_max_mw=300.0, capex_per_mw=1.30e6,
+                              expected_capacity_factor=0.15,
+                              lcoe_per_mwh=trench_lcoe(1.30e6, 18_000.0, 0.15)),
+            ]))
 
     def _build_loads(self) -> None:
         # demand concentrated in the load center; small loads elsewhere
@@ -535,6 +589,15 @@ class ReferenceSystemBuilder:
         for cand in self.world.expansion_candidates:
             if cand.availability_profile_id and cand.bus_id:
                 add_site(cand.availability_profile_id, cand.bus_id, cand.technology)
+        # zonal resource-potential VRE supply curves need their own profiles
+        for rp in self.world.resource_potentials:
+            hub = rp.bus_id or (self.world.zone(rp.zone_id).member_bus_ids[0]
+                                if rp.zone_id else None)
+            if rp.availability_profile_id and hub:
+                add_site(rp.availability_profile_id, hub, rp.technology)
+            for tr in rp.tranches:
+                if tr.availability_profile_id and hub:
+                    add_site(tr.availability_profile_id, hub, rp.technology)
 
         # load shape is per-unit (~1.0 mean); each load site's peak MW is carried
         # by WeatherSite.scale, applied inside the generator.

@@ -66,6 +66,9 @@ class CEMResult(ResultBase):
     built_storage_power_mw: dict[str, float] = Field(default_factory=dict)
     built_storage_energy_mwh: dict[str, float] = Field(default_factory=dict)
     built_transmission_mw: dict[str, float] = Field(default_factory=dict)
+    # zonal resource-potential builds, aggregated over supply-curve tranches
+    built_resource_potential_mw: dict[str, float] = Field(default_factory=dict)
+    built_resource_potential_energy_mwh: dict[str, float] = Field(default_factory=dict)
     total_cost: float = 0.0
     cost_breakdown: dict[str, float] = Field(default_factory=dict)
     operational: Optional[DispatchResult] = None

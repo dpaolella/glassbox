@@ -34,6 +34,7 @@ COLLECTION_MODELS: dict[str, str] = {
     "storage_units": "Storage",
     "loads": "Load",
     "expansion_candidates": "ExpansionCandidate",
+    "resource_potentials": "ResourcePotential",
     "fuels": "Fuel",
     "cost_curves": "CostCurve",
     "policies": "Policy",
@@ -240,10 +241,32 @@ class WorldService:
                 "lcoe_per_mwh": c.lcoe_per_mwh,
                 "expected_capacity_factor": c.expected_capacity_factor,
             })
+        # Resource Potential (zonal supply curves): one badge per curve, sited at
+        # the zone hub, with its stepped tranches for the inspector / map glyph.
+        resource_potentials = []
+        for rp in w.resource_potentials:
+            hub = rp.bus_id
+            if not hub:
+                zone = next((z for z in w.zones if z.id == rp.zone_id), None)
+                hub = zone.member_bus_ids[0] if zone and zone.member_bus_ids else None
+            xy = bus_xy.get(hub, (0.0, 0.0))
+            tranches = [{
+                "build_max_mw": t.build_max_mw, "capex_per_mw": t.capex_per_mw,
+                "expected_capacity_factor": t.expected_capacity_factor,
+                "lcoe_per_mwh": t.lcoe_per_mwh,
+            } for t in rp.tranches]
+            resource_potentials.append({
+                "id": rp.id, "name": rp.name, "kind": rp.kind.value,
+                "technology": rp.technology, "zone_id": rp.zone_id,
+                "bus_id": hub, "x": xy[0], "y": xy[1],
+                "total_build_max_mw": sum(t.build_max_mw for t in rp.tranches),
+                "tranches": tranches,
+            })
         return {"nodes": nodes, "edges": edges,
                 "zones": [{"id": z.id, "name": z.name,
                            "member_bus_ids": z.member_bus_ids} for z in w.zones],
-                "interfaces": interfaces, "candidates": candidates}
+                "interfaces": interfaces, "candidates": candidates,
+                "resource_potentials": resource_potentials}
 
 
 def _jsonable(value: Any) -> Any:

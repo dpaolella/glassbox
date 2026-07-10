@@ -47,13 +47,24 @@ export const GLOSSARY: Record<string, string> = {
 
   // investment / resource potential
   resource_potential:
-    "Resource Potential: buildable investment options (ExpansionCandidate) — " +
-    "where new generation/storage/transmission could be added, with rough cost " +
-    "and performance. Only the capacity-expansion (inv) layer sees these; they " +
-    "are not physical assets until the CEM chooses to build them.",
+    "Resource Potential (zonal): a supply curve of buildable resource across a " +
+    "whole zone — the best sites are cheapest, so cost rises in steps (tranches). " +
+    "Early-screening granularity. CEM builds tranches cheapest-first up to the " +
+    "zone's potential. Only the capacity-expansion (inv) layer sees these.",
+  resource_potentials:
+    "Resource Potential (zonal): a stepped supply curve of how much of a " +
+    "technology a zone could host and at what rising cost. Distinct from a " +
+    "node-specific candidate plant.",
+  supply_curve:
+    "Supply curve: buildable capacity ordered cheapest-first. Each step (tranche) " +
+    "is a block of MW at its own $/MW — better sites are used before costlier ones.",
   expansion_candidates:
-    "Expansion candidates: buildable options the capacity-expansion engine can " +
-    "invest in (capex, build limits / resource potential, operating template).",
+    "Expansion candidates (nodal): specific buildable plants/lines at specific " +
+    "buses (capex, build limit, operating template) — 'should we build this here?'. " +
+    "Distinct from a zonal resource-potential supply curve.",
+  candidate_nodal:
+    "A node-specific build option: a concrete plant, battery, or line at a given " +
+    "bus that the CEM can choose to build.",
 
   // catalog collections
   shunts: "Shunt devices: fixed or controllable reactive compensation (capacitors/reactors, SVC/STATCOM).",
@@ -68,3 +79,83 @@ export const GLOSSARY: Record<string, string> = {
 export function gloss(key: string): string | undefined {
   return GLOSSARY[key];
 }
+
+// Field-level definitions, keyed by the entity field name. Surfaced as a hover
+// caption on every inspector row (falling back to the schema's own description).
+// Written for someone who may not know the jargon (e.g. what p_min_pu means).
+export const FIELD_GLOSSARY: Record<string, string> = {
+  // identity / siting
+  id: "Unique identifier of this entity.",
+  name: "Human-readable name.",
+  kind: "Which kind of build option this is: generator, storage, or line.",
+  technology: "Technology type (e.g. ccgt, wind, solar_pv, battery).",
+  zone_id: "The zone (aggregation region) this belongs to.",
+  bus_id: "The bus (node) this device connects to.",
+  from_bus_id: "The 'from' end bus of this branch/line.",
+  to_bus_id: "The 'to' end bus of this branch/line.",
+  base_kv: "Nominal voltage of the bus, in kilovolts.",
+  resource_class: "Resource quality band (e.g. wind/solar class) for this option.",
+
+  // capacity & build limits
+  p_max_mw: "Maximum (nameplate) real-power output, in megawatts.",
+  build_min_mw: "Minimum that must be built if this option is selected (MW).",
+  build_max_mw:
+    "Maximum buildable capacity — the resource ceiling / potential at this site or step (MW).",
+  total_build_max_mw: "Total buildable potential across all supply-curve steps (MW).",
+
+  // economics
+  capex_per_mw:
+    "Overnight capital cost per MW of capacity. The engine annualizes it with a " +
+    "capital-recovery factor (interest + lifetime) before adding it to cost.",
+  capex_per_mwh:
+    "Capital cost per MWh of storage energy capacity (sized separately from power).",
+  fom_per_mw_yr:
+    "Fixed operations & maintenance cost per MW per year — paid whether or not the unit runs.",
+  vom_per_mwh:
+    "Variable O&M cost per MWh generated — the per-unit-of-output running cost (excludes fuel).",
+  lifetime_yr: "Economic life in years, used to annualize the capital cost.",
+  lcoe_per_mwh:
+    "Levelized cost of energy: all-in $/MWh (annualized capex + FOM spread over expected " +
+    "output, plus variable cost). A rough screening metric, shown for context.",
+  expected_capacity_factor:
+    "Expected average output ÷ nameplate (0–1). Higher = better site. Display only — the " +
+    "engine derives realized capacity factor from the hourly availability profile.",
+  start_cost: "Cost incurred each time the unit starts up.",
+  no_load_cost: "Cost per hour to keep the unit online at zero output (idling).",
+
+  // operating template
+  heat_rate_mmbtu_per_mwh:
+    "Fuel efficiency: MMBtu of fuel burned per MWh produced. Lower = more efficient. " +
+    "Multiplied by fuel price to get fuel cost per MWh.",
+  fuel_id: "Which fuel this unit burns (links to its price and CO₂ content).",
+  p_min_pu:
+    "Minimum stable output as a fraction of capacity (per-unit, 0–1). A thermal unit that " +
+    "is online can't turn down below this; e.g. 0.4 means it must run at ≥40% when committed.",
+  availability_profile_id:
+    "Time series (0–1 per hour) capping this resource's output — e.g. wind/solar availability.",
+  ramp_up_mw_per_min: "How fast output can increase, in MW per minute.",
+  ramp_down_mw_per_min: "How fast output can decrease, in MW per minute.",
+  min_up_time_h: "Once started, the minimum hours the unit must stay online.",
+  min_down_time_h: "Once stopped, the minimum hours before it can restart.",
+  reserve_eligible: "Whether this unit can provide operating reserves.",
+
+  // storage
+  duration_h:
+    "Energy-to-power ratio in hours: how long the store can discharge at full power " +
+    "(energy MWh ÷ power MW).",
+  efficiency_charge: "Fraction of energy retained when charging (0–1).",
+  efficiency_discharge: "Fraction of energy retained when discharging (0–1).",
+  soc_min_pu: "Minimum state of charge as a fraction of energy capacity.",
+  soc_max_pu: "Maximum state of charge as a fraction of energy capacity.",
+
+  // electrical
+  reactance_pu: "Series reactance in per-unit on the system base — sets DC power-flow sharing.",
+  r: "Series resistance (per-unit on the system base).",
+  x: "Series reactance (per-unit on the system base). Higher = weaker/longer line.",
+  b: "Total line charging susceptance (per-unit).",
+  rating_normal_mva: "Continuous thermal rating of the line/branch (MVA).",
+
+  // supply curve
+  tranches:
+    "The supply-curve steps: each is a block of MW at its own (rising) cost — best sites first.",
+};

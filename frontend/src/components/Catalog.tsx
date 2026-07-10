@@ -17,6 +17,7 @@ const GLOSS_KEY: Record<string, string> = {
   storage_units: "storage",
   loads: "loads",
   expansion_candidates: "expansion_candidates",
+  resource_potentials: "resource_potentials",
   fuels: "fuels",
   cost_curves: "cost_curves",
   policies: "policies",
@@ -51,7 +52,8 @@ const SPATIAL: [string, string][] = [
 ];
 
 const TABLES: [string, string][] = [
-  ["expansion_candidates", "Expansion candidates (build options)"],
+  ["expansion_candidates", "Expansion candidates (nodal build options)"],
+  ["resource_potentials", "Resource potential (zonal supply curves)"],
   ["fuels", "Fuels"],
   ["cost_curves", "Cost curves"],
   ["policies", "Policies"],

@@ -27,6 +27,7 @@ from .entities import (
     Load,
     Policy,
     ReserveProduct,
+    ResourcePotential,
     Shunt,
     Storage,
     SystemConstraint,
@@ -124,6 +125,8 @@ class World(BaseModel):
 
     # investment options (buildable; consumed only by the capacity-expansion layer)
     expansion_candidates: list[ExpansionCandidate] = Field(default_factory=list)
+    # zonal resource supply curves (early-screening buildable potential)
+    resource_potentials: list[ResourcePotential] = Field(default_factory=list)
 
     # dynamic models attached by id from generators/storage/dc_lines/shunts
     dynamic_models: list[SynchronousMachineModel | ConverterModel] = Field(default_factory=list)
@@ -175,6 +178,6 @@ class World(BaseModel):
     ENTITY_COLLECTIONS: ClassVar[tuple[str, ...]] = (
         "buses", "zones", "ac_lines", "transformers", "dc_lines", "shunts",
         "interfaces", "generators", "hydro_units", "storage_units", "loads",
-        "expansion_candidates", "fuels", "cost_curves", "policies",
+        "expansion_candidates", "resource_potentials", "fuels", "cost_curves", "policies",
         "reserve_products", "system_constraints", "disturbances",
     )

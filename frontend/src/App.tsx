@@ -27,6 +27,7 @@ type Tab =
 const CATALOG_COLLECTIONS = new Set([
   "buses", "zones", "ac_lines", "transformers", "dc_lines", "shunts",
   "interfaces", "generators", "hydro_units", "storage_units", "loads",
+  "expansion_candidates", "resource_potentials",
   "fuels", "cost_curves", "policies", "reserve_products",
   "system_constraints", "disturbances",
 ]);

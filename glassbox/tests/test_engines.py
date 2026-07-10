@@ -100,6 +100,28 @@ def test_cem_builds_from_expansion_candidates(world):
     assert not (set(built) & existing_ids)
 
 
+def test_cem_builds_from_zonal_resource_potential(world):
+    """CEM invests from zonal supply curves, reported separately from candidates.
+
+    Resource-potential builds aggregate back to the supply curve id (not a bus),
+    never exceed the zone's potential, and are kept distinct from both existing
+    assets and node-specific candidates.
+    """
+    run = _cem(world, mode="identity")
+    rp_built = run.result.built_resource_potential_mw
+    assert rp_built, "expected CEM to build from at least one supply curve"
+    rp_ids = {rp.id for rp in world.resource_potentials}
+    potential = {rp.id: sum(t.build_max_mw for t in rp.tranches)
+                 for rp in world.resource_potentials}
+    for rid, mw in rp_built.items():
+        assert rid in rp_ids                     # keyed by the curve, not a bus
+        assert mw <= potential[rid] + 1e-6       # cannot exceed the resource ceiling
+    # resource-potential builds are not mixed into the nodal-candidate channels
+    cand_ids = {c.id for c in world.expansion_candidates}
+    assert not (set(run.result.built_capacity_mw) & rp_ids)
+    assert not (set(rp_built) & cand_ids)
+
+
 def test_cem_solves_and_builds(world):
     run = _cem(world)
     assert run.result.total_cost > 0
