@@ -8,6 +8,7 @@ import {
 } from "../api";
 import { Selection } from "../App";
 import { GLOSSARY } from "../glossary";
+import { Icon, MapIcon, TECH_ICON_KEY } from "../icons";
 import { priceColor, priceRamp, utilizationColor } from "../theme";
 
 // Zone fill/outline colors. The map renders each zone as a filled region
@@ -29,6 +30,7 @@ interface Props {
 }
 
 interface Overlays {
+  results: boolean;
   ac_line: boolean;
   transformer: boolean;
   dc_line: boolean;
@@ -42,6 +44,7 @@ interface Overlays {
 }
 
 const DEFAULT_OVERLAYS: Overlays = {
+  results: true,
   ac_line: true,
   transformer: true,
   dc_line: true,
@@ -54,15 +57,10 @@ const DEFAULT_OVERLAYS: Overlays = {
   resource_potentials: false,
 };
 
-const CAND_ICON: Record<string, string> = {
-  generator: "⚡",
-  storage: "🔋",
-  line: "〜",
-};
-const TECH_ICON: Record<string, string> = {
-  solar_pv: "☀",
-  wind: "🌀",
-  battery: "🔋",
+const CAND_ICON_KEY: Record<string, string> = {
+  generator: "bolt",
+  storage: "battery",
+  line: "line",
 };
 
 type Pt = [number, number];
@@ -148,9 +146,17 @@ function bbox(pts: Pt[]) {
   };
 }
 
-export function NetworkCanvas({ layer, selection, onSelect, results, onClearResults }: Props) {
+export function NetworkCanvas({
+  layer,
+  selection,
+  onSelect,
+  results: resultsProp,
+  onClearResults,
+}: Props) {
   const [graph, setGraph] = useState<GraphData | null>(null);
   const [ov, setOv] = useState<Overlays>(DEFAULT_OVERLAYS);
+  // the overlay toggle hides painted results without discarding them
+  const results = ov.results ? resultsProp ?? null : null;
   const [showOverlays, setShowOverlays] = useState(true);
   const [showLegend, setShowLegend] = useState(true);
   const svgRef = useRef<SVGSVGElement | null>(null);
@@ -184,14 +190,16 @@ export function NetworkCanvas({ layer, selection, onSelect, results, onClearResu
   // when a run's builds arrive, reveal the build-option overlays so the
   // now-solid built candidates are visible whatever layer is active
   useEffect(() => {
+    const results = resultsProp;
     if (!results) return;
     const anyBuilds =
       Object.keys(results.builtCapacity).length > 0 ||
       Object.keys(results.builtStoragePower).length > 0 ||
       Object.keys(results.builtTransmission).length > 0 ||
       Object.keys(results.builtResourcePotential).length > 0;
-    if (anyBuilds) setOv((o) => ({ ...o, candidates: true, resource_potentials: true }));
-  }, [results]);
+    if (anyBuilds)
+      setOv((o) => ({ ...o, candidates: true, resource_potentials: true, results: true }));
+  }, [resultsProp]);
 
   // price per bus: nodal runs key by bus id, zonal runs by zone id (every bus
   // in a zone shows the one flattened price — the aggregation made visible)
@@ -482,9 +490,8 @@ export function NetworkCanvas({ layer, selection, onSelect, results, onClearResu
                       stroke="#f59e0b"
                       strokeWidth={lw(sel ? 2.4 : 1.4)}
                     />
-                    <text textAnchor="middle" dy={lw(4)} fontSize={lw(11)}>
-                      {CAND_ICON[c.kind] ?? "+"}
-                    </text>
+                    <MapIcon icon={CAND_ICON_KEY[c.kind] ?? "bolt"} x={0} y={0}
+                      size={lw(11)} color={built ? "#221503" : "#f59e0b"} />
                     {built && (
                       <text textAnchor="middle" y={lw(24)} fontSize={lw(10)}
                         fontWeight={700} fill="#fcd9a0">
@@ -504,16 +511,18 @@ export function NetworkCanvas({ layer, selection, onSelect, results, onClearResu
           {graph?.nodes.map((n) => {
             const sel =
               selection?.collection === "buses" && selection.id === n.id;
-            const badges: string[] = [];
+            const badges: { icon: string; count: number | null; color: string }[] = [];
             if (ov.gen && n.attached.generators.length)
-              badges.push(`⚡${n.attached.generators.length}`);
+              badges.push({ icon: "bolt", count: n.attached.generators.length, color: "#e8a13c" });
             if (ov.storage && n.attached.storage.length)
-              badges.push(`🔋${n.attached.storage.length}`);
+              badges.push({ icon: "battery", count: n.attached.storage.length, color: "#06d6a0" });
             if (ov.hydro && n.attached.hydro.length)
-              badges.push(`💧${n.attached.hydro.length}`);
+              badges.push({ icon: "drop", count: n.attached.hydro.length, color: "#3a86ff" });
             if (ov.load && n.attached.loads.length)
-              badges.push(`🏠${n.attached.loads.length}`);
-            if (n.bus_type === "slack") badges.push("★");
+              badges.push({ icon: "house", count: n.attached.loads.length, color: "var(--muted)" });
+            if (n.bus_type === "slack")
+              badges.push({ icon: "star", count: null, color: "#ffd166" });
+            const unserved = results?.unservedMwh?.[n.id] ?? 0;
             return (
               <g
                 key={n.id}
@@ -524,6 +533,11 @@ export function NetworkCanvas({ layer, selection, onSelect, results, onClearResu
                   <circle cx={n.x} cy={n.y} r={lw(11)} fill="none"
                     stroke={zoneColor(n.zone)} strokeWidth={lw(2.5)} />
                 )}
+                {unserved > 1 && (
+                  <circle cx={n.x} cy={n.y} r={lw(12.5)} fill="none"
+                    stroke="#ef4444" strokeWidth={lw(1.8)}
+                    strokeDasharray={`${lw(3)} ${lw(3)}`} />
+                )}
                 <circle
                   cx={n.x}
                   cy={n.y}
@@ -531,7 +545,7 @@ export function NetworkCanvas({ layer, selection, onSelect, results, onClearResu
                   fill={
                     priceOf && priceRange && priceOf(n) !== null
                       ? priceColor(priceOf(n)!, priceRange.min, priceRange.max)
-                      : "#0e151f"
+                      : "var(--map-node-fill)"
                   }
                   stroke={zoneColor(n.zone)}
                   strokeWidth={lw(2.2)}
@@ -542,26 +556,33 @@ export function NetworkCanvas({ layer, selection, onSelect, results, onClearResu
                   textAnchor="middle"
                   fontSize={lw(11)}
                   fontWeight={600}
-                  fill="#e6edf6"
+                  fill="var(--text)"
                 >
                   {n.id}
                 </text>
-                {badges.length > 0 && (
-                  <text
-                    x={n.x}
-                    y={n.y + lw(16)}
-                    textAnchor="middle"
-                    fontSize={lw(10)}
-                    fill="#aebcce"
-                  >
-                    {badges.join(" ")}
-                  </text>
-                )}
+                {badges.length > 0 &&
+                  badges.map((b, i) => {
+                    const widths = badges.map((bb) => lw(bb.count !== null ? 17 : 11));
+                    const total = widths.reduce((a, x) => a + x, 0);
+                    const x0 = n.x - total / 2 + widths.slice(0, i).reduce((a, x) => a + x, 0);
+                    return (
+                      <g key={b.icon}>
+                        <MapIcon icon={b.icon} x={x0 + lw(5)} y={n.y + lw(15)}
+                          size={lw(9)} color={b.color} />
+                        {b.count !== null && (
+                          <text x={x0 + lw(11)} y={n.y + lw(18.5)} fontSize={lw(9.5)}
+                            fill="var(--muted)">
+                            {b.count}
+                          </text>
+                        )}
+                      </g>
+                    );
+                  })}
                 <title>{`${n.name || n.id} · ${n.zone} · ${Math.round(n.base_kv)} kV${
                   priceOf && priceOf(n) !== null
                     ? ` · price $${priceOf(n)!.toFixed(1)}/MWh${results?.spatial === "aggregate" ? " (zonal — one flat price per zone)" : ""}`
                     : ""
-                }`}</title>
+                }${unserved > 1 ? ` · ⚠ ~${Math.round(unserved).toLocaleString()} MWh/yr unserved` : ""}`}</title>
               </g>
             );
           })}
@@ -597,9 +618,12 @@ export function NetworkCanvas({ layer, selection, onSelect, results, onClearResu
                       results?.builtResourcePotential?.[rp.id] ? undefined : `${lw(5)} ${lw(3)}`
                     }
                   />
-                  <text x={rp.gx} y={rp.gy + lw(15)} textAnchor="middle"
+                  <MapIcon icon={TECH_ICON_KEY[rp.technology] ?? "bolt"}
+                    x={rp.gx - lw(6) - (rp.technology.length * lw(6.6)) / 2}
+                    y={rp.gy + lw(11)} size={lw(10)} color="#fcd9a0" />
+                  <text x={rp.gx + lw(6)} y={rp.gy + lw(15)} textAnchor="middle"
                     fontSize={lw(11)} fontWeight={700} fill="#fcd9a0">
-                    {TECH_ICON[rp.technology] ?? "▤"} {rp.technology}
+                    {rp.technology}
                   </text>
                   <text x={rp.gx} y={rp.gy + lw(27)} textAnchor="middle"
                     fontSize={lw(9)} fontWeight={results?.builtResourcePotential?.[rp.id] ? 700 : 400}
@@ -691,6 +715,16 @@ export function NetworkCanvas({ layer, selection, onSelect, results, onClearResu
           title="Toggle which layers are drawn on the map">
           <span>{showOverlays ? "▾" : "▸"}</span> overlays
         </button>
+        {showOverlays && resultsProp && (
+          <label className="overlay-row" title="Show or hide the painted solved-run results (prices, flows, builds) without discarding them.">
+            <input
+              type="checkbox"
+              checked={ov.results}
+              onChange={(e) => setOv({ ...ov, results: e.target.checked })}
+            />
+            results (prices/flows/builds)
+          </label>
+        )}
         {showOverlays &&
           (
             [
@@ -731,13 +765,13 @@ export function NetworkCanvas({ layer, selection, onSelect, results, onClearResu
             ))}
             <div className="legend-title" style={{ marginTop: 8 }}>on each bus (point)</div>
             <div className="legend-row">
-              <span title={GLOSSARY.generators}>⚡ gen</span> &nbsp;
-              <span title={GLOSSARY.storage}>🔋 storage</span> &nbsp;
-              <span title={GLOSSARY.hydro}>💧 hydro</span>
+              <span title={GLOSSARY.generators}><Icon icon="bolt" color="#e8a13c" /> gen</span> &nbsp;
+              <span title={GLOSSARY.storage}><Icon icon="battery" color="#06d6a0" /> storage</span> &nbsp;
+              <span title={GLOSSARY.hydro}><Icon icon="drop" color="#3a86ff" /> hydro</span>
             </div>
             <div className="legend-row">
-              <span title={GLOSSARY.loads}>🏠 load</span> &nbsp;
-              <span title={GLOSSARY.slack}>★ slack</span>
+              <span title={GLOSSARY.loads}><Icon icon="house" /> load</span> &nbsp;
+              <span title={GLOSSARY.slack}><Icon icon="star" color="#ffd166" /> slack</span>
             </div>
             <div className="legend-title" style={{ marginTop: 8 }}>build options (inv layer)</div>
             <div className="legend-row" title={GLOSSARY.expansion_candidates}>
@@ -767,6 +801,10 @@ export function NetworkCanvas({ layer, selection, onSelect, results, onClearResu
                 <div className="legend-row" title="A solid amber corridor/diamond is a build the capacity-expansion run chose; dashed = unbuilt option.">
                   <span className="swatch line" style={{ background: "#f59e0b" }} />
                   solid amber = built
+                </div>
+                <div className="legend-row" title="A dashed red ring marks a bus with unserved energy in this run — load the solve chose (or was forced) to shed.">
+                  <span className="swatch" style={{ background: "transparent", border: "1.5px dashed #ef4444", borderRadius: "50%" }} />
+                  red ring = unserved energy
                 </div>
               </>
             )}

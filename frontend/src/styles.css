@@ -31,7 +31,39 @@
   --fs-lg: 14px;
   --fs-xl: 17px;
   --mono: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+  /* map neutrals */
+  --map-node-fill: #0e151f;
+  --map-bg-0: #10171f;
+  --map-bg-1: #0b1118;
   font-family: "Inter", system-ui, -apple-system, "Segoe UI", sans-serif;
+}
+
+/* light / projector mode (issue #36) — high-contrast theme for classrooms.
+   Toggled by data-theme on <html>; every surface reads from the tokens. */
+[data-theme="light"] {
+  --bg: #eef1f6;
+  --bg-1: #f7f9fc;
+  --bg-2: #e7ecf3;
+  --bg-3: #dde4ee;
+  --border: #c3cdda;
+  --text: #16202e;
+  --muted: #55657a;
+  --accent: #0284c7;
+  --map-node-fill: #ffffff;
+  --map-bg-0: #f2f5f9;
+  --map-bg-1: #e3e9f1;
+}
+[data-theme="light"] .net-map {
+  background: radial-gradient(circle at 50% 40%, var(--map-bg-0) 0%, var(--map-bg-1) 100%);
+}
+[data-theme="light"] .canvas-legend,
+[data-theme="light"] .canvas-overlays,
+[data-theme="light"] .map-results-banner,
+[data-theme="light"] .map-controls button {
+  background: rgba(247, 249, 252, 0.94);
+}
+[data-theme="light"] .topbar {
+  background: linear-gradient(180deg, var(--bg-1), var(--bg-2));
 }
 
 /* numeric tables read in aligned, lining figures */
@@ -129,6 +161,18 @@ body,
   min-width: 180px;
 }
 
+.theme-toggle {
+  background: var(--bg-3);
+  border: 1px solid var(--border);
+  color: var(--muted);
+  border-radius: 6px;
+  padding: 4px 10px;
+  font-size: var(--fs-md);
+  cursor: pointer;
+}
+.theme-toggle:hover {
+  color: var(--text);
+}
 .unit-toggle {
   margin-left: auto;
   display: flex;
@@ -229,7 +273,7 @@ body,
   width: 100%;
   height: 100%;
   display: block;
-  background: radial-gradient(circle at 50% 40%, #10171f 0%, #0b1118 100%);
+  background: radial-gradient(circle at 50% 40%, var(--map-bg-0) 0%, var(--map-bg-1) 100%);
   cursor: grab;
   user-select: none;
 }
@@ -604,8 +648,9 @@ code {
   border-color: var(--accent);
 }
 .lesson-box {
-  background: #10261f;
-  border: 1px solid #1f6f4a;
+  background: color-mix(in srgb, var(--good) 12%, var(--bg-1));
+  border: 1px solid color-mix(in srgb, var(--good) 45%, var(--bg-1));
+  color: var(--text);
   border-radius: 6px;
   padding: 8px 10px;
   font-size: 12px;

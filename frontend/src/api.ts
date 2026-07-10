@@ -136,6 +136,7 @@ export interface MapResults {
   builtStoragePower: Record<string, number>;
   builtTransmission: Record<string, number>; // candidate line id -> MW
   builtResourcePotential: Record<string, number>; // supply curve id -> MW
+  unservedMwh: Record<string, number>; // node id -> weighted MWh/yr unserved
 }
 
 export interface PerUnit {

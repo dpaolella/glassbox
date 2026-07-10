@@ -43,6 +43,14 @@ export default function App() {
   const [error, setError] = useState<string | null>(null);
   // solved-run results painted on the map (pushed by the Scenario Lab)
   const [mapResults, setMapResults] = useState<MapResults | null>(null);
+  // light "projector mode" for classrooms (persisted; tokens flip via data-theme)
+  const [theme, setTheme] = useState<string>(
+    () => localStorage.getItem("gb-theme") ?? "dark",
+  );
+  useEffect(() => {
+    document.documentElement.dataset.theme = theme;
+    localStorage.setItem("gb-theme", theme);
+  }, [theme]);
 
   // resizable side panel (persisted)
   const [panelWidth, setPanelWidth] = useState<number>(() => {
@@ -114,6 +122,13 @@ export default function App() {
           />
           <span>{perUnit ? "per-unit" : "SI units"}</span>
         </label>
+        <button
+          className="theme-toggle"
+          title="Toggle light 'projector mode' (high contrast for classrooms)"
+          onClick={() => setTheme(theme === "dark" ? "light" : "dark")}
+        >
+          {theme === "dark" ? "☀ projector" : "◐ dark"}
+        </button>
       </header>
 
       <div className="context-bar">

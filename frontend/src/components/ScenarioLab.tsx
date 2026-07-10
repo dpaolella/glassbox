@@ -20,7 +20,21 @@ function extractMapResults(
   const r = run.result as Record<string, any>;
   const network = r?.network;
   if (!network || !network.nodal_price) return null;
+  // weighted unserved MWh per node (period weights annualize rep-period hours)
+  const disp = r.operational ?? r.dispatch;
+  const unservedMwh: Record<string, number> = {};
+  if (disp?.unserved_mw) {
+    const w: number[] = disp.period_weights ?? [];
+    for (const [node, series] of Object.entries(disp.unserved_mw as Record<string, number[]>)) {
+      const total = series.reduce(
+        (acc: number, v: number, i: number) => acc + v * (w[i] ?? 1),
+        0,
+      );
+      if (total > 1) unservedMwh[node] = total;
+    }
+  }
   return {
+    unservedMwh,
     label: `${presetName} — ${which} (${meta.spatial === "identity" ? "nodal" : meta.spatial === "aggregate" ? "zonal" : meta.spatial})`,
     scenario: which,
     spatial: meta.spatial,
