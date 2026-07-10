@@ -1,5 +1,6 @@
 import { useEffect, useRef } from "react";
 import Plotly from "plotly.js-dist-min";
+import { PLOTLY_LAYOUT } from "../theme";
 
 interface PlotProps {
   data: Record<string, unknown>[];
@@ -7,15 +8,19 @@ interface PlotProps {
   height?: number;
 }
 
-const DARK_LAYOUT: Record<string, unknown> = {
-  paper_bgcolor: "rgba(0,0,0,0)",
-  plot_bgcolor: "rgba(0,0,0,0)",
-  font: { color: "#c9d4e3", size: 11 },
-  margin: { l: 48, r: 16, t: 28, b: 40 },
-  xaxis: { gridcolor: "#27313f", zerolinecolor: "#3a475a" },
-  yaxis: { gridcolor: "#27313f", zerolinecolor: "#3a475a" },
-  legend: { orientation: "h", y: -0.2 },
-};
+// merge axis objects so per-chart overrides keep the theme's grid styling
+function mergeLayout(overrides?: Record<string, unknown>) {
+  const merged: Record<string, unknown> = { ...PLOTLY_LAYOUT, ...overrides };
+  for (const ax of ["xaxis", "yaxis"]) {
+    if (overrides && overrides[ax]) {
+      merged[ax] = {
+        ...(PLOTLY_LAYOUT[ax] as Record<string, unknown>),
+        ...(overrides[ax] as Record<string, unknown>),
+      };
+    }
+  }
+  return merged;
+}
 
 export function Plot({ data, layout, height = 280 }: PlotProps) {
   const ref = useRef<HTMLDivElement>(null);
@@ -25,7 +30,7 @@ export function Plot({ data, layout, height = 280 }: PlotProps) {
     Plotly.react(
       ref.current,
       data,
-      { ...DARK_LAYOUT, ...layout, height },
+      { ...mergeLayout(layout), height },
       { responsive: true, displaylogo: false },
     );
   }, [data, layout, height]);
