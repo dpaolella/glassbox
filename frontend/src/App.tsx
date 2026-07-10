@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { api, FacetInfo, WorldSummary } from "./api";
+import { api, FacetInfo, MapResults, WorldSummary } from "./api";
 import { NetworkCanvas } from "./components/NetworkCanvas";
 import { Inspector } from "./components/Inspector";
 import { OperatorPanel } from "./components/OperatorPanel";
@@ -41,6 +41,8 @@ export default function App() {
   const [tab, setTab] = useState<Tab>("inspector");
   const [catalogFocus, setCatalogFocus] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  // solved-run results painted on the map (pushed by the Scenario Lab)
+  const [mapResults, setMapResults] = useState<MapResults | null>(null);
 
   // resizable side panel (persisted)
   const [panelWidth, setPanelWidth] = useState<number>(() => {
@@ -126,6 +128,8 @@ export default function App() {
           <NetworkCanvas
             layer={layer}
             selection={selection}
+            results={mapResults}
+            onClearResults={() => setMapResults(null)}
             onSelect={(sel) => {
               setSelection(sel);
               setTab("inspector");
@@ -202,6 +206,8 @@ export default function App() {
                 layerLabel={activeFacet?.label ?? layer}
                 layerEngine={activeFacet?.engine ?? null}
                 onPickLayer={setLayer}
+                onMapResults={setMapResults}
+                mapResults={mapResults}
               />
             )}
             {tab === "math" && <OperatorPanel layer={layer} />}

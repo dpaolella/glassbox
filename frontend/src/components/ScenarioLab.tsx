@@ -3,10 +3,36 @@ import {
   api,
   DiffScalar,
   ExplainPayload,
+  MapResults,
   ScenarioDiffResult,
   ScenarioPreset,
 } from "../api";
+import { SCENARIO_A, SCENARIO_B } from "../theme";
 import { Plot } from "./Plot";
+
+// Pull the spatial results out of one run payload for the map (issue #17).
+function extractMapResults(
+  run: ScenarioDiffResult["a"],
+  meta: { id: string; spatial: string; layer: string },
+  which: "A" | "B",
+  presetName: string,
+): MapResults | null {
+  const r = run.result as Record<string, any>;
+  const network = r?.network;
+  if (!network || !network.nodal_price) return null;
+  return {
+    label: `${presetName} — ${which} (${meta.spatial === "identity" ? "nodal" : meta.spatial === "aggregate" ? "zonal" : meta.spatial})`,
+    scenario: which,
+    spatial: meta.spatial,
+    layer: meta.layer,
+    nodalPrice: network.nodal_price ?? {},
+    flows: network.flow_mw ?? {},
+    builtCapacity: r.built_capacity_mw ?? {},
+    builtStoragePower: r.built_storage_power_mw ?? {},
+    builtTransmission: r.built_transmission_mw ?? {},
+    builtResourcePotential: r.built_resource_potential_mw ?? {},
+  };
+}
 
 function fmt(n: number | undefined): string {
   if (n === undefined || n === null) return "—";
@@ -60,6 +86,8 @@ interface LabProps {
   layerLabel: string;
   layerEngine: string | null; // cem | pcm | ra | pf | dyn | emt | null (core)
   onPickLayer: (code: string) => void;
+  onMapResults: (r: MapResults | null) => void;
+  mapResults: MapResults | null;
 }
 
 // modeling-layer code -> the scenario engine its experiments use
@@ -72,7 +100,13 @@ const LAYER_FOR_ENGINE: Record<string, string> = {
   emt: "emt",
 };
 
-export function ScenarioLab({ layerLabel, layerEngine, onPickLayer }: LabProps) {
+export function ScenarioLab({
+  layerLabel,
+  layerEngine,
+  onPickLayer,
+  onMapResults,
+  mapResults,
+}: LabProps) {
   const [presets, setPresets] = useState<ScenarioPreset[]>([]);
   const [active, setActive] = useState<ScenarioPreset | null>(null);
   const [result, setResult] = useState<ScenarioDiffResult | null>(null);
@@ -103,7 +137,13 @@ export function ScenarioLab({ layerLabel, layerEngine, onPickLayer }: LabProps) 
     setLoading(true);
     api
       .diffScenarios(p.a, p.b)
-      .then(setResult)
+      .then((res) => {
+        setResult(res);
+        // paint scenario B on the map by default — in the presets B is the
+        // higher-fidelity "reveal" run (nodal, many-years, with-policy)
+        const mb = extractMapResults(res.b, res.diff.b, "B", p.name);
+        onMapResults(mb ?? extractMapResults(res.a, res.diff.a, "A", p.name));
+      })
       .catch((e) => setErr(String(e)))
       .finally(() => setLoading(false));
   }
@@ -178,6 +218,37 @@ export function ScenarioLab({ layerLabel, layerEngine, onPickLayer }: LabProps) 
             </span>
           </div>
 
+          {(extractMapResults(result.a, diff.a, "A", active?.name ?? "") ||
+            extractMapResults(result.b, diff.b, "B", active?.name ?? "")) && (
+            <div className="map-push">
+              <span className="muted">on the map:</span>
+              {(["A", "B"] as const).map((which) => {
+                const run = which === "A" ? result.a : result.b;
+                const meta = which === "A" ? diff.a : diff.b;
+                const mr = extractMapResults(run, meta, which, active?.name ?? "");
+                if (!mr) return null;
+                const on = mapResults?.scenario === which && mapResults?.label === mr.label;
+                return (
+                  <button
+                    key={which}
+                    className={`map-push-btn ${on ? "active" : ""}`}
+                    style={{ borderColor: which === "A" ? SCENARIO_A : SCENARIO_B }}
+                    title={`Paint scenario ${which}'s prices, flows and builds on the map`}
+                    onClick={() => onMapResults(mr)}
+                  >
+                    {which} · {meta.spatial === "identity" ? "nodal" : meta.spatial === "aggregate" ? "zonal" : meta.spatial}
+                  </button>
+                );
+              })}
+              {mapResults && (
+                <button className="map-push-btn" onClick={() => onMapResults(null)}
+                  title="Remove results from the map">
+                  clear
+                </button>
+              )}
+            </div>
+          )}
+
           <table className="field-table">
             <thead>
               <tr>
@@ -205,14 +276,14 @@ export function ScenarioLab({ layerLabel, layerEngine, onPickLayer }: LabProps) 
                     name: "A",
                     x: mixKeys,
                     y: mixKeys.map((k) => diff.capacity_mix_mw[k].a),
-                    marker: { color: "#3b82f6" },
+                    marker: { color: SCENARIO_A },
                   },
                   {
                     type: "bar",
                     name: "B",
                     x: mixKeys,
                     y: mixKeys.map((k) => diff.capacity_mix_mw[k].b),
-                    marker: { color: "#22c55e" },
+                    marker: { color: SCENARIO_B },
                   },
                 ]}
                 layout={{ barmode: "group", yaxis: { title: "MW" } }}
@@ -231,14 +302,14 @@ export function ScenarioLab({ layerLabel, layerEngine, onPickLayer }: LabProps) 
                     name: "A",
                     x: Object.keys(diff.nodal_prices),
                     y: Object.values(diff.nodal_prices).map((d) => d.a),
-                    marker: { color: "#3b82f6" },
+                    marker: { color: SCENARIO_A },
                   },
                   {
                     type: "bar",
                     name: "B",
                     x: Object.keys(diff.nodal_prices),
                     y: Object.values(diff.nodal_prices).map((d) => d.b),
-                    marker: { color: "#22c55e" },
+                    marker: { color: SCENARIO_B },
                   },
                 ]}
                 layout={{ barmode: "group", yaxis: { title: "$/MWh" } }}
@@ -279,8 +350,8 @@ function ImpedanceScans({ result }: { result: ScenarioDiffResult }) {
       line: { color },
     });
   };
-  mark(a, "A |Z|", "#3b82f6");
-  mark(b, "B |Z|", "#22c55e");
+  mark(a, "A |Z|", SCENARIO_A);
+  mark(b, "B |Z|", SCENARIO_B);
 
   const peaks = [
     ...(a?.resonance_peaks_hz ?? []),

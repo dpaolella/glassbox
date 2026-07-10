@@ -4,9 +4,11 @@ import {
   GraphData,
   GraphNode,
   GraphResourcePotential,
+  MapResults,
 } from "../api";
 import { Selection } from "../App";
 import { GLOSSARY } from "../glossary";
+import { priceColor, priceRamp, utilizationColor } from "../theme";
 
 // Zone fill/outline colors. The map renders each zone as a filled region
 // (polygon) and buses as points inside it — a deliberately *geographic* layout
@@ -22,6 +24,8 @@ interface Props {
   layer: string;
   selection: Selection | null;
   onSelect: (sel: Selection) => void;
+  results?: MapResults | null;
+  onClearResults?: () => void;
 }
 
 interface Overlays {
@@ -144,7 +148,7 @@ function bbox(pts: Pt[]) {
   };
 }
 
-export function NetworkCanvas({ layer, selection, onSelect }: Props) {
+export function NetworkCanvas({ layer, selection, onSelect, results, onClearResults }: Props) {
   const [graph, setGraph] = useState<GraphData | null>(null);
   const [ov, setOv] = useState<Overlays>(DEFAULT_OVERLAYS);
   const [showOverlays, setShowOverlays] = useState(true);
@@ -176,6 +180,44 @@ export function NetworkCanvas({ layer, selection, onSelect }: Props) {
     graph?.interfaces.forEach((i) => i.member_line_ids.forEach((l) => s.add(l)));
     return s;
   }, [graph]);
+
+  // when a run's builds arrive, reveal the build-option overlays so the
+  // now-solid built candidates are visible whatever layer is active
+  useEffect(() => {
+    if (!results) return;
+    const anyBuilds =
+      Object.keys(results.builtCapacity).length > 0 ||
+      Object.keys(results.builtStoragePower).length > 0 ||
+      Object.keys(results.builtTransmission).length > 0 ||
+      Object.keys(results.builtResourcePotential).length > 0;
+    if (anyBuilds) setOv((o) => ({ ...o, candidates: true, resource_potentials: true }));
+  }, [results]);
+
+  // price per bus: nodal runs key by bus id, zonal runs by zone id (every bus
+  // in a zone shows the one flattened price — the aggregation made visible)
+  const priceOf = useMemo(() => {
+    if (!results) return null;
+    const p = results.nodalPrice;
+    return (n: GraphNode): number | null => {
+      const v = p[n.id] ?? p[n.zone];
+      return typeof v === "number" && isFinite(v) ? v : null;
+    };
+  }, [results]);
+
+  // robust color range: a few scarcity-priced buses (VOLL duals) would
+  // otherwise flatten every other bus to one color — normalize on p10..p90
+  const priceRange = useMemo(() => {
+    if (!results || !graph || !priceOf) return null;
+    const vals = graph.nodes
+      .map((n) => priceOf(n))
+      .filter((v): v is number => v !== null)
+      .sort((a, b) => a - b);
+    if (!vals.length) return null;
+    const q = (p: number) => vals[Math.min(vals.length - 1, Math.floor(p * vals.length))];
+    const min = q(0.1);
+    const max = Math.max(q(0.9), min + 1e-9);
+    return { min, max, clipped: min > vals[0] || max < vals[vals.length - 1] };
+  }, [results, graph, priceOf]);
 
   // world bounds → viewBox (auto-fit); pan/zoom multiplies on top
   const vb = useMemo(() => {
@@ -326,6 +368,17 @@ export function NetworkCanvas({ layer, selection, onSelect }: Props) {
               const dc = e.kind === "dc_line";
               let stroke = weak ? "#ef4444" : "#64748b";
               if (onIface) stroke = "#38bdf8";
+              let width = onIface ? 3.5 : 1.8;
+              let flowTip = "";
+              // results: color+weight lines by average loading (nodal runs
+              // report per-line flows; zonal transport corridors don't map)
+              const flow = results?.flows?.[e.id];
+              if (flow !== undefined && e.rating_mva > 0) {
+                const util = Math.min(1, flow / e.rating_mva);
+                stroke = utilizationColor(util);
+                width = 1.5 + 4 * util;
+                flowTip = ` · avg |flow| ${Math.round(flow)} MW (${Math.round(util * 100)}% of rating)`;
+              }
               return (
                 <line
                   key={e.id}
@@ -334,7 +387,7 @@ export function NetworkCanvas({ layer, selection, onSelect }: Props) {
                   x2={b.x}
                   y2={b.y}
                   stroke={stroke}
-                  strokeWidth={lw(onIface ? 3.5 : 1.8)}
+                  strokeWidth={lw(width)}
                   strokeDasharray={dc ? `${lw(7)} ${lw(4)}` : undefined}
                   style={{ cursor: "pointer" }}
                   onClick={() =>
@@ -348,7 +401,7 @@ export function NetworkCanvas({ layer, selection, onSelect }: Props) {
                     })
                   }
                 >
-                  <title>{`${e.id} · ${e.kind} · ${Math.round(e.rating_mva)} MVA`}</title>
+                  <title>{`${e.id} · ${e.kind} · ${Math.round(e.rating_mva)} MVA${flowTip}`}</title>
                 </line>
               );
             })}
@@ -363,25 +416,39 @@ export function NetworkCanvas({ layer, selection, onSelect }: Props) {
                 if (!a || !b) return null;
                 const sel =
                   selection?.collection === "expansion_candidates" && selection.id === c.id;
+                const built = results?.builtTransmission?.[c.id];
+                const mx = (a.x + b.x) / 2;
+                const my = (a.y + b.y) / 2;
                 return (
-                  <line
-                    key={c.id}
-                    x1={a.x}
-                    y1={a.y}
-                    x2={b.x}
-                    y2={b.y}
-                    stroke="#f59e0b"
-                    strokeWidth={lw(sel ? 4 : 2.4)}
-                    strokeDasharray={`${lw(9)} ${lw(6)}`}
-                    style={{ cursor: "pointer" }}
+                  <g key={c.id} style={{ cursor: "pointer" }}
                     onClick={() =>
                       onSelect({ collection: "expansion_candidates", id: c.id })
-                    }
-                  >
-                    <title>{`${c.name} — candidate corridor (≤${Math.round(
-                      c.build_max_mw ?? 0,
-                    )} MW)`}</title>
-                  </line>
+                    }>
+                    <line
+                      x1={a.x}
+                      y1={a.y}
+                      x2={b.x}
+                      y2={b.y}
+                      stroke="#f59e0b"
+                      strokeWidth={lw(built ? 4.5 : sel ? 4 : 2.4)}
+                      strokeDasharray={built ? undefined : `${lw(9)} ${lw(6)}`}
+                    />
+                    {built && (
+                      <g>
+                        <rect x={mx - lw(34)} y={my - lw(20)} width={lw(68)} height={lw(15)}
+                          rx={lw(4)} fill="#f59e0b" />
+                        <text x={mx} y={my - lw(9)} textAnchor="middle"
+                          fontSize={lw(10)} fontWeight={700} fill="#221503">
+                          +{Math.round(built)} MW
+                        </text>
+                      </g>
+                    )}
+                    <title>{`${c.name} — ${
+                      built
+                        ? `BUILT ${Math.round(built)} MW of ≤${Math.round(c.build_max_mw ?? 0)} MW`
+                        : `candidate corridor (≤${Math.round(c.build_max_mw ?? 0)} MW)`
+                    }`}</title>
+                  </g>
                 );
               })}
 
@@ -392,6 +459,8 @@ export function NetworkCanvas({ layer, selection, onSelect }: Props) {
               .map((c) => {
                 const sel =
                   selection?.collection === "expansion_candidates" && selection.id === c.id;
+                const built =
+                  results?.builtCapacity?.[c.id] ?? results?.builtStoragePower?.[c.id];
                 const x = c.x + 20;
                 const y = c.y - 20;
                 return (
@@ -409,16 +478,24 @@ export function NetworkCanvas({ layer, selection, onSelect }: Props) {
                       width={lw(18)}
                       height={lw(18)}
                       transform={`rotate(45)`}
-                      fill="#241a09"
+                      fill={built ? "#f59e0b" : "#241a09"}
                       stroke="#f59e0b"
                       strokeWidth={lw(sel ? 2.4 : 1.4)}
                     />
                     <text textAnchor="middle" dy={lw(4)} fontSize={lw(11)}>
                       {CAND_ICON[c.kind] ?? "+"}
                     </text>
-                    <title>{`${c.name} — candidate ${c.technology} (≤${Math.round(
-                      c.build_max_mw ?? 0,
-                    )} MW)`}</title>
+                    {built && (
+                      <text textAnchor="middle" y={lw(24)} fontSize={lw(10)}
+                        fontWeight={700} fill="#fcd9a0">
+                        +{Math.round(built)} MW
+                      </text>
+                    )}
+                    <title>{`${c.name} — ${
+                      built
+                        ? `BUILT ${Math.round(built)} MW of ≤${Math.round(c.build_max_mw ?? 0)} MW`
+                        : `candidate ${c.technology} (≤${Math.round(c.build_max_mw ?? 0)} MW)`
+                    }`}</title>
                   </g>
                 );
               })}
@@ -450,8 +527,12 @@ export function NetworkCanvas({ layer, selection, onSelect }: Props) {
                 <circle
                   cx={n.x}
                   cy={n.y}
-                  r={lw(6)}
-                  fill="#0e151f"
+                  r={lw(priceOf && priceRange && priceOf(n) !== null ? 7.5 : 6)}
+                  fill={
+                    priceOf && priceRange && priceOf(n) !== null
+                      ? priceColor(priceOf(n)!, priceRange.min, priceRange.max)
+                      : "#0e151f"
+                  }
                   stroke={zoneColor(n.zone)}
                   strokeWidth={lw(2.2)}
                 />
@@ -476,9 +557,11 @@ export function NetworkCanvas({ layer, selection, onSelect }: Props) {
                     {badges.join(" ")}
                   </text>
                 )}
-                <title>{`${n.name || n.id} · ${n.zone} · ${Math.round(
-                  n.base_kv,
-                )} kV`}</title>
+                <title>{`${n.name || n.id} · ${n.zone} · ${Math.round(n.base_kv)} kV${
+                  priceOf && priceOf(n) !== null
+                    ? ` · price $${priceOf(n)!.toFixed(1)}/MWh${results?.spatial === "aggregate" ? " (zonal — one flat price per zone)" : ""}`
+                    : ""
+                }`}</title>
               </g>
             );
           })}
@@ -509,16 +592,21 @@ export function NetworkCanvas({ layer, selection, onSelect }: Props) {
                     rx={lw(7)}
                     fill="#211806"
                     stroke="#f59e0b"
-                    strokeWidth={lw(sel ? 2.4 : 1.2)}
-                    strokeDasharray={`${lw(5)} ${lw(3)}`}
+                    strokeWidth={lw(sel ? 2.4 : results?.builtResourcePotential?.[rp.id] ? 2 : 1.2)}
+                    strokeDasharray={
+                      results?.builtResourcePotential?.[rp.id] ? undefined : `${lw(5)} ${lw(3)}`
+                    }
                   />
                   <text x={rp.gx} y={rp.gy + lw(15)} textAnchor="middle"
                     fontSize={lw(11)} fontWeight={700} fill="#fcd9a0">
                     {TECH_ICON[rp.technology] ?? "▤"} {rp.technology}
                   </text>
                   <text x={rp.gx} y={rp.gy + lw(27)} textAnchor="middle"
-                    fontSize={lw(9)} fill="#d9b577">
-                    {`potential ≤${Math.round(rp.total_build_max_mw)} MW`}
+                    fontSize={lw(9)} fontWeight={results?.builtResourcePotential?.[rp.id] ? 700 : 400}
+                    fill={results?.builtResourcePotential?.[rp.id] ? "#fcd9a0" : "#d9b577"}>
+                    {results?.builtResourcePotential?.[rp.id]
+                      ? `built ${Math.round(results.builtResourcePotential[rp.id])} of ${Math.round(rp.total_build_max_mw)} MW`
+                      : `potential ≤${Math.round(rp.total_build_max_mw)} MW`}
                   </text>
                   {/* mini supply curve: a rising bar per tranche */}
                   {rp.tranches.map((t, i) => {
@@ -562,6 +650,41 @@ export function NetworkCanvas({ layer, selection, onSelect }: Props) {
         <button onClick={() => setView((v) => ({ ...v, k: Math.max(0.4, v.k / 1.2) }))} title="Zoom out">－</button>
         <button onClick={resetView} title="Reset view">⤾</button>
       </div>
+
+      {/* active results banner */}
+      {results && (
+        <div className="map-results-banner">
+          <span className="results-dot" />
+          <span className="results-label" title="Solved-run results are painted on the map: bus color = average price, line width/color = average loading, solid amber = built.">
+            {results.label}
+          </span>
+          {priceRange && (
+            <span
+              className="results-scale"
+              title={
+                priceRange.clipped
+                  ? "Color scale spans the 10th–90th percentile of bus prices; extreme scarcity-priced buses clamp to the ends."
+                  : "Color scale spans the range of average bus prices."
+              }
+            >
+              <span>{priceRange.clipped ? "≤" : ""}${priceRange.min.toFixed(0)}</span>
+              <span
+                className="scale-bar"
+                style={{
+                  background: `linear-gradient(90deg, ${priceRamp(0)}, ${priceRamp(0.5)}, ${priceRamp(0.75)}, ${priceRamp(1)})`,
+                }}
+              />
+              <span>{priceRange.clipped ? "≥" : ""}${priceRange.max.toFixed(0)}/MWh</span>
+            </span>
+          )}
+          {onClearResults && (
+            <button className="results-clear" onClick={onClearResults}
+              title="Remove results from the map">
+              ✕
+            </button>
+          )}
+        </div>
+      )}
 
       <div className="canvas-overlays">
         <button className="box-toggle" onClick={() => setShowOverlays((v) => !v)}
@@ -628,6 +751,25 @@ export function NetworkCanvas({ layer, selection, onSelect }: Props) {
             <div className="legend-row" title={GLOSSARY.weak_feeder}>
               <span className="swatch line" style={{ background: "#ef4444" }} /> weak feeder
             </div>
+            {results && (
+              <>
+                <div className="legend-title" style={{ marginTop: 8 }}>
+                  results on map
+                </div>
+                <div className="legend-row" title="Bus fill = time-averaged price at that bus (zonal runs: one flat price per zone).">
+                  <span className="swatch" style={{ background: priceRamp(0.9) }} />
+                  bus color = avg price
+                </div>
+                <div className="legend-row" title="Line width and color = time-averaged |flow| as a share of the line's rating; red = binding.">
+                  <span className="swatch line" style={{ background: utilizationColor(0.95) }} />
+                  line width = loading
+                </div>
+                <div className="legend-row" title="A solid amber corridor/diamond is a build the capacity-expansion run chose; dashed = unbuilt option.">
+                  <span className="swatch line" style={{ background: "#f59e0b" }} />
+                  solid amber = built
+                </div>
+              </>
+            )}
             <div className="legend-hint">
               scroll to zoom · drag to pan · hover any item for a definition · click
               to inspect ({layer} layer)
