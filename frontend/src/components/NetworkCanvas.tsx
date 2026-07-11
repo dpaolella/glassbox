@@ -269,9 +269,53 @@ export function NetworkCanvas({
   const pan = useRef<{ x: number; y: number } | null>(null);
 
   const [graphErr, setGraphErr] = useState<string | null>(null);
-  useEffect(() => {
+  const fetchGraph = () =>
     api.graph().then(setGraph).catch((e) => setGraphErr(String(e)));
+  useEffect(() => {
+    fetchGraph();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  // --- build mode (issue #28): place / erase proposals on the map --------
+  type Tool = "ccgt" | "wind" | "solar_pv" | "battery" | "line" | "erase";
+  const [tool, setTool] = useState<Tool | null>(null);
+  const [lineFrom, setLineFrom] = useState<string | null>(null);
+  const [buildMsg, setBuildMsg] = useState<string | null>(null);
+  useEffect(() => {
+    // leaving the inv layer puts the toolbox away
+    if (layer !== "inv") { setTool(null); setLineFrom(null); }
+  }, [layer]);
+
+  function place(body: Record<string, unknown>) {
+    api.placeCandidate(body)
+      .then((r) => {
+        setBuildMsg(`placed ${r.name}${r.note ? ` — ${r.note}` : ""}`);
+        fetchGraph();
+      })
+      .catch((e) => setBuildMsg(String(e)));
+  }
+
+  function busClicked(busId: string): boolean {
+    if (!tool || tool === "erase") return false;
+    if (tool === "line") {
+      if (!lineFrom) { setLineFrom(busId); setBuildMsg(`line from ${busId} — click the other end`); }
+      else if (lineFrom !== busId) {
+        place({ technology: "line", from_bus_id: lineFrom, to_bus_id: busId });
+        setLineFrom(null);
+      }
+      return true;
+    }
+    place({ technology: tool, bus_id: busId });
+    return true;
+  }
+
+  function candidateClicked(cid: string): boolean {
+    if (tool !== "erase") return false;
+    api.deleteCandidate(cid)
+      .then(() => { setBuildMsg(`deleted ${cid}`); fetchGraph(); })
+      .catch((e) => setBuildMsg(String(e)));
+    return true;
+  }
 
   // build options are an `inv`-layer concern: auto-show both the nodal
   // candidates and the zonal resource-potential curves on the capacity layer
@@ -700,10 +744,11 @@ export function NetworkCanvas({
                 const mx = (a.x + b.x) / 2;
                 const my = (a.y + b.y) / 2;
                 return (
-                  <g key={c.id} style={{ cursor: "pointer" }}
-                    onClick={() =>
-                      onSelect({ collection: "expansion_candidates", id: c.id })
-                    }>
+                  <g key={c.id} style={{ cursor: tool === "erase" ? "not-allowed" : "pointer" }}
+                    onClick={() => {
+                      if (!candidateClicked(c.id))
+                        onSelect({ collection: "expansion_candidates", id: c.id });
+                    }}>
                     <line
                       x1={a.x}
                       y1={a.y}
@@ -747,10 +792,11 @@ export function NetworkCanvas({
                   <g
                     key={c.id}
                     transform={`translate(${x} ${y})`}
-                    style={{ cursor: "pointer" }}
-                    onClick={() =>
-                      onSelect({ collection: "expansion_candidates", id: c.id })
-                    }
+                    style={{ cursor: tool === "erase" ? "not-allowed" : "pointer" }}
+                    onClick={() => {
+                      if (!candidateClicked(c.id))
+                        onSelect({ collection: "expansion_candidates", id: c.id });
+                    }}
                   >
                     <rect
                       x={lw(-9)}
@@ -801,8 +847,10 @@ export function NetworkCanvas({
             return (
               <g
                 key={n.id}
-                style={{ cursor: "pointer" }}
-                onClick={() => onSelect({ collection: "buses", id: n.id })}
+                style={{ cursor: tool && tool !== "erase" ? "copy" : "pointer" }}
+                onClick={() => {
+                  if (!busClicked(n.id)) onSelect({ collection: "buses", id: n.id });
+                }}
               >
                 {sel && (
                   <circle cx={n.x} cy={n.y} r={lw(11)} fill="none"
@@ -961,6 +1009,50 @@ export function NetworkCanvas({
         <button onClick={() => setView((v) => ({ ...v, k: Math.max(0.4, v.k / 1.2) }))} title="Zoom out">－</button>
         <button onClick={resetView} title="Reset view">⤾</button>
       </div>}
+
+      {/* build palette (issue #28) — the SimCity loop, inv layer only */}
+      {!compact && layer === "inv" && (
+        <div className="build-palette">
+          <div className="build-title" title="Place new build proposals directly on the map. They become ExpansionCandidates the capacity-expansion run can choose — run a CEM preset afterwards to see if your proposal survives the optimizer. Edits live in server memory until reset.">
+            build mode
+          </div>
+          {(
+            [
+              ["ccgt", "flame", "gas plant"],
+              ["wind", "wind", "wind farm"],
+              ["solar_pv", "sun", "solar park"],
+              ["battery", "battery", "battery"],
+              ["line", "line", "line (click two buses)"],
+              ["erase", "star", "erase a proposal"],
+            ] as [string, string, string][]
+          ).map(([t, icon, tip]) => (
+            <button
+              key={t}
+              className={`build-tool ${tool === t ? "active" : ""}`}
+              title={tip}
+              onClick={() => {
+                setTool(tool === (t as Tool) ? null : (t as Tool));
+                setLineFrom(null);
+                setBuildMsg(
+                  tool === t ? null
+                  : t === "erase" ? "click a proposal (diamond or dashed corridor) to delete it"
+                  : t === "line" ? "click the first endpoint bus"
+                  : `click a bus to site a ${tip}`,
+                );
+              }}
+            >
+              {t === "erase" ? "✕" : <Icon icon={icon} size={13} color={tool === t ? "#221503" : "#f59e0b"} />}
+            </button>
+          ))}
+          <button className="build-tool" title="Discard all map edits and reload the saved world"
+            onClick={() => {
+              api.resetWorld().then(() => { setBuildMsg("world reset"); fetchGraph(); });
+            }}>
+            ⟲
+          </button>
+          {buildMsg && <div className="build-msg">{buildMsg}</div>}
+        </div>
+      )}
 
       {headerLabel && (
         <div className="map-header-chip" style={{ borderColor: headerColor }}>

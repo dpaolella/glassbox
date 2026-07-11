@@ -328,6 +328,15 @@ export const api = {
   oracleDynamics: () => get<OracleResult>("/oracle/dynamics"),
   presets: () => get<ScenarioPreset[]>("/scenario/presets"),
   weatherEvents: () => get<WeatherEvent[]>("/weather/events"),
+  // build mode (issue #28)
+  placeCandidate: (body: Record<string, unknown>) =>
+    post<{ created: string; name: string; note?: string | null }>("/world/candidates", body),
+  deleteCandidate: (cid: string) =>
+    fetch(`${BASE}/world/candidates/${cid}`, { method: "DELETE" }).then((r) => {
+      if (!r.ok) throw new Error(`delete ${cid} -> ${r.status}`);
+      return r.json();
+    }),
+  resetWorld: () => post<{ ok: boolean }>("/world/reset", {}),
   runScenario: (scenario: Record<string, unknown>) =>
     post<ScenarioRunPayload>("/scenario/run", scenario),
   diffScenarios: (a: Record<string, unknown>, b: Record<string, unknown>) =>

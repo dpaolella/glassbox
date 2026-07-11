@@ -55,6 +55,10 @@ class WorldService:
             self._world = self._load_or_build()
         return self._world
 
+    def reset(self) -> None:
+        """Drop the in-memory world (build-mode edits) and reload from disk."""
+        self._world = None
+
     def _load_or_build(self) -> World:
         from ..world import build_default_world_with_weather, load_world
 
