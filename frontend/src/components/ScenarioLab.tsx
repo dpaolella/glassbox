@@ -4,6 +4,7 @@ import {
   DiffScalar,
   ExplainPayload,
   MapResults,
+  OracleResult,
   ScenarioDiffResult,
   ScenarioPreset,
 } from "../api";
@@ -205,7 +206,28 @@ function interpret(diff: ScenarioDiffResult["diff"], presetKey?: string): string
   return out;
 }
 
+// Symbol legend for the formulations (issue #20): what each Greek letter and
+// shorthand in the symbolic math means, and where its value comes from.
+const SYMBOLS: [string, string][] = [
+  ["p_{g,t}", "power output of generator g in hour t (decision variable, MW)"],
+  ["build_g", "capacity built of candidate g (decision variable, MW)"],
+  ["capex_g", "annualized capital + fixed O&M cost ($/MW/yr, from capex x CRF + FOM)"],
+  ["mc_g", "marginal cost of g ($/MWh = heat rate x fuel price + VOM)"],
+  ["τ (tau)", "carbon price ($/tCO2, from the carbon policy)"],
+  ["e_g", "emissions rate of g (tCO2/MWh, from heat rate x fuel carbon content)"],
+  ["VOLL", "value of lost load ($/MWh) — the penalty price on unserved energy"],
+  ["unserved_t / uns", "load shed in hour t (decision variable, MW)"],
+  ["w_t / weight_t", "hours of the year each representative hour stands for"],
+  ["η_c, η_d (eta)", "storage charge / discharge efficiency (0-1)"],
+  ["soc_{s,t}", "storage state of charge (MWh)"],
+  ["ch / dis", "storage charge / discharge power (MW)"],
+  ["flow_{l,t} / net_flow", "power flow on line l (MW)"],
+  ["u_{g,t}", "commitment status of g in hour t (binary, PCM only)"],
+  ["rps", "required clean-energy share of annual load (policy)"],
+];
+
 function EngineMath({ explain }: { explain: ExplainPayload }) {
+  const prov = explain.provenance ?? {};
   return (
     <details className="engine-math">
       <summary>{explain.title}</summary>
@@ -213,6 +235,36 @@ function EngineMath({ explain }: { explain: ExplainPayload }) {
         <p className="formulation">{explain.formulation.statement}</p>
       )}
       <pre className="symbolic">{explain.formulation.symbolic.join("\n")}</pre>
+      <details>
+        <summary>symbol legend</summary>
+        <table className="field-table">
+          <tbody>
+            {SYMBOLS.map(([sym, meaning]) => (
+              <tr key={sym}>
+                <td className="field-name">{sym}</td>
+                <td style={{ fontSize: "11px" }}>{meaning}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </details>
+      {Object.keys(prov).length > 0 && (
+        <p className="muted" style={{ fontSize: "11px" }}
+          title="Reproducibility: which engine and version produced these numbers, and which schema facets it consumed.">
+          <b>provenance:</b>{" "}
+          {Object.entries(prov)
+            .map(([k, v]) => `${k}=${Array.isArray(v) ? v.join("+") : String(v)}`)
+            .join(" · ")}
+        </p>
+      )}
+      {explain.information_loss && explain.information_loss.length > 0 && (
+        <div className="lesson-box" style={{ fontSize: "11px" }}>
+          <b>information lost by this view:</b>
+          <ul style={{ margin: "4px 0 0 16px", padding: 0 }}>
+            {explain.information_loss.map((l, i) => (<li key={i}>{l}</li>))}
+          </ul>
+        </div>
+      )}
       <details>
         <summary>inputs / outputs / intermediates</summary>
         <pre className="json">
@@ -229,6 +281,49 @@ function EngineMath({ explain }: { explain: ExplainPayload }) {
       </details>
     </details>
   );
+}
+
+// #23: export the whole experiment as a Markdown writeup
+function exportMarkdown(preset: ScenarioPreset | null, res: ScenarioDiffResult) {
+  const d = res.diff;
+  const lines: string[] = [];
+  lines.push(`# Glassbox experiment: ${preset?.name ?? "custom A/B"}`);
+  if (preset?.lesson) lines.push(`\n> **Lesson:** ${preset.lesson}`);
+  lines.push(`\n**A** — ${spatialName(d.a.spatial)} · ${LAYER_NAME[d.a.layer] ?? d.a.layer} · weather yr ${d.a.weather_years.join(",")}`);
+  lines.push(`**B** — ${spatialName(d.b.spatial)} · ${LAYER_NAME[d.b.layer] ?? d.b.layer} · weather yr ${d.b.weather_years.join(",")}`);
+  const interp = interpret(d, preset?.key);
+  if (interp.length) {
+    lines.push(`\n## What the numbers say\n`);
+    interp.forEach((s2) => lines.push(`- ${s2}`));
+  }
+  lines.push(`\n## Results\n`);
+  lines.push(`| metric | unit | A | B | Δ |`);
+  lines.push(`|---|---|---:|---:|---:|`);
+  for (const [k, v] of Object.entries(d.scalars)) {
+    const m = metricOf(k);
+    lines.push(`| ${m.label} | ${m.unit} | ${fmt(v.a)} | ${fmt(v.b)} | ${(v.delta ?? 0) >= 0 ? "+" : ""}${fmt(v.delta)} |`);
+  }
+  const mix = Object.entries(d.capacity_mix_mw).filter(([, v]) => v.a > 0 || v.b > 0);
+  if (mix.length) {
+    lines.push(`\n## Capacity mix (MW)\n`);
+    lines.push(`| technology | A | B |`);
+    lines.push(`|---|---:|---:|`);
+    mix.forEach(([k, v]) => lines.push(`| ${k} | ${fmt(v.a)} | ${fmt(v.b)} |`));
+  }
+  for (const [which, run] of [["A", res.a], ["B", res.b]] as const) {
+    lines.push(`\n## Engine formulation (${which}): ${run.explain.title}\n`);
+    lines.push("```");
+    lines.push(run.explain.formulation.symbolic.join("\n"));
+    lines.push("```");
+  }
+  lines.push(`\n---\n*Exported from Glassbox — an inspectable multi-paradigm grid-modeling sandbox.*`);
+  const blob = new Blob([lines.join("\n")], { type: "text/markdown" });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = `glassbox_${(preset?.key ?? "experiment")}.md`;
+  a.click();
+  URL.revokeObjectURL(url);
 }
 
 interface LabProps {
@@ -261,6 +356,7 @@ export function ScenarioLab({
   const [result, setResult] = useState<ScenarioDiffResult | null>(null);
   const [loading, setLoading] = useState(false);
   const [err, setErr] = useState<string | null>(null);
+  const [oracle, setOracle] = useState<OracleResult | "loading" | null>(null);
 
   useEffect(() => {
     api.presets().then(setPresets).catch((e) => setErr(String(e)));
@@ -283,6 +379,7 @@ export function ScenarioLab({
     setActive(p);
     setResult(null);
     setErr(null);
+    setOracle(null);
     setLoading(true);
     api
       .diffScenarios(p.a, p.b)
@@ -404,6 +501,44 @@ export function ScenarioLab({
                   title="Remove results from the map">
                   clear
                 </button>
+              )}
+              {["pcm", "cem"].includes(diff.b.layer) && (
+                <button
+                  className="map-push-btn"
+                  title="Round-trip scenario B's world (overrides applied) through the independent PyPSA dispatch oracle (#13)"
+                  onClick={() => {
+                    setOracle("loading");
+                    api.oracleDispatchFor(result.b.scenario)
+                      .then(setOracle)
+                      .catch(() => setOracle(null));
+                  }}
+                >
+                  ⚖ verify B
+                </button>
+              )}
+              <button
+                className="map-push-btn"
+                title="Download this experiment (lesson, interpretation, results with units, formulations) as Markdown"
+                onClick={() => exportMarkdown(active, result)}
+              >
+                ↓ export
+              </button>
+            </div>
+          )}
+
+          {oracle === "loading" && (
+            <p className="muted">running the PyPSA oracle on scenario B…</p>
+          )}
+          {oracle && oracle !== "loading" && oracle.available && (
+            <div className="lesson-box" style={{ fontSize: "11px" }}>
+              <b>oracle check (B):</b>{" "}
+              {oracle.failure
+                ? `diverged — ${oracle.why}`
+                : oracle.metrics?.every((m) => m.diff <= m.tol)
+                  ? `MATCH — the independent ${oracle.oracle} implementation agrees at hour ${oracle.hour} (objective, dispatch, totals within tolerance).`
+                  : `DIVERGES — see the Oracles tab for the per-metric breakdown.`}
+              {oracle.scope_note && (
+                <div className="muted" style={{ marginTop: 3 }}>{oracle.scope_note}</div>
               )}
             </div>
           )}

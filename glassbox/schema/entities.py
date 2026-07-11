@@ -421,6 +421,9 @@ class SupplyTranche(BaseModel):
         facets=["inv"], default=None, description="better sites (early tranches) yield more")
     availability_profile_id: Optional[str] = facet_field(
         facets=["inv"], default=None, description="overrides the parent profile if set")
+    bus_id: Optional[str] = facet_field(
+        facets=["inv"], default=None,
+        description="interconnection bus for this step (defaults to the curve's hub)")
     lcoe_per_mwh: Optional[float] = facet_field(facets=["inv"], unit="currency/MWh", default=None)
 
 

@@ -449,12 +449,18 @@ class ReferenceSystemBuilder:
             tranches=[
                 SupplyTranche(build_max_mw=400.0, capex_per_mw=0.80e6,
                               expected_capacity_factor=0.20,
+                              bus_id=self._b_buses[2],
+                              availability_profile_id="availability__solar_ZB_t0",
                               lcoe_per_mwh=trench_lcoe(0.80e6, 18_000.0, 0.20)),
                 SupplyTranche(build_max_mw=400.0, capex_per_mw=0.95e6,
                               expected_capacity_factor=0.18,
+                              bus_id=self._b_buses[5],
+                              availability_profile_id="availability__solar_ZB_t1",
                               lcoe_per_mwh=trench_lcoe(0.95e6, 18_000.0, 0.18)),
                 SupplyTranche(build_max_mw=400.0, capex_per_mw=1.15e6,
                               expected_capacity_factor=0.16,
+                              bus_id=self._b_buses[8],
+                              availability_profile_id="availability__solar_ZB_t2",
                               lcoe_per_mwh=trench_lcoe(1.15e6, 18_000.0, 0.16)),
             ]))
         # Remote zone (ZB) wind: best class is cheap per-MWh; tail gets pricey.
@@ -467,12 +473,18 @@ class ReferenceSystemBuilder:
             tranches=[
                 SupplyTranche(build_max_mw=400.0, capex_per_mw=1.20e6,
                               expected_capacity_factor=0.36,
+                              bus_id=self._b_buses[0],
+                              availability_profile_id="availability__wind_ZB_t0",
                               lcoe_per_mwh=trench_lcoe(1.20e6, 26_000.0, 0.36)),
                 SupplyTranche(build_max_mw=400.0, capex_per_mw=1.45e6,
                               expected_capacity_factor=0.31,
+                              bus_id=self._b_buses[4],
+                              availability_profile_id="availability__wind_ZB_t1",
                               lcoe_per_mwh=trench_lcoe(1.45e6, 26_000.0, 0.31)),
                 SupplyTranche(build_max_mw=400.0, capex_per_mw=1.75e6,
                               expected_capacity_factor=0.27,
+                              bus_id=self._b_buses[7],
+                              availability_profile_id="availability__wind_ZB_t2",
                               lcoe_per_mwh=trench_lcoe(1.75e6, 26_000.0, 0.27)),
             ]))
         # Load center (ZA) solar: sited at demand (no corridor needed) but a
@@ -614,9 +626,17 @@ class ReferenceSystemBuilder:
             q = rp_quality.get(rp.id, 1.0)
             if rp.availability_profile_id and hub:
                 add_site(rp.availability_profile_id, hub, rp.technology, q)
+            # each tranche is a distinct site: its own bus, and quality that
+            # declines with the CF metadata (best sites first, physically)
+            cf0 = (rp.tranches[0].expected_capacity_factor
+                   if rp.tranches and rp.tranches[0].expected_capacity_factor else None)
             for tr in rp.tranches:
-                if tr.availability_profile_id and hub:
-                    add_site(tr.availability_profile_id, hub, rp.technology, q)
+                bus = tr.bus_id or hub
+                if tr.availability_profile_id and bus:
+                    tq = q
+                    if cf0 and tr.expected_capacity_factor:
+                        tq = q * tr.expected_capacity_factor / cf0
+                    add_site(tr.availability_profile_id, bus, rp.technology, tq)
 
         # load shape is per-unit (~1.0 mean); each load site's peak MW is carried
         # by WeatherSite.scale, applied inside the generator.

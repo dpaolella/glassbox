@@ -8,6 +8,8 @@ import { TimeSeriesPanel } from "./components/TimeSeriesPanel";
 import { ScenarioLab } from "./components/ScenarioLab";
 import { OraclePanel } from "./components/OraclePanel";
 import { Catalog } from "./components/Catalog";
+import { GlossaryPanel } from "./components/GlossaryPanel";
+import { Tour, TourStep, tourDone } from "./components/Tour";
 
 export interface Selection {
   collection: string;
@@ -20,6 +22,7 @@ type Tab =
   | "scenarios"
   | "math"
   | "oracles"
+  | "glossary"
   | "weather"
   | "series";
 
@@ -51,6 +54,47 @@ export default function App() {
     document.documentElement.dataset.theme = theme;
     localStorage.setItem("gb-theme", theme);
   }, [theme]);
+  // first-run guided tour (issue #21)
+  const [showTour, setShowTour] = useState(() => !tourDone());
+  const tourSteps: TourStep[] = [
+    {
+      title: "One world, many views",
+      body: "Glassbox stores exactly one fine-grained power system — the map. " +
+        "Every modeling layer (capacity expansion, production cost, adequacy, " +
+        "power flow, dynamics, EMT) is a projection of this one world, and every " +
+        "projection is inspectable.",
+    },
+    {
+      title: "The modeling-layer chips",
+      body: "The chips in the header (CORE, INV, OPS, …) switch the abstraction " +
+        "level. The same object reveals different fields at each layer: a " +
+        "generator shows heat rate to operations, inertia to dynamics, and " +
+        "build options to capacity expansion.",
+      action: () => setLayer("inv"),
+    },
+    {
+      title: "Click anything to inspect it",
+      body: "Every bus, line, candidate, and supply curve on the map opens in " +
+        "the Inspector, filtered to the fields the current layer consumes — " +
+        "with units, per-unit bases, and hover definitions on every row.",
+      action: () => setTab("inspector"),
+    },
+    {
+      title: "Run an experiment",
+      body: "The Scenarios tab runs A/B pairs that differ in exactly one " +
+        "modeling choice — nodal vs zonal, one weather year vs many, carbon " +
+        "price vs none. The results paint onto the map, and a callout explains " +
+        "what the numbers mean.",
+      action: () => setTab("scenarios"),
+    },
+    {
+      title: "Don't trust us — check the oracles",
+      body: "The Oracles tab round-trips the same world through independent " +
+        "reference implementations (pandapower, PyPSA, Andes) and compares " +
+        "results metric by metric. The Glossary tab defines every term. Enjoy!",
+      action: () => setTab("oracles"),
+    },
+  ];
 
   // resizable side panel (persisted)
   const [panelWidth, setPanelWidth] = useState<number>(() => {
@@ -87,6 +131,7 @@ export default function App() {
 
   return (
     <div className="app">
+      {showTour && <Tour steps={tourSteps} onClose={() => setShowTour(false)} />}
       <header className="topbar">
         <div className="brand">
           <span className="logo">◧</span>
@@ -122,6 +167,13 @@ export default function App() {
           />
           <span title="Applies to the Inspector's field values">{perUnit ? "per-unit (inspector)" : "SI units (inspector)"}</span>
         </label>
+        <button
+          className="theme-toggle"
+          title="Replay the guided tour"
+          onClick={() => setShowTour(true)}
+        >
+          ? tour
+        </button>
         <button
           className="theme-toggle"
           title="Toggle light 'projector mode' (high contrast for classrooms)"
@@ -188,7 +240,7 @@ export default function App() {
 
         <aside className="side-pane" style={{ width: panelWidth }}>
           <nav className="tabs">
-            {(["inspector", "catalog", "scenarios", "math", "oracles", "weather", "series"] as Tab[]).map(
+            {(["inspector", "catalog", "scenarios", "math", "oracles", "glossary", "weather", "series"] as Tab[]).map(
               (t) => (
                 <button
                   key={t}
@@ -226,6 +278,7 @@ export default function App() {
               />
             )}
             {tab === "math" && <OperatorPanel layer={layer} />}
+            {tab === "glossary" && <GlossaryPanel />}
             {tab === "oracles" && <OraclePanel />}
             {tab === "weather" && <WeatherPanel />}
             {tab === "series" && <TimeSeriesPanel />}

@@ -269,6 +269,7 @@ export interface OracleMetric {
   diff: number;
   unit: string;
   tol: number;
+  why?: string; // what agreement/divergence on this metric means
 }
 
 export interface OracleResult {
@@ -280,6 +281,11 @@ export interface OracleResult {
   converged_both?: boolean;
   n_buses?: number;
   detail?: Record<string, number>;
+  failure?: string; // structured divergence (no more raw 500s)
+  why?: string;
+  note?: string | null;
+  excluded?: Record<string, unknown>; // assets the oracle does NOT model
+  scope_note?: string;
 }
 
 export const api = {
@@ -287,6 +293,11 @@ export const api = {
   oracleAvailability: () => get<Record<string, boolean>>("/oracle/availability"),
   oraclePowerflow: () => get<OracleResult>("/oracle/powerflow"),
   oracleDispatch: () => get<OracleResult>("/oracle/dispatch"),
+  // scenario-aware round-trips: validate the run the user actually made (#13)
+  oraclePowerflowFor: (scenario: Record<string, unknown>) =>
+    post<OracleResult>("/oracle/powerflow", { scenario }),
+  oracleDispatchFor: (scenario: Record<string, unknown>) =>
+    post<OracleResult>("/oracle/dispatch", { scenario }),
   oracleDynamics: () => get<OracleResult>("/oracle/dynamics"),
   presets: () => get<ScenarioPreset[]>("/scenario/presets"),
   runScenario: (scenario: Record<string, unknown>) =>
