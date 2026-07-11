@@ -1066,3 +1066,67 @@ code {
   max-width: 420px;
   text-align: center;
 }
+
+/* glossary tab (issue #21) */
+.glossary-panel { font-size: var(--fs-md); }
+.glossary-search {
+  width: 100%;
+  padding: 6px 10px;
+  margin: 6px 0 10px;
+  background: var(--bg-2);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  color: var(--text);
+  font-size: var(--fs-md);
+}
+.glossary-list { margin: 0; }
+.glossary-entry { margin: 0 0 8px; }
+.glossary-entry dt {
+  font-family: var(--mono);
+  font-weight: 600;
+  color: var(--accent);
+}
+.glossary-entry dd {
+  margin: 1px 0 0 0;
+  color: var(--muted);
+  line-height: 1.45;
+}
+
+/* guided tour (issue #21) */
+.tour-backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(4, 8, 14, 0.72);
+  z-index: 50;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.tour-card {
+  background: var(--bg-1);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 22px 26px;
+  max-width: 440px;
+  box-shadow: 0 18px 60px rgba(0, 0, 0, 0.5);
+}
+.tour-card h3 { margin: 6px 0 8px; font-size: var(--fs-xl); }
+.tour-card p { margin: 0 0 16px; line-height: 1.55; color: var(--text); font-size: 13px; }
+.tour-step {
+  font-size: var(--fs-xs);
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  color: var(--muted);
+}
+.tour-actions { display: flex; align-items: center; gap: 8px; }
+.tour-nav, .tour-skip {
+  background: var(--bg-3);
+  color: var(--text);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 6px 14px;
+  font-size: var(--fs-md);
+  cursor: pointer;
+}
+.tour-nav.primary { background: var(--accent); color: #04121c; border-color: var(--accent); }
+.tour-skip { background: none; border: none; color: var(--muted); }

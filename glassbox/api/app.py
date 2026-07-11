@@ -336,6 +336,44 @@ class DiffRequest(BaseModel):
     b: Scenario
 
 
+class PlanOperateRequest(BaseModel):
+    cem: Scenario   # the planning run whose builds get committed
+    pcm: Scenario   # the operating run, executed before AND after the commit
+
+
+@app.post("/api/scenario/plan_then_operate")
+def scenario_plan_then_operate(req: PlanOperateRequest):
+    """The planning loop (issue #9): plan -> commit builds -> operate.
+
+    Runs the CEM scenario, materializes its builds into a committed world
+    (world_with_builds), then runs the PCM scenario on both the original and
+    the committed world so the payoff of the plan is directly visible.
+    """
+    from ..scenario import world_with_builds
+
+    try:
+        cem_run = run_scenario(service.world, req.cem)
+        committed = world_with_builds(service.world, cem_run.result)
+        before = run_scenario(service.world, req.pcm)
+        after = run_scenario(committed, req.pcm)
+    except Exception as exc:
+        raise HTTPException(500, f"plan-then-operate failed: {exc}")
+    return {
+        "cem": _run_payload(cem_run),
+        "before": _run_payload(before),
+        "after": _run_payload(after),
+        "diff": diff_runs(before, after),
+        "committed_assets": {
+            "generators": [g.id for g in committed.generators
+                           if g.id.startswith("built_")],
+            "storage": [st.id for st in committed.storage_units
+                        if st.id.startswith("built_")],
+            "lines": [ln.id for ln in committed.ac_lines
+                      if ln.id.startswith("built_")],
+        },
+    }
+
+
 @app.post("/api/scenario/diff")
 def scenario_diff(req: DiffRequest):
     try:
@@ -386,6 +424,15 @@ def scenario_presets():
         return Scenario(**base).model_dump(mode="json")
 
     return [
+        {
+            "key": "few_vs_many_rep_days",
+            "name": "Coarse vs fine time (capacity)",
+            "lesson": "Compressing a year into too few representative days hides "
+                      "chronology — storage value, ramps, and scarcity hours "
+                      "change when time is resolved more finely.",
+            "a": cem("cem_coarse_time", n_rep_days=2),
+            "b": cem("cem_fine_time", n_rep_days=12),
+        },
         {
             "key": "nodal_vs_zonal_cem",
             "name": "Nodal vs Zonal (capacity)",
@@ -486,61 +533,181 @@ def oracle_availability():
     return available()
 
 
-@app.get("/api/oracle/powerflow")
-def oracle_powerflow(hour: Optional[int] = None, weather_year: int = 0,
-                     dispatch_mode: str = "nodal"):
-    """AC power flow: hand-built Newton-Raphson vs pandapower (Section 6.5)."""
+class OracleRequest(BaseModel):
+    """Oracle round-trips can validate the *scenario the user ran* (issue #13):
+    overrides are applied to the world before both sides solve."""
+
+    scenario: Optional[Scenario] = None
+    hour: Optional[int] = None
+    weather_year: int = 0
+    dispatch_mode: str = "nodal"
+
+
+def _oracle_world(req: Optional[OracleRequest]):
+    from ..scenario import apply_overrides
+
+    w = service.world
+    note = None
+    if req and req.scenario and req.scenario.overrides:
+        w = apply_overrides(w, req.scenario.overrides)
+        note = f"validating scenario '{req.scenario.id}' ({len(req.scenario.overrides)} overrides applied)"
+    return w, note
+
+
+def _excluded_assets(w) -> dict:
+    """What the oracle translation does NOT model — reported so a MATCH verdict
+    is never mistaken for coverage (issues #14/#16)."""
+    out = {}
+    if w.storage_units:
+        out["storage_units"] = [st.id for st in w.storage_units]
+    if w.dc_lines:
+        out["dc_lines"] = [d.id for d in w.dc_lines]
+    if w.expansion_candidates:
+        out["expansion_candidates"] = len(w.expansion_candidates)
+    if w.resource_potentials:
+        out["resource_potentials"] = len(w.resource_potentials)
+    taps = [t.id for t in w.transformers if abs(t.tap_ratio - 1.0) > 1e-9
+            or abs(t.phase_shift_deg) > 1e-9]
+    if taps:
+        out["transformers_with_taps"] = taps
+    return out
+
+
+def _peak_mw(w, weather_year: int) -> float:
+    store = w.time_series_store
+    total = None
+    for ld in w.loads:
+        if ld.demand_profile_id and ld.demand_profile_id in store:
+            arr = store.get(ld.demand_profile_id)
+            total = arr if total is None else total + arr
+    return float(total.max()) if total is not None else 1000.0
+
+
+def _run_oracle_powerflow(req: Optional[OracleRequest]):
     from ..engines.powerflow import peak_load_hour
     from ..validation.oracles.pandapower_oracle import HAVE_PANDAPOWER, compare_power_flow
 
     if not HAVE_PANDAPOWER:
         return {"available": False, "oracle": "pandapower"}
-    w = service.world
-    h = hour if hour is not None else peak_load_hour(w, weather_year)
-    cmp = compare_power_flow(w, h, weather_year, dispatch_mode=dispatch_mode)
+    w, note = _oracle_world(req)
+    year = req.weather_year if req else 0
+    h = (req.hour if req and req.hour is not None else peak_load_hour(w, year))
+    mode = req.dispatch_mode if req else "nodal"
+    # tolerances scale with system size instead of fixed absolutes (issue #15)
+    mw_tol = max(1.0, 0.001 * _peak_mw(w, year))
+    try:
+        cmp = compare_power_flow(w, h, year, dispatch_mode=mode)
+    except Exception as exc:
+        # divergence is a first-class, explained outcome — not a 500 (issue #15)
+        return {
+            "available": True, "oracle": "pandapower", "engine": "pf", "hour": h,
+            "converged_both": False, "failure": str(exc),
+            "why": ("One side failed to converge or errored. Common causes: an "
+                    "operating point outside voltage limits (heavy scenario "
+                    "overrides), an islanded bus after a retirement, or an "
+                    "oracle translation gap (see excluded assets)."),
+            "excluded": _excluded_assets(w), "note": note,
+        }
     return {
         "available": True, "oracle": "pandapower", "engine": "pf", "hour": h,
+        "note": note,
         "metrics": [
             {"name": "max |V| difference", "kernel": "—", "oracle": "—",
-             "diff": cmp.max_v_diff_pu, "unit": "pu", "tol": 1e-4},
+             "diff": cmp.max_v_diff_pu, "unit": "pu", "tol": 1e-4,
+             "why": ("Bus voltage magnitudes from two independent Newton-Raphson "
+                     "implementations should agree to numerical precision; a gap "
+                     "means the two sides solved different networks.")},
             {"name": "max angle difference", "kernel": "—", "oracle": "—",
-             "diff": cmp.max_angle_diff_deg, "unit": "deg", "tol": 1e-2},
+             "diff": cmp.max_angle_diff_deg, "unit": "deg", "tol": 1e-2,
+             "why": "Angles are relative to the slack; both sides use the same reference."},
             {"name": "max branch-flow difference", "kernel": "—", "oracle": "—",
-             "diff": cmp.max_flow_diff_mw, "unit": "MW", "tol": 1.0},
+             "diff": cmp.max_flow_diff_mw, "unit": "MW", "tol": mw_tol,
+             "why": ("Flows follow from voltages and impedances. Tolerance is "
+                     "0.1% of system peak load, not a fixed MW.")},
             {"name": "total losses", "kernel": cmp.losses_glassbox_mw,
              "oracle": cmp.losses_pandapower_mw,
              "diff": abs(cmp.losses_glassbox_mw - cmp.losses_pandapower_mw),
-             "unit": "MW", "tol": 1.0},
+             "unit": "MW", "tol": mw_tol,
+             "why": ("I2R losses are the most sensitive aggregate — they amplify "
+                     "any small voltage/flow disagreement.")},
         ],
         "converged_both": cmp.converged_both, "n_buses": cmp.n_buses,
+        "excluded": _excluded_assets(w),
+    }
+
+
+@app.get("/api/oracle/powerflow")
+def oracle_powerflow(hour: Optional[int] = None, weather_year: int = 0,
+                     dispatch_mode: str = "nodal"):
+    """AC power flow: hand-built Newton-Raphson vs pandapower (Section 6.5)."""
+    return _run_oracle_powerflow(OracleRequest(hour=hour, weather_year=weather_year,
+                                               dispatch_mode=dispatch_mode))
+
+
+@app.post("/api/oracle/powerflow")
+def oracle_powerflow_scenario(req: OracleRequest):
+    return _run_oracle_powerflow(req)
+
+
+def _run_oracle_dispatch(req: Optional[OracleRequest]):
+    from ..engines.powerflow import peak_load_hour
+    from ..validation.oracles.pypsa_oracle import HAVE_PYPSA, compare_dispatch
+
+    if not HAVE_PYPSA:
+        return {"available": False, "oracle": "pypsa"}
+    w, note = _oracle_world(req)
+    year = req.weather_year if req else 0
+    h = (req.hour if req and req.hour is not None else peak_load_hour(w, year))
+    mw_tol = max(1.0, 0.001 * _peak_mw(w, year))
+    try:
+        cmp = compare_dispatch(w, h, year)
+    except Exception as exc:
+        return {
+            "available": True, "oracle": "PyPSA", "engine": "pcm", "hour": h,
+            "converged_both": False, "failure": str(exc),
+            "why": ("One side failed to solve. If a scenario override retired "
+                    "capacity or scaled load, the copper-plate problem may be "
+                    "infeasible on the oracle side (it has no unserved-energy "
+                    "variable)."),
+            "excluded": _excluded_assets(w), "note": note,
+        }
+    return {
+        "available": True, "oracle": "PyPSA", "engine": "pcm", "hour": h,
+        "note": note,
+        "metrics": [
+            {"name": "objective", "kernel": cmp.objective_glassbox,
+             "oracle": cmp.objective_pypsa, "diff": cmp.objective_rel_diff,
+             "unit": "rel", "tol": 1e-4,
+             "why": ("Same copper-plate merit-order problem solved by two "
+                     "independent formulations — the optimal cost must agree.")},
+            {"name": "max per-generator dispatch difference", "kernel": "—",
+             "oracle": "—", "diff": cmp.max_dispatch_diff_mw, "unit": "MW",
+             "tol": mw_tol,
+             "why": ("Individual setpoints can differ when units tie on marginal "
+                     "cost (degenerate optima) even though total cost matches.")},
+            {"name": "total dispatched", "kernel": cmp.total_dispatch_glassbox_mw,
+             "oracle": cmp.total_dispatch_pypsa_mw,
+             "diff": abs(cmp.total_dispatch_glassbox_mw - cmp.total_dispatch_pypsa_mw),
+             "unit": "MW", "tol": mw_tol,
+             "why": "Both sides must serve the same load in a lossless copper plate."},
+        ],
+        # a MATCH verdict covers ONLY the translated subset (issue #14):
+        "excluded": _excluded_assets(w),
+        "scope_note": ("This oracle compares a single-hour, copper-plate "
+                       "thermal+VRE+hydro dispatch. Storage, network limits, "
+                       "unit commitment, and investment are not exercised."),
     }
 
 
 @app.get("/api/oracle/dispatch")
 def oracle_dispatch(hour: Optional[int] = None, weather_year: int = 0):
     """Economic dispatch: transparent linopy core vs PyPSA LOPF (Sections 6.2/6.3)."""
-    from ..engines.powerflow import peak_load_hour
-    from ..validation.oracles.pypsa_oracle import HAVE_PYPSA, compare_dispatch
+    return _run_oracle_dispatch(OracleRequest(hour=hour, weather_year=weather_year))
 
-    if not HAVE_PYPSA:
-        return {"available": False, "oracle": "pypsa"}
-    w = service.world
-    h = hour if hour is not None else peak_load_hour(w, weather_year)
-    cmp = compare_dispatch(w, h, weather_year)
-    return {
-        "available": True, "oracle": "PyPSA", "engine": "pcm", "hour": h,
-        "metrics": [
-            {"name": "objective", "kernel": cmp.objective_glassbox,
-             "oracle": cmp.objective_pypsa, "diff": cmp.objective_rel_diff,
-             "unit": "rel", "tol": 1e-4},
-            {"name": "max per-generator dispatch difference", "kernel": "—",
-             "oracle": "—", "diff": cmp.max_dispatch_diff_mw, "unit": "MW", "tol": 1.0},
-            {"name": "total dispatched", "kernel": cmp.total_dispatch_glassbox_mw,
-             "oracle": cmp.total_dispatch_pypsa_mw,
-             "diff": abs(cmp.total_dispatch_glassbox_mw - cmp.total_dispatch_pypsa_mw),
-             "unit": "MW", "tol": 1.0},
-        ],
-    }
+
+@app.post("/api/oracle/dispatch")
+def oracle_dispatch_scenario(req: OracleRequest):
+    return _run_oracle_dispatch(req)
 
 
 @app.get("/api/oracle/dynamics")

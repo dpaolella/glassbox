@@ -48,8 +48,10 @@ function fmt(v: number | string, unit: string): string {
 function MetricRow({ m }: { m: OracleMetric }) {
   const pass = m.diff <= m.tol;
   return (
-    <tr title={`tolerance ${m.tol}`}>
-      <td className="field-name">{m.name}</td>
+    <tr title={`${m.why ?? ""}${m.why ? " " : ""}(tolerance ${m.tol}${m.unit !== "rel" ? ` ${m.unit}` : ""})`}>
+      <td className="field-name">
+        <span className={m.why ? "has-tip" : ""}>{m.name}</span>
+      </td>
       <td className="field-value">{fmt(m.kernel, m.unit)}</td>
       <td className="field-value">{fmt(m.oracle, m.unit)}</td>
       <td
@@ -113,6 +115,14 @@ function OracleCard({ spec, enabled }: { spec: CardSpec; enabled: boolean }) {
         <div className="error-banner">{err}</div>
       ) : res && !res.available ? (
         <p className="muted">{spec.oracle} unavailable.</p>
+      ) : res && res.failure ? (
+        <>
+          <div className="lesson-box" style={{ borderColor: "var(--warn)" }}>
+            <b>divergence</b> — {res.why}
+            <div className="muted" style={{ marginTop: 4 }}>{res.failure}</div>
+          </div>
+          <button className="run-oracle" onClick={run}>re-run</button>
+        </>
       ) : (
         res &&
         res.metrics && (
@@ -133,7 +143,16 @@ function OracleCard({ spec, enabled }: { spec: CardSpec; enabled: boolean }) {
               </tbody>
             </table>
             {res.hour !== undefined && (
-              <p className="muted">snapshot hour {res.hour}</p>
+              <p className="muted">snapshot hour {res.hour}{res.note ? ` · ${res.note}` : ""}</p>
+            )}
+            {res.scope_note && <p className="muted">{res.scope_note}</p>}
+            {res.excluded && Object.keys(res.excluded).length > 0 && (
+              <p className="muted" title="A MATCH verdict covers only the translated subset of the world — these assets were not part of the comparison.">
+                <b>not modeled by this oracle:</b>{" "}
+                {Object.entries(res.excluded)
+                  .map(([k, v]) => `${k.replace(/_/g, " ")} (${Array.isArray(v) ? v.length : v})`)
+                  .join(", ")}
+              </p>
             )}
             <button className="run-oracle" onClick={run}>
               re-run

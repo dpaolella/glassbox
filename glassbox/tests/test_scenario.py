@@ -73,3 +73,35 @@ def test_one_year_vs_many_diff(world):
     # the realized capacity factors (and hence the build) shift between the two
     assert d["a"]["weather_years"] == [0]
     assert d["b"]["weather_years"] == [0, 1, 2]
+
+
+def test_build_then_operate_pipeline(world):
+    """CEM builds materialize into a world the other layers can operate (#9)."""
+    from glassbox.scenario import world_with_builds
+
+    cem = run_scenario(world, Scenario(
+        id="c", layer=Layer.CEM, spatial_operator=SpatialOperator("identity"),
+        temporal_map_id="representative_days", weather_years=[0], n_rep_days=4))
+    committed = world_with_builds(world, cem.result)
+
+    built_ids = ({f"built_{k}" for k in cem.result.built_capacity_mw}
+                 | {f"built_{k}" for k in cem.result.built_resource_potential_mw
+                    if next(rp for rp in world.resource_potentials
+                            if rp.id == k).kind.value == "generator"})
+    have = {g.id for g in committed.generators}
+    assert built_ids <= have
+    # the built corridor is a real line now
+    for lid in cem.result.built_transmission_mw:
+        assert any(ln.id == f"built_{lid}" for ln in committed.ac_lines)
+    # committed proposals are consumed
+    remaining = {c.id for c in committed.expansion_candidates}
+    assert not (set(cem.result.built_transmission_mw) & remaining)
+    # and operating the committed world is cheaper at the peak window
+    from glassbox.tests.test_engines import _peak_window_start
+    start = _peak_window_start(world, 48)
+    pcm = dict(layer=Layer.PCM, spatial_operator=SpatialOperator("identity"),
+               temporal_map_id="full_chronology", weather_years=[0],
+               horizon_hours=48, horizon_start=start)
+    before = run_scenario(world, Scenario(id="p0", **pcm))
+    after = run_scenario(committed, Scenario(id="p1", **pcm))
+    assert after.summary["total_cost"] < before.summary["total_cost"]

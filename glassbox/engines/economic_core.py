@@ -271,8 +271,8 @@ def assemble_view(
         for rp in world.resource_potentials:
             if rp.kind.value != "generator":
                 continue
-            node = bus_to_node.get(_zone_hub_bus(world, rp))
-            if node is None:
+            hub_node = bus_to_node.get(_zone_hub_bus(world, rp))
+            if hub_node is None:
                 continue
             is_vre = rp.technology in ("wind", "solar_pv")
             mc = _candidate_marginal_cost(world, rp)
@@ -284,8 +284,11 @@ def assemble_view(
                 prof_id = tr.availability_profile_id or rp.availability_profile_id
                 avail = (store.get(prof_id)[abs_timesteps]
                          if is_vre and prof_id and prof_id in store else None)
+                # each step can interconnect at its own bus (spread across the
+                # zone instead of concentrating the whole curve at one hub)
+                tr_node = (bus_to_node.get(tr.bus_id) if tr.bus_id else None) or hub_node
                 gens.append(GenSpec(
-                    id=f"{rp.id}#t{k}", node=node, tech=rp.technology, is_vre=is_vre,
+                    id=f"{rp.id}#t{k}", node=tr_node, tech=rp.technology, is_vre=is_vre,
                     marginal_cost=mc, emissions_t_per_mwh=emis,
                     p_nom_existing=0.0, is_candidate=True,
                     capex_annual_per_mw=capex_annual, build_max=tr.build_max_mw,
