@@ -266,7 +266,85 @@ class WorldService:
                 "zones": [{"id": z.id, "name": z.name,
                            "member_bus_ids": z.member_bus_ids} for z in w.zones],
                 "interfaces": interfaces, "candidates": candidates,
-                "resource_potentials": resource_potentials}
+                "resource_potentials": resource_potentials,
+                "terrain": self._terrain()}
+
+    def _terrain(self) -> dict:
+        """Procedural cartography (issue #26): a seeded landmass polygon,
+        a river through the hydro zone, city markers sized by demand, and a
+        resource field derived from the VRE weather sites. Deterministic from
+        the world's weather seed; everything is derived, nothing is stored."""
+        import math
+        import random
+
+        w = self.world
+        seed = w.weather_model.seed if w.weather_model else 0
+        rng = random.Random(seed * 104729 + 7)
+        xs = [b.x for b in w.buses]
+        ys = [b.y for b in w.buses]
+        cx, cy = sum(xs) / len(xs), sum(ys) / len(ys)
+        span = max(max(xs) - min(xs), max(ys) - min(ys))
+
+        # landmass: a noisy radial blob comfortably containing every bus
+        n_pts = 26
+        land = []
+        for i in range(n_pts):
+            ang = 2 * math.pi * i / n_pts
+            # base radius = farthest bus in this general direction + margin
+            best = 0.0
+            for b in w.buses:
+                d = math.hypot(b.x - cx, b.y - cy)
+                if d < 1e-9:
+                    continue
+                a = math.atan2(b.y - cy, b.x - cx)
+                diff = abs((a - ang + math.pi) % (2 * math.pi) - math.pi)
+                if diff < 0.9:
+                    best = max(best, d * math.cos(diff))
+            r = best + span * (0.16 + 0.07 * rng.random())
+            land.append([cx + r * math.cos(ang), cy + r * math.sin(ang)])
+
+        # river: rises past the hydro unit and flows off the north-west coast
+        river = []
+        hydro_bus = None
+        if w.hydro_units:
+            hydro_bus = next((b for b in w.buses
+                              if b.id == w.hydro_units[0].bus_id), None)
+        if hydro_bus:
+            hx, hy = hydro_bus.x, hydro_bus.y
+            pts = [(hx - span * 0.55, hy + span * 0.30),
+                   (hx - span * 0.30, hy + span * 0.16),
+                   (hx - span * 0.12, hy + span * 0.05),
+                   (hx, hy),
+                   (hx + span * 0.10, hy - span * 0.12),
+                   (hx + span * 0.18, hy - span * 0.30)]
+            river = [[px + rng.uniform(-8, 8), py + rng.uniform(-6, 6)]
+                     for px, py in pts]
+
+        # cities: load buses, radius scaled by their share of demand
+        store = w.time_series_store
+        demand = {}
+        for ld in w.loads:
+            if ld.demand_profile_id and ld.demand_profile_id in store:
+                demand[ld.bus_id] = float(store.get(ld.demand_profile_id)[:8760].mean())
+        dmax = max(demand.values(), default=1.0)
+        bus_xy = {b.id: (b.x, b.y, b.name) for b in w.buses}
+        cities = [{"bus_id": bid, "name": bus_xy[bid][2],
+                   "x": bus_xy[bid][0], "y": bus_xy[bid][1],
+                   "size": 0.35 + 0.65 * (d / dmax)}
+                  for bid, d in demand.items() if bid in bus_xy]
+
+        # resource field: one soft blob per VRE weather site, intensity from
+        # the site's resource-quality scale (the same physics the CEM sees)
+        blobs = []
+        for site in w.weather_sites:
+            if site.kind not in ("wind", "solar"):
+                continue
+            blobs.append({"kind": site.kind, "x": site.x, "y": site.y,
+                          "r": span * 0.16,
+                          "intensity": max(0.2, min(1.0, (site.scale or 1.0) - 0.2))})
+
+        return {"land": land, "river": river, "cities": cities,
+                "resource_blobs": blobs, "span": span}
 
 
 def _jsonable(value: Any) -> Any:
