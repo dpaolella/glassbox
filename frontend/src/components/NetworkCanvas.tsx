@@ -27,6 +27,13 @@ interface Props {
   onSelect: (sel: Selection) => void;
   results?: MapResults | null;
   onClearResults?: () => void;
+  // split-screen compare (issue #35): share one camera across two maps and
+  // strip the chrome down to the essentials
+  syncView?: { x: number; y: number; k: number };
+  onSyncView?: (v: { x: number; y: number; k: number }) => void;
+  compact?: boolean;
+  headerLabel?: string;
+  headerColor?: string;
 }
 
 interface Overlays {
@@ -229,6 +236,11 @@ export function NetworkCanvas({
   onSelect,
   results: resultsProp,
   onClearResults,
+  syncView,
+  onSyncView,
+  compact = false,
+  headerLabel,
+  headerColor,
 }: Props) {
   const [graph, setGraph] = useState<GraphData | null>(null);
   const [ov, setOv] = useState<Overlays>(DEFAULT_OVERLAYS);
@@ -238,14 +250,72 @@ export function NetworkCanvas({
   const [showOverlays, setShowOverlays] = useState(() => window.innerHeight >= 750);
   const [showLegend, setShowLegend] = useState(() => window.innerHeight >= 750);
   const svgRef = useRef<SVGSVGElement | null>(null);
-  // pan/zoom transform applied on top of the auto-fitting viewBox
-  const [view, setView] = useState({ x: 0, y: 0, k: 1 });
+  // pan/zoom transform applied on top of the auto-fitting viewBox.
+  // In compare mode the camera is lifted to the parent so both maps move
+  // together; otherwise it is local state.
+  const [viewInternal, setViewInternal] = useState({ x: 0, y: 0, k: 1 });
+  const view = syncView ?? viewInternal;
+  const viewRef = useRef(view);
+  viewRef.current = view;
+  const setView = (
+    updater:
+      | { x: number; y: number; k: number }
+      | ((v: { x: number; y: number; k: number }) => { x: number; y: number; k: number }),
+  ) => {
+    const next = typeof updater === "function" ? updater(viewRef.current) : updater;
+    if (onSyncView) onSyncView(next);
+    else setViewInternal(next);
+  };
   const pan = useRef<{ x: number; y: number } | null>(null);
 
   const [graphErr, setGraphErr] = useState<string | null>(null);
-  useEffect(() => {
+  const fetchGraph = () =>
     api.graph().then(setGraph).catch((e) => setGraphErr(String(e)));
+  useEffect(() => {
+    fetchGraph();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  // --- build mode (issue #28): place / erase proposals on the map --------
+  type Tool = "ccgt" | "wind" | "solar_pv" | "battery" | "line" | "erase";
+  const [tool, setTool] = useState<Tool | null>(null);
+  const [lineFrom, setLineFrom] = useState<string | null>(null);
+  const [buildMsg, setBuildMsg] = useState<string | null>(null);
+  useEffect(() => {
+    // leaving the inv layer puts the toolbox away
+    if (layer !== "inv") { setTool(null); setLineFrom(null); }
+  }, [layer]);
+
+  function place(body: Record<string, unknown>) {
+    api.placeCandidate(body)
+      .then((r) => {
+        setBuildMsg(`placed ${r.name}${r.note ? ` — ${r.note}` : ""}`);
+        fetchGraph();
+      })
+      .catch((e) => setBuildMsg(String(e)));
+  }
+
+  function busClicked(busId: string): boolean {
+    if (!tool || tool === "erase") return false;
+    if (tool === "line") {
+      if (!lineFrom) { setLineFrom(busId); setBuildMsg(`line from ${busId} — click the other end`); }
+      else if (lineFrom !== busId) {
+        place({ technology: "line", from_bus_id: lineFrom, to_bus_id: busId });
+        setLineFrom(null);
+      }
+      return true;
+    }
+    place({ technology: tool, bus_id: busId });
+    return true;
+  }
+
+  function candidateClicked(cid: string): boolean {
+    if (tool !== "erase") return false;
+    api.deleteCandidate(cid)
+      .then(() => { setBuildMsg(`deleted ${cid}`); fetchGraph(); })
+      .catch((e) => setBuildMsg(String(e)));
+    return true;
+  }
 
   // build options are an `inv`-layer concern: auto-show both the nodal
   // candidates and the zonal resource-potential curves on the capacity layer
@@ -297,6 +367,41 @@ export function NetworkCanvas({
     );
     return () => window.clearInterval(id);
   }, [playing, speed, T]);
+
+  // weather-in-motion (issue #34): during playback the resource glows pulse
+  // with the actual hourly availability of each site's profile
+  const [blobSeries, setBlobSeries] = useState<Record<string, number[]> | null>(null);
+  useEffect(() => {
+    setBlobSeries(null);
+    const ts = resultsProp?.timesteps;
+    const blobs = graph?.terrain?.resource_blobs ?? [];
+    if (!ts || ts.length < 2 || !blobs.length) return;
+    // only a contiguous window maps onto an absolute series slice
+    for (let i = 1; i < ts.length; i++) if (ts[i] !== ts[i - 1] + 1) return;
+    let cancelled = false;
+    Promise.all(
+      blobs
+        .filter((bl) => bl.profile_id)
+        .map((bl) =>
+          api
+            .timeseries(bl.profile_id!, ts[0], ts.length, 1)
+            .then((d) => [bl.profile_id!, d.values] as const)
+            .catch(() => null),
+        ),
+    ).then((pairs) => {
+      if (cancelled) return;
+      const m: Record<string, number[]> = {};
+      pairs.forEach((p2) => { if (p2) m[p2[0]] = p2[1]; });
+      setBlobSeries(m);
+    });
+    return () => { cancelled = true; };
+  }, [resultsProp, graph]);
+
+  // playback implies weather: reveal the resource field when playing
+  useEffect(() => {
+    if (hour !== null) setOv((o) => (o.resource_field ? o : { ...o, resource_field: true }));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [hour !== null]);
 
   // price per bus: nodal runs key by bus id, zonal runs by zone id (every bus
   // in a zone shows the one flattened price — the aggregation made visible).
@@ -529,16 +634,21 @@ export function NetworkCanvas({
                 </path>
               )}
               {ov.resource_field &&
-                graph.terrain.resource_blobs.map((bl, i) => (
-                  <circle
-                    key={i}
-                    cx={bl.x}
-                    cy={bl.y}
-                    r={bl.r * (0.7 + 0.5 * bl.intensity)}
-                    fill={`url(#rg-${bl.kind})`}
-                    opacity={bl.intensity}
-                  />
-                ))}
+                graph.terrain.resource_blobs.map((bl, i) => {
+                  // live weather: pulse with this hour's availability
+                  const series = bl.profile_id ? blobSeries?.[bl.profile_id] : undefined;
+                  const avail = hour !== null && series ? series[hour] : null;
+                  const o = avail !== null ? 0.12 + 0.9 * avail : bl.intensity;
+                  const r = bl.r * (0.7 + 0.5 * (avail !== null ? avail : bl.intensity));
+                  return (
+                    <circle key={i} cx={bl.x} cy={bl.y} r={r}
+                      fill={`url(#rg-${bl.kind})`} opacity={Math.min(1, o)}>
+                      {avail !== null && (
+                        <title>{`${bl.kind} availability now: ${(avail * 100).toFixed(0)}%`}</title>
+                      )}
+                    </circle>
+                  );
+                })}
             </g>
           )}
           {/* zone regions */}
@@ -634,10 +744,11 @@ export function NetworkCanvas({
                 const mx = (a.x + b.x) / 2;
                 const my = (a.y + b.y) / 2;
                 return (
-                  <g key={c.id} style={{ cursor: "pointer" }}
-                    onClick={() =>
-                      onSelect({ collection: "expansion_candidates", id: c.id })
-                    }>
+                  <g key={c.id} style={{ cursor: tool === "erase" ? "not-allowed" : "pointer" }}
+                    onClick={() => {
+                      if (!candidateClicked(c.id))
+                        onSelect({ collection: "expansion_candidates", id: c.id });
+                    }}>
                     <line
                       x1={a.x}
                       y1={a.y}
@@ -681,10 +792,11 @@ export function NetworkCanvas({
                   <g
                     key={c.id}
                     transform={`translate(${x} ${y})`}
-                    style={{ cursor: "pointer" }}
-                    onClick={() =>
-                      onSelect({ collection: "expansion_candidates", id: c.id })
-                    }
+                    style={{ cursor: tool === "erase" ? "not-allowed" : "pointer" }}
+                    onClick={() => {
+                      if (!candidateClicked(c.id))
+                        onSelect({ collection: "expansion_candidates", id: c.id });
+                    }}
                   >
                     <rect
                       x={lw(-9)}
@@ -735,8 +847,10 @@ export function NetworkCanvas({
             return (
               <g
                 key={n.id}
-                style={{ cursor: "pointer" }}
-                onClick={() => onSelect({ collection: "buses", id: n.id })}
+                style={{ cursor: tool && tool !== "erase" ? "copy" : "pointer" }}
+                onClick={() => {
+                  if (!busClicked(n.id)) onSelect({ collection: "buses", id: n.id });
+                }}
               >
                 {sel && (
                   <circle cx={n.x} cy={n.y} r={lw(11)} fill="none"
@@ -890,11 +1004,61 @@ export function NetworkCanvas({
       </svg>
 
       {/* controls */}
-      <div className="map-controls">
+      {!compact && <div className="map-controls">
         <button onClick={() => setView((v) => ({ ...v, k: Math.min(8, v.k * 1.2) }))} title="Zoom in">＋</button>
         <button onClick={() => setView((v) => ({ ...v, k: Math.max(0.4, v.k / 1.2) }))} title="Zoom out">－</button>
         <button onClick={resetView} title="Reset view">⤾</button>
-      </div>
+      </div>}
+
+      {/* build palette (issue #28) — the SimCity loop, inv layer only */}
+      {!compact && layer === "inv" && (
+        <div className="build-palette">
+          <div className="build-title" title="Place new build proposals directly on the map. They become ExpansionCandidates the capacity-expansion run can choose — run a CEM preset afterwards to see if your proposal survives the optimizer. Edits live in server memory until reset.">
+            build mode
+          </div>
+          {(
+            [
+              ["ccgt", "flame", "gas plant"],
+              ["wind", "wind", "wind farm"],
+              ["solar_pv", "sun", "solar park"],
+              ["battery", "battery", "battery"],
+              ["line", "line", "line (click two buses)"],
+              ["erase", "star", "erase a proposal"],
+            ] as [string, string, string][]
+          ).map(([t, icon, tip]) => (
+            <button
+              key={t}
+              className={`build-tool ${tool === t ? "active" : ""}`}
+              title={tip}
+              onClick={() => {
+                setTool(tool === (t as Tool) ? null : (t as Tool));
+                setLineFrom(null);
+                setBuildMsg(
+                  tool === t ? null
+                  : t === "erase" ? "click a proposal (diamond or dashed corridor) to delete it"
+                  : t === "line" ? "click the first endpoint bus"
+                  : `click a bus to site a ${tip}`,
+                );
+              }}
+            >
+              {t === "erase" ? "✕" : <Icon icon={icon} size={13} color={tool === t ? "#221503" : "#f59e0b"} />}
+            </button>
+          ))}
+          <button className="build-tool" title="Discard all map edits and reload the saved world"
+            onClick={() => {
+              api.resetWorld().then(() => { setBuildMsg("world reset"); fetchGraph(); });
+            }}>
+            ⟲
+          </button>
+          {buildMsg && <div className="build-msg">{buildMsg}</div>}
+        </div>
+      )}
+
+      {headerLabel && (
+        <div className="map-header-chip" style={{ borderColor: headerColor }}>
+          {headerLabel}
+        </div>
+      )}
 
       {/* day/night tint during playback */}
       {hour !== null && results?.timesteps && (() => {
@@ -906,7 +1070,7 @@ export function NetworkCanvas({
       })()}
 
       {/* chronological playback (issue #27) */}
-      {results?.timesteps && results.timesteps.length > 1 && (
+      {!compact && results?.timesteps && results.timesteps.length > 1 && (
         <div className="playback-panel">
           <div className="playback-controls">
             <button
@@ -956,7 +1120,7 @@ export function NetworkCanvas({
       )}
 
       {/* active results banner */}
-      {results && (
+      {!compact && results && (
         <div className="map-results-banner">
           <span className="results-dot" />
           <span className="results-label" title="Solved-run results are painted on the map: bus color = average price, line width/color = average loading, solid amber = built.">
@@ -990,7 +1154,7 @@ export function NetworkCanvas({
         </div>
       )}
 
-      <div className="canvas-overlays">
+      {!compact && <div className="canvas-overlays">
         <button className="box-toggle" onClick={() => setShowOverlays((v) => !v)}
           title="Toggle which layers are drawn on the map">
           <span>{showOverlays ? "▾" : "▸"}</span> overlays
@@ -1039,9 +1203,9 @@ export function NetworkCanvas({
               {label}
             </label>
           ))}
-      </div>
+      </div>}
 
-      <div className="canvas-legend">
+      {!compact && <div className="canvas-legend">
         <button className="box-toggle" onClick={() => setShowLegend((v) => !v)} title={GLOSSARY.zone}>
           <span>{showLegend ? "▾" : "▸"}</span> legend
         </button>
@@ -1117,7 +1281,7 @@ export function NetworkCanvas({
             </div>
           </>
         )}
-      </div>
+      </div>}
     </div>
   );
 }

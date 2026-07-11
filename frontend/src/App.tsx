@@ -46,6 +46,9 @@ export default function App() {
   const [error, setError] = useState<string | null>(null);
   // solved-run results painted on the map (pushed by the Scenario Lab)
   const [mapResults, setMapResults] = useState<MapResults | null>(null);
+  // split-screen A/B compare (issue #35): both runs, one shared camera
+  const [compare, setCompare] = useState<{ a: MapResults; b: MapResults } | null>(null);
+  const [sharedView, setSharedView] = useState({ x: 0, y: 0, k: 1 });
   // light "projector mode" for classrooms (persisted; tokens flip via data-theme)
   const [theme, setTheme] = useState<string>(
     () => localStorage.getItem("gb-theme") ?? "dark",
@@ -192,6 +195,26 @@ export default function App() {
 
       <div className="main">
         <div className="canvas-pane">
+          {compare ? (
+            <div className="compare-row">
+              <NetworkCanvas
+                layer={layer} selection={selection} results={compare.a}
+                compact headerLabel={compare.a.label} headerColor="var(--scenario-a)"
+                syncView={sharedView} onSyncView={setSharedView}
+                onSelect={(sel) => { setSelection(sel); setTab("inspector"); }}
+              />
+              <NetworkCanvas
+                layer={layer} selection={selection} results={compare.b}
+                compact headerLabel={compare.b.label} headerColor="var(--scenario-b)"
+                syncView={sharedView} onSyncView={setSharedView}
+                onSelect={(sel) => { setSelection(sel); setTab("inspector"); }}
+              />
+              <button className="compare-exit" title="Exit the side-by-side comparison"
+                onClick={() => setCompare(null)}>
+                ✕ exit compare
+              </button>
+            </div>
+          ) : (
           <NetworkCanvas
             layer={layer}
             selection={selection}
@@ -202,6 +225,7 @@ export default function App() {
               setTab("inspector");
             }}
           />
+          )}
           {summary && (
             <div className="statusbar">
               {Object.entries(summary.counts)
@@ -273,8 +297,9 @@ export default function App() {
                 layerLabel={activeFacet?.label ?? layer}
                 layerEngine={activeFacet?.engine ?? null}
                 onPickLayer={setLayer}
-                onMapResults={setMapResults}
+                onMapResults={(r) => { setMapResults(r); setCompare(null); }}
                 mapResults={mapResults}
+                onCompare={(a, b) => setCompare({ a, b })}
               />
             )}
             {tab === "math" && <OperatorPanel layer={layer} />}

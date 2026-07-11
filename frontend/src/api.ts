@@ -117,7 +117,7 @@ export interface Terrain {
   land: [number, number][]; // seeded landmass polygon
   river: [number, number][]; // polyline through the hydro zone
   cities: { bus_id: string; name: string; x: number; y: number; size: number }[];
-  resource_blobs: { kind: string; x: number; y: number; r: number; intensity: number }[];
+  resource_blobs: { kind: string; x: number; y: number; r: number; intensity: number; profile_id?: string }[];
   span: number;
 }
 
@@ -303,6 +303,18 @@ export interface OracleResult {
   scope_note?: string;
 }
 
+export interface WeatherEvent {
+  key: string;
+  name: string;
+  description: string;
+  kind: string;
+  year: number;
+  start_hour: number;
+  duration_h: number;
+  severity: number;
+  scenario: Record<string, unknown>;
+}
+
 export const api = {
   worldSummary: () => get<WorldSummary>("/world/summary"),
   oracleAvailability: () => get<Record<string, boolean>>("/oracle/availability"),
@@ -315,6 +327,16 @@ export const api = {
     post<OracleResult>("/oracle/dispatch", { scenario }),
   oracleDynamics: () => get<OracleResult>("/oracle/dynamics"),
   presets: () => get<ScenarioPreset[]>("/scenario/presets"),
+  weatherEvents: () => get<WeatherEvent[]>("/weather/events"),
+  // build mode (issue #28)
+  placeCandidate: (body: Record<string, unknown>) =>
+    post<{ created: string; name: string; note?: string | null }>("/world/candidates", body),
+  deleteCandidate: (cid: string) =>
+    fetch(`${BASE}/world/candidates/${cid}`, { method: "DELETE" }).then((r) => {
+      if (!r.ok) throw new Error(`delete ${cid} -> ${r.status}`);
+      return r.json();
+    }),
+  resetWorld: () => post<{ ok: boolean }>("/world/reset", {}),
   runScenario: (scenario: Record<string, unknown>) =>
     post<ScenarioRunPayload>("/scenario/run", scenario),
   diffScenarios: (a: Record<string, unknown>, b: Record<string, unknown>) =>

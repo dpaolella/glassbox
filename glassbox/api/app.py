@@ -525,6 +525,116 @@ def scenario_presets():
 # --- oracle round-trips: transparent kernel vs mature library (Section 11) ---
 
 
+# --- build mode (issue #28): edit the world's proposals from the map --------
+
+# per-technology defaults for user-placed proposals (mirrors the reference
+# world's economics so hand-placed options compete on a level field)
+_BUILD_DEFAULTS: dict = {
+    "ccgt": dict(build_max_mw=500.0, capex_per_mw=1.1e6, fom_per_mw_yr=33_000.0,
+                 lifetime_yr=30, fuel_id="gas", heat_rate_mmbtu_per_mwh=6.7,
+                 vom_per_mwh=3.0, p_min_pu=0.4),
+    "wind": dict(build_max_mw=400.0, capex_per_mw=1.3e6, fom_per_mw_yr=26_000.0,
+                 lifetime_yr=25, vom_per_mwh=0.5),
+    "solar_pv": dict(build_max_mw=400.0, capex_per_mw=0.9e6, fom_per_mw_yr=18_000.0,
+                     lifetime_yr=25, vom_per_mwh=0.5),
+    "battery": dict(build_max_mw=300.0, capex_per_mw=240_000.0,
+                    capex_per_mwh=180_000.0, duration_h=4.0,
+                    fom_per_mw_yr=6_000.0, lifetime_yr=15,
+                    efficiency_charge=0.94, efficiency_discharge=0.94,
+                    vom_per_mwh=1.0),
+    "line": dict(build_max_mw=500.0, capex_per_mw=150_000.0, lifetime_yr=40,
+                 reactance_pu=0.11),
+}
+
+
+class PlaceCandidateRequest(BaseModel):
+    technology: str  # ccgt | wind | solar_pv | battery | line
+    bus_id: Optional[str] = None
+    from_bus_id: Optional[str] = None
+    to_bus_id: Optional[str] = None
+    build_max_mw: Optional[float] = None
+
+
+@app.post("/api/world/candidates")
+def place_candidate(req: PlaceCandidateRequest):
+    """Create a build proposal (ExpansionCandidate) from the map.
+
+    VRE proposals borrow the availability profile of the nearest existing
+    weather site of the same kind — same regional weather, honestly labeled.
+    """
+    from ..schema import CandidateKind, ExpansionCandidate
+
+    w = service.world
+    if req.technology not in _BUILD_DEFAULTS:
+        raise HTTPException(400, f"unknown technology {req.technology}")
+    defaults = dict(_BUILD_DEFAULTS[req.technology])
+    if req.build_max_mw:
+        defaults["build_max_mw"] = req.build_max_mw
+    kind = (CandidateKind.LINE if req.technology == "line"
+            else CandidateKind.STORAGE if req.technology == "battery"
+            else CandidateKind.GENERATOR)
+    if kind == CandidateKind.LINE:
+        if not (req.from_bus_id and req.to_bus_id):
+            raise HTTPException(400, "a line proposal needs from_bus_id and to_bus_id")
+    elif not req.bus_id:
+        raise HTTPException(400, "a plant proposal needs bus_id")
+
+    n = 1 + sum(1 for c in w.expansion_candidates if c.id.startswith("user_"))
+    cid = f"user_{req.technology}_{n}"
+
+    profile = None
+    if req.technology in ("wind", "solar_pv"):
+        target_kind = "wind" if req.technology == "wind" else "solar"
+        bus = next((b for b in w.buses if b.id == req.bus_id), None)
+        sites = [st for st in w.weather_sites if st.kind == target_kind]
+        if bus and sites:
+            nearest = min(sites, key=lambda st: (st.x - bus.x) ** 2 + (st.y - bus.y) ** 2)
+            profile = f"availability__{nearest.id}"
+
+    def busname(bid):
+        b = next((b2 for b2 in w.buses if b2.id == bid), None)
+        return (b.name or bid) if b else bid
+
+    name = (f"{busname(req.from_bus_id)}–{busname(req.to_bus_id)} line (your proposal)"
+            if kind == CandidateKind.LINE
+            else f"{req.technology} @ {busname(req.bus_id)} (your proposal)")
+    cand = ExpansionCandidate(
+        id=cid, name=name, kind=kind, technology=req.technology,
+        bus_id=req.bus_id, from_bus_id=req.from_bus_id, to_bus_id=req.to_bus_id,
+        availability_profile_id=profile, **defaults)
+    w.expansion_candidates.append(cand)
+    return {"created": cid, "name": name,
+            "availability_profile_id": profile,
+            "note": (None if kind == CandidateKind.LINE or profile or
+                     req.technology not in ("wind", "solar_pv")
+                     else "no weather site found — treated as firm capacity")}
+
+
+@app.delete("/api/world/candidates/{cid}")
+def delete_candidate(cid: str):
+    w = service.world
+    before = len(w.expansion_candidates)
+    w.expansion_candidates = [c for c in w.expansion_candidates if c.id != cid]
+    if len(w.expansion_candidates) == before:
+        raise HTTPException(404, f"no candidate {cid}")
+    return {"deleted": cid}
+
+
+@app.post("/api/world/reset")
+def reset_world():
+    """Discard in-memory edits; reload the saved world from disk."""
+    service.reset()
+    return {"ok": True}
+
+
+@app.get("/api/weather/events")
+def weather_events():
+    """Named stress/showcase events auto-detected from the ensemble (#34)."""
+    from ..weather.events import detect_events
+
+    return detect_events(service.world)
+
+
 @app.get("/api/oracle/availability")
 def oracle_availability():
     """Which oracle libraries are importable in this environment."""
