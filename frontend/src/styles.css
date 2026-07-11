@@ -1327,3 +1327,21 @@ code {
   padding: 0;
   word-break: break-all;
 }
+
+/* challenges (issue #30) */
+.challenge-card {
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 10px 12px;
+  margin: 10px 0;
+  background: var(--bg-2);
+  font-size: var(--fs-md);
+}
+.challenge-card p { margin: 6px 0; line-height: 1.45; }
+.challenge-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  font-size: var(--fs-lg);
+}
+.challenge-medal { font-size: var(--fs-md); }

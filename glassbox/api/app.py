@@ -547,6 +547,27 @@ _BUILD_DEFAULTS: dict = {
 }
 
 
+@app.get("/api/challenges")
+def list_challenges():
+    from ..challenges import CHALLENGES
+
+    return CHALLENGES
+
+
+@app.post("/api/challenges/{key}/score")
+def score_challenge_endpoint(key: str):
+    """Grade the current world (including build-mode proposals) against a
+    challenge's targets by running the real engines (issue #30)."""
+    from ..challenges import score_challenge
+
+    try:
+        return score_challenge(service.world, key)
+    except KeyError:
+        raise HTTPException(404, f"no challenge {key}")
+    except Exception as exc:
+        raise HTTPException(500, f"challenge scoring failed: {exc}")
+
+
 class DrillRequest(BaseModel):
     collection: str  # "generators" | "ac_lines"
     id: str

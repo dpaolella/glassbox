@@ -8,6 +8,7 @@ import { TimeSeriesPanel } from "./components/TimeSeriesPanel";
 import { ScenarioLab } from "./components/ScenarioLab";
 import { OraclePanel } from "./components/OraclePanel";
 import { Catalog } from "./components/Catalog";
+import { ChallengesPanel } from "./components/ChallengesPanel";
 import { GlossaryPanel } from "./components/GlossaryPanel";
 import { Tour, TourStep, tourDone } from "./components/Tour";
 
@@ -22,6 +23,7 @@ type Tab =
   | "scenarios"
   | "math"
   | "oracles"
+  | "challenges"
   | "glossary"
   | "weather"
   | "series";
@@ -264,7 +266,7 @@ export default function App() {
 
         <aside className="side-pane" style={{ width: panelWidth }}>
           <nav className="tabs">
-            {(["inspector", "catalog", "scenarios", "math", "oracles", "glossary", "weather", "series"] as Tab[]).map(
+            {(["inspector", "catalog", "scenarios", "math", "oracles", "challenges", "glossary", "weather", "series"] as Tab[]).map(
               (t) => (
                 <button
                   key={t}
@@ -303,6 +305,7 @@ export default function App() {
               />
             )}
             {tab === "math" && <OperatorPanel layer={layer} />}
+            {tab === "challenges" && <ChallengesPanel />}
             {tab === "glossary" && <GlossaryPanel />}
             {tab === "oracles" && <OraclePanel />}
             {tab === "weather" && <WeatherPanel />}
