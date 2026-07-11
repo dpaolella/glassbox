@@ -140,6 +140,8 @@ class CapacityExpansionEngine(Engine):
                 "built_storage_energy_mwh": result.built_storage_energy_mwh,
                 "built_transmission_mw": result.built_transmission_mw,
                 "built_resource_potential_mw": result.built_resource_potential_mw,
+                "built_resource_potential_energy_mwh":
+                    result.built_resource_potential_energy_mwh,
                 "realized_capacity_factor": (result.operational.realized_capacity_factor
                                              if result.operational else {}),
             },

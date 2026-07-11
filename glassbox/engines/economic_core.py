@@ -116,6 +116,7 @@ class EconomicView:
     reference_node: str
     interfaces: list[dict] = field(default_factory=list)
     reserve_req: Optional[np.ndarray] = None   # len T, MW spinning requirement
+    reserve_pct_vre: float = 0.0               # candidate-VRE reserve rule (endogenous)
     carbon_price: float = 0.0
     emissions_cap: Optional[float] = None       # annual tCO2
     rps_fraction: float = 0.0
@@ -215,6 +216,9 @@ def assemble_view(
     # --- existing generators (physical assets; capacity fixed) ---
     gens: list[GenSpec] = []
     for g in world.generators:
+        # retired / out-of-service assets are invisible to the economic layers
+        if not g.in_service or g.status.value == "retired":
+            continue
         node = bus_to_node.get(g.bus_id)
         if node is None:
             continue
@@ -292,6 +296,8 @@ def assemble_view(
 
     # --- hydro as energy-limited dispatchable gens ---
     for h in world.hydro_units:
+        if not h.in_service:
+            continue
         node = bus_to_node.get(h.bus_id)
         if node is None:
             continue
@@ -310,6 +316,8 @@ def assemble_view(
     # --- existing storage (fixed) + candidate storage (built by CEM) ---
     storages: list[StorageSpec] = []
     for s in world.storage_units:
+        if not s.in_service:
+            continue
         node = bus_to_node.get(s.bus_id)
         if node is None:
             continue
@@ -370,6 +378,8 @@ def assemble_view(
     else:
         network_mode = "dc"
         for ln in world.ac_lines:
+            if not ln.in_service:
+                continue
             a = bus_to_node.get(ln.from_bus_id)
             b = bus_to_node.get(ln.to_bus_id)
             if a is None or b is None or a == b:
@@ -406,26 +416,40 @@ def assemble_view(
     # --- interfaces (only meaningful when lines are individually modeled) ---
     interfaces = []
     line_ids = {ln.id for ln in lines}
+    line_by_id = {ln.id: ln for ln in lines}
     for iface in world.interfaces:
         members = [m for m in iface.member_line_ids if m in line_ids]
         if members and iface.limit_mw < 1e8:
+            # a candidate line whose endpoints span the same two sides is a
+            # parallel corridor: its flow counts toward the interface and its
+            # built capacity legitimately expands the limit (issue #8)
+            a_side = {line_by_id[m].a for m in members}
+            b_side = {line_by_id[m].b for m in members}
+            parallel = [ln.id for ln in lines if ln.is_candidate and
+                        ((ln.a in a_side and ln.b in b_side)
+                         or (ln.a in b_side and ln.b in a_side))]
             interfaces.append({"id": iface.id, "members": members,
-                               "limit": iface.limit_mw})
+                               "limit": iface.limit_mw,
+                               "parallel_candidates": parallel})
 
     # --- reserves (spinning requirement) ---
     reserve_req = np.zeros(T)
     total_load_t = load.sum(axis=0)
+    # Existing VRE contributes a precomputed requirement; *candidate* VRE
+    # enters the reserve constraint endogenously via its build variable
+    # (sizing on build_max would over-procure reserves for unbuilt options).
     vre_cap_avail_t = np.zeros(T)
     for g in gens:
-        if g.availability is not None:
-            cap = g.p_nom_existing if g.p_nom_existing > 0 else g.build_max
-            vre_cap_avail_t += g.availability * cap
+        if g.availability is not None and g.p_nom_existing > 0:
+            vre_cap_avail_t += g.availability * g.p_nom_existing
+    reserve_pct_vre = 0.0
     for rp in world.reserve_products:
         if rp.kind.value in ("spinning",):
             rule = rp.requirement_rule
             reserve_req += rule.get("pct_load", 0.0) * total_load_t
             reserve_req += rule.get("pct_vre", 0.0) * vre_cap_avail_t
             reserve_req += rule.get("fixed_mw", 0.0)
+            reserve_pct_vre = max(reserve_pct_vre, rule.get("pct_vre", 0.0))
 
     # --- policies ---
     carbon_price = 0.0
@@ -446,7 +470,8 @@ def assemble_view(
         annual_divisor=annual_divisor, gens=gens, storages=storages, load=load,
         lines=lines, network_mode=network_mode,
         reference_node=bus_to_node.get(world.reference_bus_id, nodes[0]),
-        interfaces=interfaces, reserve_req=reserve_req, carbon_price=carbon_price,
+        interfaces=interfaces, reserve_req=reserve_req,
+        reserve_pct_vre=reserve_pct_vre, carbon_price=carbon_price,
         emissions_cap=emissions_cap, rps_fraction=rps_fraction, voll=voll)
 
 
@@ -709,15 +734,24 @@ def build_dispatch_model(view: EconomicView, options: EngineOptions) -> BuiltMod
             else:
                 m.add_constraints(cf == 0, name="cand_unbuilt")
 
-    # interface limits (sum of member flows <= limit)
+    # interface limits: member flows (plus parallel candidate-corridor flow)
+    # bounded by the static limit expanded by any *built* parallel capacity
     if flow is not None:
         for iface in view.interfaces:
             members = [mid for mid in iface["members"] if mid in line_ids]
             if not members:
                 continue
             expr = sum(flow.sel(l=mid) for mid in members)
-            m.add_constraints(expr <= iface["limit"], name=f"iface_hi_{iface['id']}")
-            m.add_constraints(expr >= -iface["limit"], name=f"iface_lo_{iface['id']}")
+            headroom = 0
+            for cid in iface.get("parallel_candidates", []):
+                if cid in line_ids:
+                    expr = expr + flow.sel(l=cid)
+                    if line_build is not None:
+                        headroom = headroom + line_build.sel(l=cid)
+            m.add_constraints(expr - headroom <= iface["limit"],
+                              name=f"iface_hi_{iface['id']}")
+            m.add_constraints(expr + headroom >= -iface["limit"],
+                              name=f"iface_lo_{iface['id']}")
 
     # --- nodal power balance (its dual is the LMP) ---
     load_da = xr.DataArray(view.load, coords=[n_idx, t_idx], dims=["n", "t"])
@@ -758,7 +792,15 @@ def build_dispatch_model(view: EconomicView, options: EngineOptions) -> BuiltMod
                 headroom_terms.append(gcap - p.sel(g=g.id))
             headroom = sum(headroom_terms[1:], headroom_terms[0])
             res_shortfall = m.add_variables(lower=0.0, coords=[t_idx], name="reserve_short")
-            m.add_constraints(headroom + res_shortfall >= res_da, name="reserve_spin")
+            # candidate VRE adds to the requirement in proportion to what is
+            # actually *built* (linear in the build variable), not its ceiling
+            lhs = headroom + res_shortfall
+            if options.investment and gen_build is not None and view.reserve_pct_vre > 0:
+                for g in gens:
+                    if g.is_candidate and g.availability is not None:
+                        avail_da = xr.DataArray(g.availability, coords=[t_idx], dims=["t"])
+                        lhs = lhs - gen_build.sel(g=g.id) * (view.reserve_pct_vre * avail_da)
+            m.add_constraints(lhs >= res_da, name="reserve_spin")
 
     # --- emissions cap (annual) ---
     if view.emissions_cap is not None:
@@ -771,7 +813,11 @@ def build_dispatch_model(view: EconomicView, options: EngineOptions) -> BuiltMod
             m.add_constraints(total_emis <= view.emissions_cap, name="emissions_cap")
 
     # --- RPS (clean energy share) ---
-    if view.rps_fraction > 0:
+    # RPS/CES is an *annual planning* constraint: enforce it when investment
+    # can respond (CEM). A short operational window (PCM/ED) cannot conjure
+    # VRE energy that isn't available — applying it there is infeasible by
+    # construction, not a lesson.
+    if view.rps_fraction > 0 and options.investment:
         vre_ids = [g.id for g in gens if g.is_vre]
         if vre_ids:
             vre_energy = (p.sel(g=vre_ids).sum("g") * w).sum()
@@ -832,6 +878,8 @@ def solve_model(built: BuiltModel, **kwargs) -> str:
     linopy passes extra kwargs straight through to HiGHS as solver options.
     """
     kwargs.setdefault("output_flag", False)
+    # hard ceiling so a pathological MILP can't hold an API worker forever
+    kwargs.setdefault("time_limit", 300.0)
     built.m.solve(solver_name="highs", progress=False, **kwargs)
     return str(built.m.status)
 

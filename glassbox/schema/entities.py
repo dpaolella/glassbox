@@ -114,6 +114,7 @@ class ACLine(BaseModel):
     name: str = facet_field(facets=["core"], default="")
     from_bus_id: str = facet_field(facets=["core", "pf", "dyn"])
     to_bus_id: str = facet_field(facets=["core", "pf", "dyn"])
+    in_service: bool = facet_field(facets=["core"], default=True)
     r: float = facet_field(facets=["pf", "dyn", "emt"], unit="pu", default=0.01,
                            description="series resistance (system pu)")
     x: float = facet_field(facets=["pf", "dyn", "emt"], unit="pu", default=0.1,
@@ -275,6 +276,7 @@ class Hydro(BaseModel):
     id: str = facet_field(facets=["core"])
     name: str = facet_field(facets=["core"], default="")
     bus_id: str = facet_field(facets=["core"])
+    in_service: bool = facet_field(facets=["core"], default=True)
     technology: HydroTechnology = facet_field(facets=["core"], default=HydroTechnology.RESERVOIR)
     p_max_mw: float = facet_field(facets=["ops", "inv"], unit="MW", default=100.0)
     p_min_pu: float = facet_field(facets=["ops", "inv"], unit="pu", default=0.0)
@@ -293,6 +295,7 @@ class Storage(BaseModel):
     id: str = facet_field(facets=["core"])
     name: str = facet_field(facets=["core"], default="")
     bus_id: str = facet_field(facets=["core"])
+    in_service: bool = facet_field(facets=["core"], default=True)
     technology: StorageTechnology = facet_field(facets=["core"], default=StorageTechnology.BATTERY)
     p_charge_max_mw: float = facet_field(facets=["ops", "inv", "pf"], unit="MW", default=50.0,
                                          description="independent of energy")

@@ -70,7 +70,15 @@ class WeatherGenerator:
     def __init__(self, params: WeatherModelParams, sites: list[WeatherSite]):
         self.p = params
         self.sites = sites
-        self.rng = np.random.default_rng(params.seed)
+        # Stable, decoupled streams (issue #11): regimes, annual draws, and
+        # each site's noise use independent generators, so adding/removing a
+        # site leaves every other series bit-identical (reproducible worlds,
+        # stable tests). Site streams are keyed by a hash of the site id.
+        self.rng = np.random.default_rng(params.seed)  # legacy/general draws
+        self._rng_regimes = np.random.default_rng(
+            np.random.SeedSequence([params.seed, 101]))
+        self._rng_annual = np.random.default_rng(
+            np.random.SeedSequence([params.seed, 202]))
         self.n_regimes = len(params.regime_names)
         self.transition = self._regime_transition_matrix()
 
@@ -97,7 +105,7 @@ class WeatherGenerator:
         state = 0
         for t in range(n_hours):
             seq[t] = state
-            state = self.rng.choice(self.n_regimes, p=self.transition[state])
+            state = self._rng_regimes.choice(self.n_regimes, p=self.transition[state])
         return seq
 
     # --- spatial correlation ---------------------------------------------
@@ -118,25 +126,46 @@ class WeatherGenerator:
         cov += np.eye(n) * 1e-8
         return np.linalg.cholesky(cov)
 
+    def _site_rng(self, site_id: str) -> np.random.Generator:
+        """A generator whose stream depends only on (seed, site id)."""
+        import hashlib
+
+        h = int.from_bytes(hashlib.sha256(site_id.encode()).digest()[:8], "little")
+        return np.random.default_rng(np.random.SeedSequence([self.p.seed, 303, h]))
+
     def _correlated_ou(self, sites: list[WeatherSite], n_hours: int,
                        regimes: np.ndarray) -> np.ndarray:
         """OU process per site with spatial correlation, modulated by regime.
 
-        Returns array (n_sites, n_hours) of zero-mean persistent noise.
+        Returns array (n_sites, n_hours) of zero-mean persistent noise. Each
+        site draws its raw shocks from its own id-keyed stream, and the
+        Cholesky mixing runs in id-sorted order — so a site's series only
+        changes if a new site sorts *before* it, and adding sites at the end
+        of the id order leaves existing series bit-identical (issue #11).
         """
         n = len(sites)
-        L = self._cholesky_for(sites)
+        if n == 0:
+            return np.empty((0, n_hours))
+        order = sorted(range(n), key=lambda i: sites[i].id)
+        sorted_sites = [sites[i] for i in order]
+        L = self._cholesky_for(sorted_sites)
+        # raw shocks: one independent, id-keyed stream per site
+        raw = np.vstack([
+            self._site_rng(s.id).standard_normal(n_hours) for s in sorted_sites
+        ])
         theta = self.p.ou_theta
         sigma = self.p.ou_sigma
-        x = np.zeros(n)
-        out = np.empty((n, n_hours))
-        # regime modulation of noise amplitude (windy regimes -> more variance)
         regime_amp = np.linspace(0.7, 1.4, self.n_regimes)
+        amp_t = regime_amp[regimes] * sigma
+        x = np.zeros(n)
+        out_sorted = np.empty((n, n_hours))
         for t in range(n_hours):
-            spatial_shock = L @ self.rng.standard_normal(n)
-            amp = regime_amp[regimes[t]] * sigma
-            x = x + theta * (-x) + amp * spatial_shock
-            out[:, t] = x
+            x = x + theta * (-x) + amp_t[t] * (L @ raw[:, t])
+            out_sorted[:, t] = x
+        # back to the caller's site order
+        out = np.empty((n, n_hours))
+        for k, i in enumerate(order):
+            out[i, :] = out_sorted[k, :]
         return out
 
     # --- deterministic cycles --------------------------------------------
@@ -231,7 +260,7 @@ class WeatherGenerator:
         # inter-annual multiplier (slow oscillation + per-year draw)
         years = np.arange(n_years)
         slow = 1.0 + 0.05 * np.sin(2 * np.pi * years / 7.0)
-        annual_draw = 1.0 + self.p.interannual_sigma * self.rng.standard_normal(n_years)
+        annual_draw = 1.0 + self.p.interannual_sigma * self._rng_annual.standard_normal(n_years)
         annual = (slow * annual_draw)
         annual_hourly = np.repeat(annual, hpy)
 
@@ -246,12 +275,13 @@ class WeatherGenerator:
 
         for i, s in enumerate(wind_sites):
             avail = self._wind_power(wind_noise[i], regimes)
-            avail = np.clip(avail * annual_hourly, 0.0, 1.0)
+            avail = np.clip(avail * annual_hourly * (s.scale or 1.0), 0.0, 1.0)
             self._store(store, s, avail, TimeSeriesKind.AVAILABILITY, "pu", years_list, hpy)
             gt.availability[s.id] = avail
 
         for i, s in enumerate(solar_sites):
             avail = self._solar_power(clear_sky, solar_noise[i], regimes)
+            avail = np.clip(avail * (s.scale or 1.0), 0.0, 1.0)
             self._store(store, s, avail, TimeSeriesKind.AVAILABILITY, "pu", years_list, hpy)
             gt.availability[s.id] = avail
 

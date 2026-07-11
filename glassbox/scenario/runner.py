@@ -46,15 +46,17 @@ class ScenarioRun:
 
 
 def _clone_world(world: World) -> World:
-    """Deep-copy the schema while sharing the (large) time-series arrays."""
-    store = world.time_series_store
-    world.time_series_store = TimeSeriesStore()
-    try:
-        clone = world.model_copy(deep=True)
-    finally:
-        world.time_series_store = store
-    clone.time_series_store = store
-    return clone
+    """Deep-copy the schema while sharing the (large) time-series arrays.
+
+    Uses copy.deepcopy with the store pre-seeded in the memo so the shared
+    ``world`` is never mutated — the previous swap-out/restore approach raced
+    under concurrent API requests (two threads could observe an empty store
+    mid-clone). Overrides never write to the store, so sharing it is safe.
+    """
+    import copy
+
+    memo = {id(world.time_series_store): world.time_series_store}
+    return copy.deepcopy(world, memo)
 
 
 def apply_overrides(world: World, overrides: list[Override]) -> World:
@@ -298,6 +300,10 @@ def _summarize(scenario: Scenario, view, result) -> dict[str, Any]:
         s["built_transmission_mw"] = {k: round(v, 1) for k, v in built_tx.items()}
     if rp_built:
         s["built_resource_potential_mw"] = {k: round(v, 1) for k, v in rp_built.items()}
+    rp_energy = getattr(result, "built_resource_potential_energy_mwh", {}) or {}
+    if rp_energy:
+        s["built_resource_potential_energy_mwh"] = {k: round(v, 1)
+                                                    for k, v in rp_energy.items()}
     s["total_cost"] = round(getattr(result, "total_cost", 0.0)
                             or getattr(result, "objective", 0.0), 1)
 
