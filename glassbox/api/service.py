@@ -341,6 +341,7 @@ class WorldService:
                 continue
             blobs.append({"kind": site.kind, "x": site.x, "y": site.y,
                           "r": span * 0.16,
+                          "profile_id": f"availability__{site.id}",
                           "intensity": max(0.2, min(1.0, (site.scale or 1.0) - 0.2))})
 
         return {"land": land, "river": river, "cities": cities,

@@ -7,6 +7,8 @@ import {
   OracleResult,
   ScenarioDiffResult,
   ScenarioPreset,
+  ScenarioRunPayload,
+  WeatherEvent,
 } from "../api";
 import { SCENARIO_A, SCENARIO_B } from "../theme";
 import { Plot } from "./Plot";
@@ -387,10 +389,36 @@ export function ScenarioLab({
   const [loading, setLoading] = useState(false);
   const [err, setErr] = useState<string | null>(null);
   const [oracle, setOracle] = useState<OracleResult | "loading" | null>(null);
+  // named weather stress events (issue #34)
+  const [events, setEvents] = useState<WeatherEvent[]>([]);
+  const [eventRun, setEventRun] = useState<
+    { key: string; state: "loading" } | { key: string; state: "done"; summary: Record<string, any> } | null
+  >(null);
 
   useEffect(() => {
     api.presets().then(setPresets).catch((e) => setErr(String(e)));
+    api.weatherEvents().then(setEvents).catch(() => setEvents([]));
   }, []);
+
+  function runEvent(ev: WeatherEvent) {
+    setEventRun({ key: ev.key, state: "loading" });
+    api
+      .runScenario(ev.scenario)
+      .then((run: ScenarioRunPayload) => {
+        const mr = extractMapResults(
+          run as ScenarioDiffResult["a"],
+          { id: String(ev.key), spatial: "identity", layer: "pcm" },
+          "B",
+          ev.name,
+        );
+        if (mr) onMapResults(mr);
+        setEventRun({ key: ev.key, state: "done", summary: run.summary });
+      })
+      .catch((e) => {
+        setErr(String(e));
+        setEventRun(null);
+      });
+  }
 
   // show only the experiments for the selected modeling layer, so the Scenario
   // tab is consistent with the layer chip at the top (and every other tab)
@@ -475,6 +503,38 @@ export function ScenarioLab({
             </button>
           ))}
         </div>
+      )}
+
+      {events.length > 0 && (layerEngine === "pcm" || layerEngine === null) && (
+        <>
+          <div className="catalog-section" title="Auto-detected from the stored weather ensemble — the exact windows planners stress-test against.">
+            stress events (from the weather ensemble)
+          </div>
+          <div className="preset-list">
+            {events.map((ev) => (
+              <button key={ev.key} className="preset" title={ev.description}
+                onClick={() => runEvent(ev)}>
+                {ev.kind === "dunkelflaute" ? "🌑" : ev.kind === "peak_stress" ? "🔥" : "🌬"}{" "}
+                {ev.name}
+              </button>
+            ))}
+          </div>
+          {eventRun?.state === "loading" && (
+            <p className="muted">running the event window through the nodal production-cost model…</p>
+          )}
+          {eventRun?.state === "done" && (
+            <div className="lesson-box">
+              <b>{events.find((e) => e.key === eventRun.key)?.name}</b> — solved.
+              {" "}avg price ${fmt(eventRun.summary.avg_price)}/MWh
+              {(eventRun.summary.unserved_mwh_weighted ?? 0) > 1 &&
+                ` · ${fmt(eventRun.summary.unserved_mwh_weighted)} MWh unserved`}
+              {(eventRun.summary.curtailment_mwh_weighted ?? 0) > 1 &&
+                ` · ${fmt(eventRun.summary.curtailment_mwh_weighted)} MWh curtailed`}
+              . Results are on the map — press <b>▶ play</b> to watch the event unfold
+              (the resource glows pulse with the actual weather).
+            </div>
+          )}
+        </>
       )}
 
       {active && <div className="lesson-box">{active.lesson}</div>}

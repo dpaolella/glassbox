@@ -525,6 +525,14 @@ def scenario_presets():
 # --- oracle round-trips: transparent kernel vs mature library (Section 11) ---
 
 
+@app.get("/api/weather/events")
+def weather_events():
+    """Named stress/showcase events auto-detected from the ensemble (#34)."""
+    from ..weather.events import detect_events
+
+    return detect_events(service.world)
+
+
 @app.get("/api/oracle/availability")
 def oracle_availability():
     """Which oracle libraries are importable in this environment."""

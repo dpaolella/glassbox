@@ -298,6 +298,41 @@ export function NetworkCanvas({
     return () => window.clearInterval(id);
   }, [playing, speed, T]);
 
+  // weather-in-motion (issue #34): during playback the resource glows pulse
+  // with the actual hourly availability of each site's profile
+  const [blobSeries, setBlobSeries] = useState<Record<string, number[]> | null>(null);
+  useEffect(() => {
+    setBlobSeries(null);
+    const ts = resultsProp?.timesteps;
+    const blobs = graph?.terrain?.resource_blobs ?? [];
+    if (!ts || ts.length < 2 || !blobs.length) return;
+    // only a contiguous window maps onto an absolute series slice
+    for (let i = 1; i < ts.length; i++) if (ts[i] !== ts[i - 1] + 1) return;
+    let cancelled = false;
+    Promise.all(
+      blobs
+        .filter((bl) => bl.profile_id)
+        .map((bl) =>
+          api
+            .timeseries(bl.profile_id!, ts[0], ts.length, 1)
+            .then((d) => [bl.profile_id!, d.values] as const)
+            .catch(() => null),
+        ),
+    ).then((pairs) => {
+      if (cancelled) return;
+      const m: Record<string, number[]> = {};
+      pairs.forEach((p2) => { if (p2) m[p2[0]] = p2[1]; });
+      setBlobSeries(m);
+    });
+    return () => { cancelled = true; };
+  }, [resultsProp, graph]);
+
+  // playback implies weather: reveal the resource field when playing
+  useEffect(() => {
+    if (hour !== null) setOv((o) => (o.resource_field ? o : { ...o, resource_field: true }));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [hour !== null]);
+
   // price per bus: nodal runs key by bus id, zonal runs by zone id (every bus
   // in a zone shows the one flattened price — the aggregation made visible).
   // During playback the per-hour series takes over from the time average.
@@ -529,16 +564,21 @@ export function NetworkCanvas({
                 </path>
               )}
               {ov.resource_field &&
-                graph.terrain.resource_blobs.map((bl, i) => (
-                  <circle
-                    key={i}
-                    cx={bl.x}
-                    cy={bl.y}
-                    r={bl.r * (0.7 + 0.5 * bl.intensity)}
-                    fill={`url(#rg-${bl.kind})`}
-                    opacity={bl.intensity}
-                  />
-                ))}
+                graph.terrain.resource_blobs.map((bl, i) => {
+                  // live weather: pulse with this hour's availability
+                  const series = bl.profile_id ? blobSeries?.[bl.profile_id] : undefined;
+                  const avail = hour !== null && series ? series[hour] : null;
+                  const o = avail !== null ? 0.12 + 0.9 * avail : bl.intensity;
+                  const r = bl.r * (0.7 + 0.5 * (avail !== null ? avail : bl.intensity));
+                  return (
+                    <circle key={i} cx={bl.x} cy={bl.y} r={r}
+                      fill={`url(#rg-${bl.kind})`} opacity={Math.min(1, o)}>
+                      {avail !== null && (
+                        <title>{`${bl.kind} availability now: ${(avail * 100).toFixed(0)}%`}</title>
+                      )}
+                    </circle>
+                  );
+                })}
             </g>
           )}
           {/* zone regions */}
