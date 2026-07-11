@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { api, InspectPayload } from "../api";
 import { Selection } from "../App";
 import { FIELD_GLOSSARY } from "../glossary";
+import { DrillPanel } from "./DrillPanel";
 
 interface Props {
   selection: Selection | null;
@@ -142,6 +143,8 @@ export function Inspector({ selection, layer, perUnit, onSelect }: Props) {
           </div>
         </div>
       )}
+
+      <DrillPanel collection={payload.collection} id={payload.id} />
 
       {payload.fields.length === 0 && (
         <p className="muted">

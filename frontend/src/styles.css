@@ -1305,3 +1305,25 @@ code {
   font-size: var(--fs-xs);
   color: var(--muted);
 }
+
+/* control-room drill (issue #29) */
+.drill-panel { margin: 10px 0; }
+.drill-verdict {
+  border: 1.5px solid var(--border);
+  border-radius: 8px;
+  padding: 6px 10px;
+  margin: 6px 0;
+  font-size: var(--fs-md);
+}
+.drill-trace {
+  background: var(--bg);
+  border-radius: 6px;
+  margin: 4px 0;
+}
+.drill-violations {
+  font-size: var(--fs-xs);
+  color: var(--muted);
+  margin: 4px 0 4px 16px;
+  padding: 0;
+  word-break: break-all;
+}

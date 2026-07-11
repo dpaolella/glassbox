@@ -547,6 +547,116 @@ _BUILD_DEFAULTS: dict = {
 }
 
 
+class DrillRequest(BaseModel):
+    collection: str  # "generators" | "ac_lines"
+    id: str
+    hour: Optional[int] = None
+    weather_year: int = 0
+
+
+@app.post("/api/drill")
+def control_room_drill(req: DrillRequest):
+    """Control-room drill (issue #29): trip an element at a real operating
+    point and report what happens.
+
+    Generators run through the frequency-response engine (the trip is a loss
+    of that unit's actual dispatch); lines run through the N-1 AC power flow
+    (does the network survive the outage within limits?).
+    """
+    from ..engines.dynamics import DynamicsEngine
+    from ..engines.powerflow import PowerFlowEngine, peak_load_hour, snapshot_dispatch
+
+    w = service.world
+    year = req.weather_year
+    hour = req.hour if req.hour is not None else peak_load_hour(w, year)
+
+    if req.collection == "generators":
+        dispatch = snapshot_dispatch(w, hour, year, mode="nodal")
+        mw = float(dispatch.get(req.id, 0.0))
+        gen = next((g for g in w.generators if g.id == req.id), None)
+        if gen is None:
+            raise HTTPException(404, f"no generator {req.id}")
+        if mw < 1.0:
+            return {"kind": "gen_trip", "id": req.id, "name": gen.name,
+                    "hour": hour, "event_mw": 0.0,
+                    "verdict": "no-op",
+                    "explanation": (f"{gen.name} is dispatched at ~0 MW at hour "
+                                    f"{hour} — tripping it loses nothing. Try a "
+                                    "unit that is actually running.")}
+        try:
+            engine = DynamicsEngine(hour=hour, weather_year=year, event_mw=mw)
+            result, explain = engine.run(w)
+        except Exception as exc:
+            raise HTTPException(500, f"dynamics drill failed: {exc}")
+        f0 = w.base_frequency_hz
+        nadir = result.frequency_nadir_hz
+        # UFLS (under-frequency load shedding) typically arms around 59.3 Hz
+        # on a 60 Hz system — scale the threshold to the system base frequency
+        ufls = f0 * (59.3 / 60.0)
+        survived = nadir > ufls
+        return {
+            "kind": "gen_trip", "id": req.id, "name": gen.name, "hour": hour,
+            "event_mw": round(mw, 1),
+            "time_s": result.time_s,
+            "frequency_hz": result.states.get("frequency_hz", []),
+            "nadir_hz": round(nadir, 3),
+            "rocof_hz_per_s": round(result.rocof_hz_per_s, 3),
+            "h_sys_mws": explain.inputs.get("H_sys_mws"),
+            "ufls_hz": round(ufls, 2),
+            "verdict": "survived" if survived else "load shedding",
+            "explanation": (
+                f"Tripping {gen.name} drops {mw:.0f} MW instantly. System "
+                f"inertia arrests the fall at {nadir:.2f} Hz "
+                f"(RoCoF {result.rocof_hz_per_s:.2f} Hz/s); "
+                + ("governors recover the frequency — the system rides "
+                   "through." if survived else
+                   f"that is below the ~{ufls:.1f} Hz under-frequency "
+                   "load-shedding threshold — customers get disconnected "
+                   "to save the system.")),
+        }
+
+    if req.collection == "ac_lines":
+        ln = next((l2 for l2 in w.ac_lines if l2.id == req.id), None)
+        if ln is None:
+            raise HTTPException(404, f"no line {req.id}")
+        try:
+            engine = PowerFlowEngine(hour=hour, weather_year=year,
+                                     run_contingencies=True)
+            result, _ = engine.run(w)
+        except Exception as exc:
+            raise HTTPException(500, f"power-flow drill failed: {exc}")
+        # find the N-1 case for this line among the studied contingencies
+        viol = None
+        for dist_id, violations in result.contingency_violations.items():
+            if req.id in dist_id:
+                viol = violations
+                break
+        if viol is None:
+            return {"kind": "line_trip", "id": req.id, "name": ln.name,
+                    "hour": hour, "verdict": "not studied",
+                    "explanation": (f"{ln.id} is not in the world's N-1 "
+                                    "contingency list (only the intertie "
+                                    "corridor outages are pre-defined). Add a "
+                                    "Disturbance for it to drill this line.")}
+        ok = len(viol) == 0
+        return {
+            "kind": "line_trip", "id": req.id, "name": ln.name, "hour": hour,
+            "violations": viol,
+            "verdict": "secure" if ok else "violations",
+            "explanation": (
+                f"With {ln.name or ln.id} out at the hour-{hour} operating "
+                "point, the redispatched AC power flow "
+                + ("stays within every thermal and voltage limit — the "
+                   "system is N-1 secure for this outage."
+                   if ok else
+                   f"violates {len(viol)} limit(s) — the survivors overload "
+                   "or voltages sag. This outage requires preventive "
+                   "redispatch.")),
+        }
+
+    raise HTTPException(400, "collection must be generators or ac_lines")
+
+
 class PlanningStudyRequest(BaseModel):
     start_year: int = 2026
     n_stages: int = 4
