@@ -8,7 +8,7 @@
   "buses": [
     {
       "id": "A1",
-      "name": "LoadCenter-1",
+      "name": "Elkhaven",
       "base_kv": 230.0,
       "zone_id": "ZA",
       "x": 600.0,
@@ -19,7 +19,7 @@
     },
     {
       "id": "A2",
-      "name": "LoadCenter-2",
+      "name": "Northvale",
       "base_kv": 230.0,
       "zone_id": "ZA",
       "x": 660.0,
@@ -30,7 +30,7 @@
     },
     {
       "id": "A3",
-      "name": "LoadCenter-3",
+      "name": "Frostvale",
       "base_kv": 230.0,
       "zone_id": "ZA",
       "x": 720.0,
@@ -41,7 +41,7 @@
     },
     {
       "id": "A4",
-      "name": "LoadCenter-4",
+      "name": "Northwater",
       "base_kv": 230.0,
       "zone_id": "ZA",
       "x": 600.0,
@@ -52,7 +52,7 @@
     },
     {
       "id": "A5",
-      "name": "LoadCenter-5",
+      "name": "Dunfield",
       "base_kv": 230.0,
       "zone_id": "ZA",
       "x": 660.0,
@@ -63,7 +63,7 @@
     },
     {
       "id": "A6",
-      "name": "LoadCenter-6",
+      "name": "Clearbrook",
       "base_kv": 230.0,
       "zone_id": "ZA",
       "x": 720.0,
@@ -74,7 +74,7 @@
     },
     {
       "id": "A7",
-      "name": "LoadCenter-7",
+      "name": "Port Willowdale",
       "base_kv": 230.0,
       "zone_id": "ZA",
       "x": 600.0,
@@ -85,7 +85,7 @@
     },
     {
       "id": "A8",
-      "name": "LoadCenter-8",
+      "name": "Birchwater",
       "base_kv": 230.0,
       "zone_id": "ZA",
       "x": 660.0,
@@ -96,7 +96,7 @@
     },
     {
       "id": "A9",
-      "name": "LoadCenter-9",
+      "name": "Clearport",
       "base_kv": 230.0,
       "zone_id": "ZA",
       "x": 720.0,
@@ -107,7 +107,7 @@
     },
     {
       "id": "B1",
-      "name": "RenewRemote-1",
+      "name": "Pike Crossing",
       "base_kv": 230.0,
       "zone_id": "ZB",
       "x": 60.0,
@@ -118,7 +118,7 @@
     },
     {
       "id": "B2",
-      "name": "RenewRemote-2",
+      "name": "Cedar Switchyard",
       "base_kv": 230.0,
       "zone_id": "ZB",
       "x": 120.0,
@@ -129,7 +129,7 @@
     },
     {
       "id": "B3",
-      "name": "RenewRemote-3",
+      "name": "Gran Substation",
       "base_kv": 230.0,
       "zone_id": "ZB",
       "x": 180.0,
@@ -140,7 +140,7 @@
     },
     {
       "id": "B4",
-      "name": "RenewRemote-4",
+      "name": "Amberford",
       "base_kv": 230.0,
       "zone_id": "ZB",
       "x": 60.0,
@@ -151,7 +151,7 @@
     },
     {
       "id": "B5",
-      "name": "RenewRemote-5",
+      "name": "Iron Tap",
       "base_kv": 230.0,
       "zone_id": "ZB",
       "x": 120.0,
@@ -162,7 +162,7 @@
     },
     {
       "id": "B6",
-      "name": "RenewRemote-6",
+      "name": "Bright Junction",
       "base_kv": 230.0,
       "zone_id": "ZB",
       "x": 180.0,
@@ -173,7 +173,7 @@
     },
     {
       "id": "B7",
-      "name": "RenewRemote-7",
+      "name": "Ridge Junction",
       "base_kv": 230.0,
       "zone_id": "ZB",
       "x": 60.0,
@@ -184,7 +184,7 @@
     },
     {
       "id": "B8",
-      "name": "RenewRemote-8",
+      "name": "Willow Crossing",
       "base_kv": 230.0,
       "zone_id": "ZB",
       "x": 120.0,
@@ -195,7 +195,7 @@
     },
     {
       "id": "B9",
-      "name": "RenewRemote-9",
+      "name": "Birch Junction",
       "base_kv": 230.0,
       "zone_id": "ZB",
       "x": 180.0,
@@ -206,7 +206,7 @@
     },
     {
       "id": "C_slack",
-      "name": "HydroNorth-1",
+      "name": "Pike Switchyard",
       "base_kv": 230.0,
       "zone_id": "ZC",
       "x": 340.0,
@@ -217,7 +217,7 @@
     },
     {
       "id": "C2",
-      "name": "HydroNorth-2",
+      "name": "Cedar Junction",
       "base_kv": 230.0,
       "zone_id": "ZC",
       "x": 400.0,
@@ -228,7 +228,7 @@
     },
     {
       "id": "C3",
-      "name": "HydroNorth-3",
+      "name": "Oak Switchyard",
       "base_kv": 230.0,
       "zone_id": "ZC",
       "x": 460.0,
@@ -239,7 +239,7 @@
     },
     {
       "id": "C4",
-      "name": "HydroNorth-4",
+      "name": "Fern Crossing",
       "base_kv": 230.0,
       "zone_id": "ZC",
       "x": 340.0,
@@ -250,7 +250,7 @@
     },
     {
       "id": "C5",
-      "name": "HydroNorth-5",
+      "name": "Fern Junction",
       "base_kv": 230.0,
       "zone_id": "ZC",
       "x": 400.0,
@@ -261,7 +261,7 @@
     },
     {
       "id": "C6",
-      "name": "HydroNorth-6",
+      "name": "Brightmoor",
       "base_kv": 230.0,
       "zone_id": "ZC",
       "x": 460.0,
@@ -272,7 +272,7 @@
     },
     {
       "id": "C7",
-      "name": "HydroNorth-7",
+      "name": "Lark Crossing",
       "base_kv": 230.0,
       "zone_id": "ZC",
       "x": 340.0,
@@ -283,7 +283,7 @@
     },
     {
       "id": "C8",
-      "name": "HydroNorth-8",
+      "name": "Juniper Switchyard",
       "base_kv": 230.0,
       "zone_id": "ZC",
       "x": 400.0,
@@ -932,7 +932,7 @@
   "generators": [
     {
       "id": "nuclear_1",
-      "name": "nuclear_1",
+      "name": "Juniper Nuclear Generating Station",
       "bus_id": "C_slack",
       "technology": "nuclear",
       "fuel_id": "uranium",
@@ -970,7 +970,7 @@
     },
     {
       "id": "ccgt_2",
-      "name": "ccgt_2",
+      "name": "Vale Combined Cycle",
       "bus_id": "C3",
       "technology": "ccgt",
       "fuel_id": "gas",
@@ -1008,7 +1008,7 @@
     },
     {
       "id": "coal_3",
-      "name": "coal_3",
+      "name": "Iron Steam Plant",
       "bus_id": "C4",
       "technology": "coal",
       "fuel_id": "coal",
@@ -1046,7 +1046,7 @@
     },
     {
       "id": "ccgt_4",
-      "name": "ccgt_4",
+      "name": "Willowdale Combined Cycle",
       "bus_id": "A7",
       "technology": "ccgt",
       "fuel_id": "gas",
@@ -1084,7 +1084,7 @@
     },
     {
       "id": "ocgt_5",
-      "name": "ocgt_5",
+      "name": "Birchwater Gas Turbines",
       "bus_id": "A8",
       "technology": "ocgt",
       "fuel_id": "gas",
@@ -1122,7 +1122,7 @@
     },
     {
       "id": "wind_6",
-      "name": "wind_6",
+      "name": "Fern Wind Farm",
       "bus_id": "B1",
       "technology": "wind",
       "fuel_id": null,
@@ -1157,7 +1157,7 @@
     },
     {
       "id": "wind_7",
-      "name": "wind_7",
+      "name": "Elk Wind Farm",
       "bus_id": "B3",
       "technology": "wind",
       "fuel_id": null,
@@ -1192,7 +1192,7 @@
     },
     {
       "id": "solar_pv_8",
-      "name": "solar_pv_8",
+      "name": "North Solar Ranch",
       "bus_id": "B5",
       "technology": "solar_pv",
       "fuel_id": null,
@@ -1227,7 +1227,7 @@
     },
     {
       "id": "solar_pv_9",
-      "name": "solar_pv_9",
+      "name": "Bright Solar Ranch",
       "bus_id": "B6",
       "technology": "solar_pv",
       "fuel_id": null,
@@ -1262,7 +1262,7 @@
     },
     {
       "id": "wind_10",
-      "name": "wind_10",
+      "name": "Wolf Wind Energy Center",
       "bus_id": "B9",
       "technology": "wind",
       "fuel_id": null,
@@ -1297,7 +1297,7 @@
     },
     {
       "id": "solar_pv_11",
-      "name": "solar_pv_11",
+      "name": "Gold Solar Ranch",
       "bus_id": "B8",
       "technology": "solar_pv",
       "fuel_id": null,
@@ -1334,7 +1334,7 @@
   "hydro_units": [
     {
       "id": "hydro1",
-      "name": "North Reservoir",
+      "name": "Ester Dam",
       "bus_id": "C5",
       "in_service": true,
       "technology": "reservoir",
@@ -1350,7 +1350,7 @@
   "storage_units": [
     {
       "id": "batt1",
-      "name": "Load Center Battery",
+      "name": "Thorn BESS",
       "bus_id": "A3",
       "in_service": true,
       "technology": "battery",
@@ -1375,7 +1375,7 @@
   "loads": [
     {
       "id": "load_A1",
-      "name": "Load A1",
+      "name": "Elkhaven demand",
       "bus_id": "A1",
       "zone_id": "ZA",
       "demand_profile_id": "demand__load_A1",
@@ -1390,7 +1390,7 @@
     },
     {
       "id": "load_A2",
-      "name": "Load A2",
+      "name": "Northvale demand",
       "bus_id": "A2",
       "zone_id": "ZA",
       "demand_profile_id": "demand__load_A2",
@@ -1405,7 +1405,7 @@
     },
     {
       "id": "load_A3",
-      "name": "Load A3",
+      "name": "Frostvale demand",
       "bus_id": "A3",
       "zone_id": "ZA",
       "demand_profile_id": "demand__load_A3",
@@ -1420,7 +1420,7 @@
     },
     {
       "id": "load_A4",
-      "name": "Load A4",
+      "name": "Northwater demand",
       "bus_id": "A4",
       "zone_id": "ZA",
       "demand_profile_id": "demand__load_A4",
@@ -1435,7 +1435,7 @@
     },
     {
       "id": "load_A5",
-      "name": "Load A5",
+      "name": "Dunfield demand",
       "bus_id": "A5",
       "zone_id": "ZA",
       "demand_profile_id": "demand__load_A5",
@@ -1450,7 +1450,7 @@
     },
     {
       "id": "load_A6",
-      "name": "Load A6",
+      "name": "Clearbrook demand",
       "bus_id": "A6",
       "zone_id": "ZA",
       "demand_profile_id": "demand__load_A6",
@@ -1465,7 +1465,7 @@
     },
     {
       "id": "load_A7",
-      "name": "Load A7",
+      "name": "Port Willowdale demand",
       "bus_id": "A7",
       "zone_id": "ZA",
       "demand_profile_id": "demand__load_A7",
@@ -1480,7 +1480,7 @@
     },
     {
       "id": "load_A8",
-      "name": "Load A8",
+      "name": "Birchwater demand",
       "bus_id": "A8",
       "zone_id": "ZA",
       "demand_profile_id": "demand__load_A8",
@@ -1495,7 +1495,7 @@
     },
     {
       "id": "load_A9",
-      "name": "Load A9",
+      "name": "Clearport demand",
       "bus_id": "A9",
       "zone_id": "ZA",
       "demand_profile_id": "demand__load_A9",
@@ -1510,7 +1510,7 @@
     },
     {
       "id": "load_B4",
-      "name": "Load B4",
+      "name": "Amberford demand",
       "bus_id": "B4",
       "zone_id": "ZB",
       "demand_profile_id": "demand__load_B4",
@@ -1525,7 +1525,7 @@
     },
     {
       "id": "load_C6",
-      "name": "Load C6",
+      "name": "Brightmoor demand",
       "bus_id": "C6",
       "zone_id": "ZC",
       "demand_profile_id": "demand__load_C6",
@@ -1542,7 +1542,7 @@
   "expansion_candidates": [
     {
       "id": "cand_ccgt_A9",
-      "name": "CCGT @ A9",
+      "name": "Birch Energy Center (proposed)",
       "kind": "generator",
       "technology": "ccgt",
       "bus_id": "A9",
@@ -1570,7 +1570,7 @@
     },
     {
       "id": "cand_batt_B3",
-      "name": "Battery @ B3",
+      "name": "Vale Storage Center (proposed)",
       "kind": "storage",
       "technology": "battery",
       "bus_id": "B4",
@@ -1598,7 +1598,7 @@
     },
     {
       "id": "cand_line_B2_A2",
-      "name": "Line B2->A2",
+      "name": "Gran\u2013Frostvale Intertie (proposed)",
       "kind": "line",
       "technology": "line",
       "bus_id": null,

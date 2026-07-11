@@ -58,6 +58,7 @@ from ..schema import (
     World,
     Zone,
 )
+from .namegen import NameGenerator
 from ..schema.dynamic_models import (
     ExciterModel,
     GovernorModel,
@@ -205,8 +206,40 @@ class ReferenceSystemBuilder:
         self._build_interfaces_and_constraints()
         self._build_disturbances()
         self._build_weather()
+        self._christen()
         self.world.reference_bus_id = "C_slack"
         return self.world
+
+    def _christen(self) -> None:
+        """Give everything a real name (issue #26): buses with load become
+        cities, other buses substations, plants get named for their city and
+        technology. Deterministic from the world seed; ids never change."""
+        ng = NameGenerator(self.p.seed)
+        w = self.world
+        load_buses = {ld.bus_id for ld in w.loads}
+        city_of: dict[str, str] = {}
+        for b in w.buses:
+            if b.id in load_buses:
+                b.name = ng.city()
+                city_of[b.id] = b.name
+            else:
+                b.name = ng.substation()
+        for g in w.generators:
+            g.name = ng.plant(g.technology.value, city_of.get(g.bus_id))
+        for h in w.hydro_units:
+            h.name = ng.plant(h.technology.value, city_of.get(h.bus_id))
+        for st in w.storage_units:
+            st.name = ng.plant("battery", city_of.get(st.bus_id))
+        for ld in w.loads:
+            ld.name = f"{city_of.get(ld.bus_id, ld.bus_id)} demand"
+        for c in w.expansion_candidates:
+            site = c.bus_id or c.from_bus_id or ""
+            if c.kind.value == "line" and c.from_bus_id and c.to_bus_id:
+                fa = next((b.name for b in w.buses if b.id == c.from_bus_id), c.from_bus_id)
+                ta = next((b.name for b in w.buses if b.id == c.to_bus_id), c.to_bus_id)
+                c.name = f"{fa.split()[0]}–{ta.split()[0]} Intertie (proposed)"
+            else:
+                c.name = ng.plant(c.technology, city_of.get(site)) + " (proposed)"
 
     def _build_zones_and_buses(self) -> None:
         p = self.p

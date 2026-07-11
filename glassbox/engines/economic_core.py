@@ -975,14 +975,19 @@ def collect_network(built: BuiltModel) -> "NetworkResult":
                 w = view.period_weight / view.annual_divisor
                 wsum = w.sum()
                 nr.nodal_price[node] = float((dual * w).sum() / wsum) if wsum else float(dual.mean())
+                # per-hour $/MWh for playback: divide out each hour's weight
+                safe_w = np.where(w > 1e-12, w, 1.0)
+                nr.nodal_price_t[node] = [round(float(v), 2)
+                                          for v in (dual / safe_w)]
             except (AttributeError, KeyError):
                 pass
-    # time-averaged flow per line
+    # time-averaged + per-hour flow per line
     flow = _var(built, "flow")
     if flow is not None:
         for lid in built.line_ids:
             series = flow.sel(l=lid).values
             nr.flow_mw[lid] = float(np.abs(series).mean())
+            nr.flow_t_mw[lid] = [round(float(v), 2) for v in series]
     # binding interface duals
     for iface in view.interfaces:
         for suffix in ("hi", "lo"):

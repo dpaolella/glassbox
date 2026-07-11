@@ -113,6 +113,14 @@ export interface GraphResourcePotential {
   tranches: SupplyTranche[];
 }
 
+export interface Terrain {
+  land: [number, number][]; // seeded landmass polygon
+  river: [number, number][]; // polyline through the hydro zone
+  cities: { bus_id: string; name: string; x: number; y: number; size: number }[];
+  resource_blobs: { kind: string; x: number; y: number; r: number; intensity: number }[];
+  span: number;
+}
+
 export interface GraphData {
   nodes: GraphNode[];
   edges: GraphEdge[];
@@ -120,6 +128,7 @@ export interface GraphData {
   interfaces: GraphInterface[];
   candidates: GraphCandidate[];
   resource_potentials: GraphResourcePotential[];
+  terrain?: Terrain;
 }
 
 // A solved run's spatial results, pushed onto the map by the Scenario Lab.
@@ -137,6 +146,12 @@ export interface MapResults {
   builtTransmission: Record<string, number>; // candidate line id -> MW
   builtResourcePotential: Record<string, number>; // supply curve id -> MW
   unservedMwh: Record<string, number>; // node id -> weighted MWh/yr unserved
+  // chronological playback (issue #27) — aligned per-timestep series
+  timesteps?: number[]; // absolute hours (t % 24 = hour of day)
+  priceT?: Record<string, number[]>; // node -> $/MWh per timestep
+  flowT?: Record<string, number[]>; // line -> signed MW per timestep
+  unservedT?: Record<string, number[]>; // node -> MW shed per timestep
+  stack?: { tech: string; series: number[] }[]; // dispatch by technology
 }
 
 export interface PerUnit {

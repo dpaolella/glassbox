@@ -9,7 +9,7 @@ import {
 import { Selection } from "../App";
 import { GLOSSARY } from "../glossary";
 import { Icon, MapIcon, TECH_ICON_KEY } from "../icons";
-import { priceColor, priceRamp, utilizationColor } from "../theme";
+import { priceColor, priceRamp, techColor, utilizationColor } from "../theme";
 
 // Zone fill/outline colors. The map renders each zone as a filled region
 // (polygon) and buses as points inside it — a deliberately *geographic* layout
@@ -31,6 +31,7 @@ interface Props {
 
 interface Overlays {
   results: boolean;
+  resource_field: boolean;
   ac_line: boolean;
   transformer: boolean;
   dc_line: boolean;
@@ -45,6 +46,7 @@ interface Overlays {
 
 const DEFAULT_OVERLAYS: Overlays = {
   results: true,
+  resource_field: false,
   ac_line: true,
   transformer: true,
   dc_line: true,
@@ -135,6 +137,20 @@ function smoothClosedPath(pts: Pt[]): string {
   return d + " Z";
 }
 
+// Smooth open path (Catmull-Rom-ish via midpoint quadratics) for the river.
+function smoothOpenPath(pts: Pt[]): string {
+  if (pts.length < 2) return "";
+  let d = `M ${pts[0][0]} ${pts[0][1]}`;
+  for (let i = 1; i < pts.length - 1; i++) {
+    const mx = (pts[i][0] + pts[i + 1][0]) / 2;
+    const my = (pts[i][1] + pts[i + 1][1]) / 2;
+    d += ` Q ${pts[i][0]} ${pts[i][1]} ${mx} ${my}`;
+  }
+  const last = pts[pts.length - 1];
+  d += ` L ${last[0]} ${last[1]}`;
+  return d;
+}
+
 function bbox(pts: Pt[]) {
   const xs = pts.map((p) => p[0]);
   const ys = pts.map((p) => p[1]);
@@ -144,6 +160,67 @@ function bbox(pts: Pt[]) {
     y0: Math.min(...ys),
     y1: Math.max(...ys),
   };
+}
+
+// Dispatch-by-technology stacked strip with a playback cursor (issue #27).
+function StackStrip({
+  stack,
+  hour,
+  onSeek,
+}: {
+  stack: { tech: string; series: number[] }[];
+  hour: number | null;
+  onSeek: (i: number) => void;
+}) {
+  const W = 400;
+  const H = 46;
+  const T = stack[0]?.series.length ?? 0;
+  if (!T) return null;
+  // cumulative layers
+  const totals = new Array(T).fill(0);
+  stack.forEach(({ series }) => series.forEach((v, i) => (totals[i] += v)));
+  const max = Math.max(...totals, 1);
+  let base = new Array(T).fill(0);
+  const layers = stack.map(({ tech, series }) => {
+    const top = base.map((b, i) => b + series[i]);
+    const path =
+      `M 0 ${H - (base[0] / max) * H} ` +
+      top.map((v, i) => `L ${(i / (T - 1)) * W} ${H - (v / max) * H}`).join(" ") +
+      ` L ${W} ${H - (base[T - 1] / max) * H} ` +
+      base.slice().reverse().map((v, i) => `L ${((T - 1 - i) / (T - 1)) * W} ${H - (v / max) * H}`).join(" ") +
+      " Z";
+    base = top;
+    return { tech, path };
+  });
+  return (
+    <svg
+      width={W}
+      height={H}
+      viewBox={`0 0 ${W} ${H}`}
+      className="stack-strip"
+      onPointerDown={(e) => {
+        const r = (e.target as SVGElement).closest("svg")!.getBoundingClientRect();
+        onSeek(Math.max(0, Math.min(T - 1, Math.round(((e.clientX - r.left) / r.width) * (T - 1)))));
+      }}
+    >
+      <title>dispatch by technology over the window — click to jump</title>
+      {layers.map((l) => (
+        <path key={l.tech} d={l.path} fill={techColor(l.tech)} fillOpacity={0.85}>
+          <title>{l.tech}</title>
+        </path>
+      ))}
+      {hour !== null && (
+        <line
+          x1={(hour / (T - 1)) * W}
+          x2={(hour / (T - 1)) * W}
+          y1={0}
+          y2={H}
+          stroke="var(--text)"
+          strokeWidth={1.5}
+        />
+      )}
+    </svg>
+  );
 }
 
 export function NetworkCanvas({
@@ -174,7 +251,7 @@ export function NetworkCanvas({
   // candidates and the zonal resource-potential curves on the capacity layer
   useEffect(() => {
     const on = layer === "inv";
-    setOv((o) => ({ ...o, candidates: on, resource_potentials: on }));
+    setOv((o) => ({ ...o, candidates: on, resource_potentials: on, resource_field: on }));
   }, [layer]);
 
   const byId = useMemo(() => {
@@ -203,25 +280,59 @@ export function NetworkCanvas({
       setOv((o) => ({ ...o, candidates: true, resource_potentials: true, results: true }));
   }, [resultsProp]);
 
+  // --- chronological playback (issue #27) -------------------------------
+  const T = results?.timesteps?.length ?? 0;
+  const [hour, setHour] = useState<number | null>(null);
+  const [playing, setPlaying] = useState(false);
+  const [speed, setSpeed] = useState(6); // steps per second
+  useEffect(() => {
+    setHour(null);
+    setPlaying(false);
+  }, [resultsProp]);
+  useEffect(() => {
+    if (!playing || T === 0) return;
+    const id = window.setInterval(
+      () => setHour((h) => ((h ?? -1) + 1) % T),
+      1000 / speed,
+    );
+    return () => window.clearInterval(id);
+  }, [playing, speed, T]);
+
   // price per bus: nodal runs key by bus id, zonal runs by zone id (every bus
-  // in a zone shows the one flattened price — the aggregation made visible)
+  // in a zone shows the one flattened price — the aggregation made visible).
+  // During playback the per-hour series takes over from the time average.
   const priceOf = useMemo(() => {
     if (!results) return null;
     const p = results.nodalPrice;
+    const pt = results.priceT;
     return (n: GraphNode): number | null => {
+      if (hour !== null && pt) {
+        const series = pt[n.id] ?? pt[n.zone];
+        const v = series?.[hour];
+        return typeof v === "number" && isFinite(v) ? v : null;
+      }
       const v = p[n.id] ?? p[n.zone];
       return typeof v === "number" && isFinite(v) ? v : null;
     };
-  }, [results]);
+  }, [results, hour]);
 
   // robust color range: a few scarcity-priced buses (VOLL duals) would
   // otherwise flatten every other bus to one color — normalize on p10..p90
   const priceRange = useMemo(() => {
     if (!results || !graph || !priceOf) return null;
-    const vals = graph.nodes
-      .map((n) => priceOf(n))
-      .filter((v): v is number => v !== null)
-      .sort((a, b) => a - b);
+    // during playback, normalize over ALL hours so colors are comparable
+    let vals: number[];
+    if (results.priceT && results.timesteps) {
+      vals = Object.values(results.priceT)
+        .flat()
+        .filter((v) => isFinite(v))
+        .sort((a, b) => a - b);
+    } else {
+      vals = graph.nodes
+        .map((n) => priceOf(n))
+        .filter((v): v is number => v !== null)
+        .sort((a, b) => a - b);
+    }
     if (!vals.length) return null;
     const q = (p: number) => vals[Math.min(vals.length - 1, Math.floor(p * vals.length))];
     const min = q(0.1);
@@ -386,6 +497,50 @@ export function NetworkCanvas({
         style={{ touchAction: "none" }}
       >
         <g transform={transform}>
+          {/* procedural terrain (issue #26): landmass, river, resource field */}
+          {graph?.terrain && (
+            <g>
+              <defs>
+                <radialGradient id="rg-wind">
+                  <stop offset="0%" stopColor="#4cc9f0" stopOpacity="0.35" />
+                  <stop offset="100%" stopColor="#4cc9f0" stopOpacity="0" />
+                </radialGradient>
+                <radialGradient id="rg-solar">
+                  <stop offset="0%" stopColor="#ffd166" stopOpacity="0.35" />
+                  <stop offset="100%" stopColor="#ffd166" stopOpacity="0" />
+                </radialGradient>
+              </defs>
+              <path
+                d={smoothClosedPath(graph.terrain.land as Pt[])}
+                fill="var(--map-land)"
+                stroke="var(--map-coast)"
+                strokeWidth={lw(2)}
+              />
+              {graph.terrain.river.length > 1 && (
+                <path
+                  d={smoothOpenPath(graph.terrain.river as Pt[])}
+                  fill="none"
+                  stroke="var(--map-river)"
+                  strokeWidth={lw(4)}
+                  strokeLinecap="round"
+                  opacity={0.75}
+                >
+                  <title>river — feeds the hydro reservoir</title>
+                </path>
+              )}
+              {ov.resource_field &&
+                graph.terrain.resource_blobs.map((bl, i) => (
+                  <circle
+                    key={i}
+                    cx={bl.x}
+                    cy={bl.y}
+                    r={bl.r * (0.7 + 0.5 * bl.intensity)}
+                    fill={`url(#rg-${bl.kind})`}
+                    opacity={bl.intensity}
+                  />
+                ))}
+            </g>
+          )}
           {/* zone regions */}
           {zoneRegions.map((z) => (
             <g key={z.id}>
@@ -429,7 +584,9 @@ export function NetworkCanvas({
               let flowTip = "";
               // results: color+weight lines by average loading (nodal runs
               // report per-line flows; zonal transport corridors don't map)
-              const flow = results?.flows?.[e.id];
+              let flow = results?.flows?.[e.id];
+              if (hour !== null && results?.flowT?.[e.id])
+                flow = Math.abs(results.flowT[e.id][hour]);
               if (flow !== undefined && e.rating_mva > 0) {
                 const util = Math.min(1, flow / e.rating_mva);
                 stroke = utilizationColor(util);
@@ -571,7 +728,10 @@ export function NetworkCanvas({
               badges.push({ icon: "house", count: n.attached.loads.length, color: "var(--muted)" });
             if (n.bus_type === "slack")
               badges.push({ icon: "star", count: null, color: "#ffd166" });
-            const unserved = results?.unservedMwh?.[n.id] ?? 0;
+            const unserved =
+              hour !== null && results?.unservedT
+                ? (results.unservedT[n.id]?.[hour] ?? 0) * 10 // MW now (scaled to trip the >1 gate)
+                : results?.unservedMwh?.[n.id] ?? 0;
             return (
               <g
                 key={n.id}
@@ -609,6 +769,18 @@ export function NetworkCanvas({
                 >
                   {n.id}
                 </text>
+                {n.attached.loads.length > 0 && n.name && (
+                  <text
+                    x={n.x}
+                    y={n.y - lw(21)}
+                    textAnchor="middle"
+                    fontSize={lw(9.5)}
+                    fontStyle="italic"
+                    fill="var(--muted)"
+                  >
+                    {n.name}
+                  </text>
+                )}
                 {badges.length > 0 &&
                   badges.map((b, i) => {
                     const widths = badges.map((bb) => lw(bb.count !== null ? 17 : 11));
@@ -724,6 +896,65 @@ export function NetworkCanvas({
         <button onClick={resetView} title="Reset view">⤾</button>
       </div>
 
+      {/* day/night tint during playback */}
+      {hour !== null && results?.timesteps && (() => {
+        const hod = results.timesteps[hour] % 24;
+        const night = hod < 6 || hod >= 20 ? 0.28 : hod < 8 || hod >= 18 ? 0.12 : 0;
+        return night > 0 ? (
+          <div className="day-tint" style={{ opacity: night }} />
+        ) : null;
+      })()}
+
+      {/* chronological playback (issue #27) */}
+      {results?.timesteps && results.timesteps.length > 1 && (
+        <div className="playback-panel">
+          <div className="playback-controls">
+            <button
+              className="pb-btn"
+              title={playing ? "pause" : "play the solved window hour by hour"}
+              onClick={() => {
+                if (hour === null) setHour(0);
+                setPlaying((p) => !p);
+              }}
+            >
+              {playing ? "❚❚" : "▶"}
+            </button>
+            <button
+              className="pb-btn"
+              title="playback speed (steps per second)"
+              onClick={() => setSpeed((sp) => (sp === 2 ? 6 : sp === 6 ? 14 : 2))}
+            >
+              {speed}×
+            </button>
+            <input
+              type="range"
+              min={0}
+              max={T - 1}
+              value={hour ?? 0}
+              onChange={(e) => {
+                setHour(Number(e.target.value));
+              }}
+              className="pb-slider"
+            />
+            <span className="pb-label" title="hour of the solved window (day of year · time of day)">
+              {hour !== null
+                ? `d${Math.floor((results.timesteps[hour] % 8760) / 24) + 1} ${String(results.timesteps[hour] % 24).padStart(2, "0")}:00`
+                : `${T} h window`}
+            </span>
+            {hour !== null && (
+              <button className="pb-btn" title="exit playback (back to time-averaged view)"
+                onClick={() => { setPlaying(false); setHour(null); }}>
+                ✕
+              </button>
+            )}
+          </div>
+          {results.stack && (
+            <StackStrip stack={results.stack} hour={hour}
+              onSeek={(i) => { setHour(i); }} />
+          )}
+        </div>
+      )}
+
       {/* active results banner */}
       {results && (
         <div className="map-results-banner">
@@ -772,6 +1003,16 @@ export function NetworkCanvas({
               onChange={(e) => setOv({ ...ov, results: e.target.checked })}
             />
             results (prices/flows/builds)
+          </label>
+        )}
+        {showOverlays && graph?.terrain && (
+          <label className="overlay-row" title="Soft shading where the wind/solar resource is strongest — derived from each weather site's resource quality (the same physics the CEM sees).">
+            <input
+              type="checkbox"
+              checked={ov.resource_field}
+              onChange={(e) => setOv({ ...ov, resource_field: e.target.checked })}
+            />
+            resource field (wind/solar)
           </label>
         )}
         {showOverlays &&

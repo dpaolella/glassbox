@@ -34,8 +34,38 @@ function extractMapResults(
       if (total > 1) unservedMwh[node] = total;
     }
   }
+  // playback series (issue #27): per-hour prices/flows + dispatch-by-tech stack
+  const timesteps: number[] | undefined = disp?.timesteps?.length
+    ? disp.timesteps
+    : undefined;
+  let stack: { tech: string; series: number[] }[] | undefined;
+  if (timesteps && disp?.generation_mw) {
+    const TECHS = ["nuclear", "coal", "ccgt", "ocgt", "hydro", "wind", "solar", "batt"];
+    const techOf = (id: string) =>
+      TECHS.find((t) => id.toLowerCase().includes(t)) ?? "other";
+    const buckets: Record<string, number[]> = {};
+    const addTo = (tech: string, series: number[]) => {
+      if (!buckets[tech]) buckets[tech] = new Array(timesteps.length).fill(0);
+      series.forEach((v, i) => (buckets[tech][i] += v));
+    };
+    for (const [gid, series] of Object.entries(disp.generation_mw as Record<string, number[]>))
+      addTo(techOf(gid), series);
+    for (const series of Object.values((disp.discharge_mw ?? {}) as Record<string, number[]>))
+      addTo("batt", series);
+    const unservedTotal = new Array(timesteps.length).fill(0);
+    for (const series of Object.values((disp.unserved_mw ?? {}) as Record<string, number[]>))
+      series.forEach((v: number, i: number) => (unservedTotal[i] += v));
+    if (unservedTotal.some((v) => v > 0.5)) buckets["unserved"] = unservedTotal;
+    const ORDER = ["nuclear", "coal", "ccgt", "ocgt", "hydro", "wind", "solar", "batt", "other", "unserved"];
+    stack = ORDER.filter((t) => buckets[t]).map((tech) => ({ tech, series: buckets[tech] }));
+  }
   return {
     unservedMwh,
+    timesteps,
+    priceT: network.nodal_price_t ?? undefined,
+    flowT: network.flow_t_mw ?? undefined,
+    unservedT: disp?.unserved_mw ?? undefined,
+    stack,
     label: `${presetName} — ${which} (${meta.spatial === "identity" ? "nodal" : meta.spatial === "aggregate" ? "zonal" : meta.spatial})`,
     scenario: which,
     spatial: meta.spatial,

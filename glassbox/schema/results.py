@@ -59,6 +59,10 @@ class NetworkResult(ResultBase):
     nodal_price: dict[str, float] = Field(default_factory=dict)
     dual_values: dict[str, float] = Field(default_factory=dict)
     losses_mw: float = 0.0
+    # per-timestep series for chronological playback (issue #27): signed flow
+    # per line and $/MWh price per node, aligned with DispatchResult.timesteps
+    flow_t_mw: dict[str, list[float]] = Field(default_factory=dict)
+    nodal_price_t: dict[str, list[float]] = Field(default_factory=dict)
 
 
 class CEMResult(ResultBase):
