@@ -1201,3 +1201,12 @@ code {
   background: var(--bg);
   cursor: crosshair;
 }
+
+/* IRP dashboard (issue #31) */
+.dashboard h4 {
+  margin: 14px 0 4px;
+  font-size: var(--fs-md);
+  cursor: help;
+  text-decoration: underline dotted var(--muted);
+  text-underline-offset: 3px;
+}

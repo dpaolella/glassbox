@@ -11,6 +11,7 @@ import {
   WeatherEvent,
 } from "../api";
 import { SCENARIO_A, SCENARIO_B } from "../theme";
+import { Dashboard } from "./Dashboard";
 import { Plot } from "./Plot";
 
 // Pull the spatial results out of one run payload for the map (issue #17).
@@ -706,7 +707,12 @@ export function ScenarioLab({
           <h4>Engine math (the transparency contract)</h4>
           {result && (
             <>
-              <EngineMath explain={result.a.explain} />
+              <details className="engine-math">
+            <summary>📊 IRP dashboard (duration, screening, supply curves)</summary>
+            <Dashboard result={result} />
+          </details>
+
+          <EngineMath explain={result.a.explain} />
               <EngineMath explain={result.b.explain} />
             </>
           )}
