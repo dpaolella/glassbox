@@ -1050,3 +1050,19 @@ code {
   color: var(--muted);
   margin-bottom: 4px;
 }
+
+/* map loading / error status */
+.map-status {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  color: var(--muted);
+  font-size: var(--fs-lg);
+  z-index: 4;
+}
+.map-status.error {
+  color: #fca5a5;
+  max-width: 420px;
+  text-align: center;
+}

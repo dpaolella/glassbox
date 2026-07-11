@@ -157,15 +157,17 @@ export function NetworkCanvas({
   const [ov, setOv] = useState<Overlays>(DEFAULT_OVERLAYS);
   // the overlay toggle hides painted results without discarding them
   const results = ov.results ? resultsProp ?? null : null;
-  const [showOverlays, setShowOverlays] = useState(true);
-  const [showLegend, setShowLegend] = useState(true);
+  // start collapsed on short windows so the panels don't bury the map
+  const [showOverlays, setShowOverlays] = useState(() => window.innerHeight >= 750);
+  const [showLegend, setShowLegend] = useState(() => window.innerHeight >= 750);
   const svgRef = useRef<SVGSVGElement | null>(null);
   // pan/zoom transform applied on top of the auto-fitting viewBox
   const [view, setView] = useState({ x: 0, y: 0, k: 1 });
   const pan = useRef<{ x: number; y: number } | null>(null);
 
+  const [graphErr, setGraphErr] = useState<string | null>(null);
   useEffect(() => {
-    api.graph().then(setGraph);
+    api.graph().then(setGraph).catch((e) => setGraphErr(String(e)));
   }, []);
 
   // build options are an `inv`-layer concern: auto-show both the nodal
@@ -295,21 +297,57 @@ export function NetworkCanvas({
     return [lp.x, lp.y];
   }
 
-  function onWheel(e: React.WheelEvent) {
-    e.preventDefault();
-    const [lx, ly] = toLocal(e);
-    const f = e.deltaY < 0 ? 1.15 : 1 / 1.15;
-    setView((v) => {
-      const k = Math.min(8, Math.max(0.4, v.k * f));
-      const g = k / v.k;
-      return { k, x: lx - g * (lx - v.x), y: ly - g * (ly - v.y) };
-    });
+  // native listener with passive:false — React's synthetic onWheel can be
+  // registered passively, making preventDefault a no-op (page scroll leaks)
+  useEffect(() => {
+    const svg = svgRef.current;
+    if (!svg) return;
+    const onWheel = (e: WheelEvent) => {
+      e.preventDefault();
+      const [lx, ly] = toLocal(e);
+      const f = e.deltaY < 0 ? 1.15 : 1 / 1.15;
+      setView((v) => {
+        const k = Math.min(8, Math.max(0.4, v.k * f));
+        const g = k / v.k;
+        return { k, x: lx - g * (lx - v.x), y: ly - g * (ly - v.y) };
+      });
+    };
+    svg.addEventListener("wheel", onWheel, { passive: false });
+    return () => svg.removeEventListener("wheel", onWheel);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [graph]);
+  // pointer events cover mouse AND touch: one pointer pans, two pinch-zoom
+  const pointers = useRef(new Map<number, { x: number; y: number }>());
+  const pinchDist = useRef<number | null>(null);
+  function onPointerDown(e: React.PointerEvent) {
+    (e.target as Element).setPointerCapture?.(e.pointerId);
+    pointers.current.set(e.pointerId, { x: e.clientX, y: e.clientY });
+    if (pointers.current.size === 1) {
+      const [lx, ly] = toLocal(e);
+      pan.current = { x: lx, y: ly };
+    } else {
+      pan.current = null;
+      const pts = [...pointers.current.values()];
+      pinchDist.current = Math.hypot(pts[0].x - pts[1].x, pts[0].y - pts[1].y);
+    }
   }
-  function onMouseDown(e: React.MouseEvent) {
-    const [lx, ly] = toLocal(e);
-    pan.current = { x: lx, y: ly };
-  }
-  function onMouseMove(e: React.MouseEvent) {
+  function onPointerMove(e: React.PointerEvent) {
+    if (!pointers.current.has(e.pointerId)) return;
+    pointers.current.set(e.pointerId, { x: e.clientX, y: e.clientY });
+    if (pointers.current.size === 2 && pinchDist.current) {
+      const pts = [...pointers.current.values()];
+      const d = Math.hypot(pts[0].x - pts[1].x, pts[0].y - pts[1].y);
+      const f = d / pinchDist.current;
+      pinchDist.current = d;
+      const mid = { clientX: (pts[0].x + pts[1].x) / 2, clientY: (pts[0].y + pts[1].y) / 2 };
+      const [lx, ly] = toLocal(mid);
+      setView((v) => {
+        const k = Math.min(8, Math.max(0.4, v.k * f));
+        const g = k / v.k;
+        return { k, x: lx - g * (lx - v.x), y: ly - g * (ly - v.y) };
+      });
+      return;
+    }
     if (!pan.current) return;
     const [lx, ly] = toLocal(e);
     const px = pan.current.x;
@@ -317,7 +355,11 @@ export function NetworkCanvas({
     pan.current = { x: lx, y: ly };
     setView((v) => ({ ...v, x: v.x + (lx - px), y: v.y + (ly - py) }));
   }
-  const endPan = () => (pan.current = null);
+  const endPan = (e?: React.PointerEvent) => {
+    if (e) pointers.current.delete(e.pointerId);
+    if (pointers.current.size < 2) pinchDist.current = null;
+    if (pointers.current.size === 0) pan.current = null;
+  };
   const resetView = () => setView({ x: 0, y: 0, k: 1 });
 
   const transform = `translate(${view.x} ${view.y}) scale(${view.k})`;
@@ -325,16 +367,23 @@ export function NetworkCanvas({
 
   return (
     <div className="map-wrap">
+      {!graph && !graphErr && <div className="map-status">loading map…</div>}
+      {graphErr && (
+        <div className="map-status error">
+          couldn't load the network: {graphErr} — is the backend running?
+        </div>
+      )}
       <svg
         ref={svgRef}
         className="net-map"
         viewBox={`${vb.x} ${vb.y} ${vb.w} ${vb.h}`}
         preserveAspectRatio="xMidYMid meet"
-        onWheel={onWheel}
-        onMouseDown={onMouseDown}
-        onMouseMove={onMouseMove}
-        onMouseUp={endPan}
-        onMouseLeave={endPan}
+        onPointerDown={onPointerDown}
+        onPointerMove={onPointerMove}
+        onPointerUp={endPan}
+        onPointerCancel={endPan}
+        onPointerLeave={() => { pointers.current.clear(); pan.current = null; pinchDist.current = null; }}
+        style={{ touchAction: "none" }}
       >
         <g transform={transform}>
           {/* zone regions */}
@@ -469,8 +518,8 @@ export function NetworkCanvas({
                   selection?.collection === "expansion_candidates" && selection.id === c.id;
                 const built =
                   results?.builtCapacity?.[c.id] ?? results?.builtStoragePower?.[c.id];
-                const x = c.x + 20;
-                const y = c.y - 20;
+                const x = c.x + lw(20);
+                const y = c.y - lw(20);
                 return (
                   <g
                     key={c.id}
@@ -593,8 +642,8 @@ export function NetworkCanvas({
               const sel =
                 selection?.collection === "resource_potentials" && selection.id === rp.id;
               const maxCx = Math.max(...rp.tranches.map((t) => t.capex_per_mw), 1);
-              const bw = 118;
-              const bh = 46;
+              const bw = lw(118);
+              const bh = lw(46);
               const hub = byId.get(rp.bus_id ?? "");
               return (
                 <g key={rp.id} style={{ cursor: "pointer" }}
@@ -635,13 +684,13 @@ export function NetworkCanvas({
                   {/* mini supply curve: a rising bar per tranche */}
                   {rp.tranches.map((t, i) => {
                     const n = rp.tranches.length;
-                    const w = (bw - 24) / n;
-                    const h = 6 + 8 * (t.capex_per_mw / maxCx);
+                    const w = (bw - lw(24)) / n;
+                    const h = lw(6 + 8 * (t.capex_per_mw / maxCx));
                     return (
                       <rect key={i}
-                        x={rp.gx - bw / 2 + 12 + i * w}
-                        y={rp.gy + bh - 5 - h}
-                        width={w - 2}
+                        x={rp.gx - bw / 2 + lw(12) + i * w}
+                        y={rp.gy + bh - lw(5) - h}
+                        width={w - lw(2)}
                         height={h}
                         fill="#f59e0b"
                         fillOpacity={0.45 + 0.18 * i}
@@ -782,8 +831,21 @@ export function NetworkCanvas({
               <span className="swatch" style={{ background: "#211806", border: "1.5px dashed #f59e0b" }} />
               resource potential (zonal)
             </div>
-            <div className="legend-row" title={GLOSSARY.weak_feeder}>
-              <span className="swatch line" style={{ background: "#ef4444" }} /> weak feeder
+            <div className="legend-title" style={{ marginTop: 8 }}>lines</div>
+            <div className="legend-row" title={GLOSSARY.interface}>
+              <span className="swatch line" style={{ background: "#38bdf8" }} />
+              interface member (overlay on)
+            </div>
+            <div className="legend-row" title={GLOSSARY.dc_line}>
+              <span className="swatch line" style={{ background: "#64748b", borderTop: "2px dashed #64748b", height: 0 }} />
+              dashed grey = DC link
+            </div>
+            <div className="legend-row" title={GLOSSARY.candidate}>
+              <span className="swatch line" style={{ background: "transparent", borderTop: "2px dashed #f59e0b", height: 0 }} />
+              dashed amber = candidate corridor
+            </div>
+            <div className="legend-row" title={`${GLOSSARY.weak_feeder} Drawn red when series reactance ≥ 0.25 pu.`}>
+              <span className="swatch line" style={{ background: "#ef4444" }} /> weak feeder (x ≥ 0.25 pu)
             </div>
             {results && (
               <>
