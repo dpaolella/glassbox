@@ -1210,3 +1210,52 @@ code {
   text-decoration: underline dotted var(--muted);
   text-underline-offset: 3px;
 }
+
+/* split-screen compare (issue #35) */
+.compare-row {
+  flex: 1 1 0;
+  min-height: 0;
+  display: flex;
+  position: relative;
+}
+.compare-row .map-wrap {
+  flex: 1 1 0;
+  min-width: 0;
+}
+.compare-row .map-wrap + .map-wrap {
+  border-left: 1px solid var(--border);
+}
+.map-header-chip {
+  position: absolute;
+  top: 10px;
+  left: 50%;
+  transform: translateX(-50%);
+  background: rgba(15, 22, 32, 0.94);
+  border: 1.5px solid var(--border);
+  border-radius: 999px;
+  padding: 3px 14px;
+  font-size: var(--fs-sm);
+  font-weight: 600;
+  z-index: 6;
+  max-width: 85%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+[data-theme="light"] .map-header-chip {
+  background: rgba(247, 249, 252, 0.95);
+}
+.compare-exit {
+  position: absolute;
+  top: 10px;
+  right: 12px;
+  z-index: 7;
+  background: var(--bg-2);
+  color: var(--text);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 4px 10px;
+  font-size: var(--fs-sm);
+  cursor: pointer;
+}
+.compare-exit:hover { background: var(--bg-3); }

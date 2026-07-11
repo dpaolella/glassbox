@@ -365,6 +365,7 @@ interface LabProps {
   onPickLayer: (code: string) => void;
   onMapResults: (r: MapResults | null) => void;
   mapResults: MapResults | null;
+  onCompare?: (a: MapResults, b: MapResults) => void;
 }
 
 // modeling-layer code -> the scenario engine its experiments use
@@ -383,6 +384,7 @@ export function ScenarioLab({
   onPickLayer,
   onMapResults,
   mapResults,
+  onCompare,
 }: LabProps) {
   const [presets, setPresets] = useState<ScenarioPreset[]>([]);
   const [active, setActive] = useState<ScenarioPreset | null>(null);
@@ -593,6 +595,17 @@ export function ScenarioLab({
                   clear
                 </button>
               )}
+              {onCompare && (() => {
+                const ma = extractMapResults(result.a, diff.a, "A", active?.name ?? "");
+                const mb = extractMapResults(result.b, diff.b, "B", active?.name ?? "");
+                return ma && mb ? (
+                  <button className="map-push-btn"
+                    title="Side-by-side maps with one shared camera: the information the coarser view destroys is visible as the difference between the panels (issue #35)"
+                    onClick={() => onCompare(ma, mb)}>
+                    ⇄ compare
+                  </button>
+                ) : null;
+              })()}
               {["pcm", "cem"].includes(diff.b.layer) && (
                 <button
                   className="map-push-btn"

@@ -27,6 +27,13 @@ interface Props {
   onSelect: (sel: Selection) => void;
   results?: MapResults | null;
   onClearResults?: () => void;
+  // split-screen compare (issue #35): share one camera across two maps and
+  // strip the chrome down to the essentials
+  syncView?: { x: number; y: number; k: number };
+  onSyncView?: (v: { x: number; y: number; k: number }) => void;
+  compact?: boolean;
+  headerLabel?: string;
+  headerColor?: string;
 }
 
 interface Overlays {
@@ -229,6 +236,11 @@ export function NetworkCanvas({
   onSelect,
   results: resultsProp,
   onClearResults,
+  syncView,
+  onSyncView,
+  compact = false,
+  headerLabel,
+  headerColor,
 }: Props) {
   const [graph, setGraph] = useState<GraphData | null>(null);
   const [ov, setOv] = useState<Overlays>(DEFAULT_OVERLAYS);
@@ -238,8 +250,22 @@ export function NetworkCanvas({
   const [showOverlays, setShowOverlays] = useState(() => window.innerHeight >= 750);
   const [showLegend, setShowLegend] = useState(() => window.innerHeight >= 750);
   const svgRef = useRef<SVGSVGElement | null>(null);
-  // pan/zoom transform applied on top of the auto-fitting viewBox
-  const [view, setView] = useState({ x: 0, y: 0, k: 1 });
+  // pan/zoom transform applied on top of the auto-fitting viewBox.
+  // In compare mode the camera is lifted to the parent so both maps move
+  // together; otherwise it is local state.
+  const [viewInternal, setViewInternal] = useState({ x: 0, y: 0, k: 1 });
+  const view = syncView ?? viewInternal;
+  const viewRef = useRef(view);
+  viewRef.current = view;
+  const setView = (
+    updater:
+      | { x: number; y: number; k: number }
+      | ((v: { x: number; y: number; k: number }) => { x: number; y: number; k: number }),
+  ) => {
+    const next = typeof updater === "function" ? updater(viewRef.current) : updater;
+    if (onSyncView) onSyncView(next);
+    else setViewInternal(next);
+  };
   const pan = useRef<{ x: number; y: number } | null>(null);
 
   const [graphErr, setGraphErr] = useState<string | null>(null);
@@ -930,11 +956,17 @@ export function NetworkCanvas({
       </svg>
 
       {/* controls */}
-      <div className="map-controls">
+      {!compact && <div className="map-controls">
         <button onClick={() => setView((v) => ({ ...v, k: Math.min(8, v.k * 1.2) }))} title="Zoom in">＋</button>
         <button onClick={() => setView((v) => ({ ...v, k: Math.max(0.4, v.k / 1.2) }))} title="Zoom out">－</button>
         <button onClick={resetView} title="Reset view">⤾</button>
-      </div>
+      </div>}
+
+      {headerLabel && (
+        <div className="map-header-chip" style={{ borderColor: headerColor }}>
+          {headerLabel}
+        </div>
+      )}
 
       {/* day/night tint during playback */}
       {hour !== null && results?.timesteps && (() => {
@@ -946,7 +978,7 @@ export function NetworkCanvas({
       })()}
 
       {/* chronological playback (issue #27) */}
-      {results?.timesteps && results.timesteps.length > 1 && (
+      {!compact && results?.timesteps && results.timesteps.length > 1 && (
         <div className="playback-panel">
           <div className="playback-controls">
             <button
@@ -996,7 +1028,7 @@ export function NetworkCanvas({
       )}
 
       {/* active results banner */}
-      {results && (
+      {!compact && results && (
         <div className="map-results-banner">
           <span className="results-dot" />
           <span className="results-label" title="Solved-run results are painted on the map: bus color = average price, line width/color = average loading, solid amber = built.">
@@ -1030,7 +1062,7 @@ export function NetworkCanvas({
         </div>
       )}
 
-      <div className="canvas-overlays">
+      {!compact && <div className="canvas-overlays">
         <button className="box-toggle" onClick={() => setShowOverlays((v) => !v)}
           title="Toggle which layers are drawn on the map">
           <span>{showOverlays ? "▾" : "▸"}</span> overlays
@@ -1079,9 +1111,9 @@ export function NetworkCanvas({
               {label}
             </label>
           ))}
-      </div>
+      </div>}
 
-      <div className="canvas-legend">
+      {!compact && <div className="canvas-legend">
         <button className="box-toggle" onClick={() => setShowLegend((v) => !v)} title={GLOSSARY.zone}>
           <span>{showLegend ? "▾" : "▸"}</span> legend
         </button>
@@ -1157,7 +1189,7 @@ export function NetworkCanvas({
             </div>
           </>
         )}
-      </div>
+      </div>}
     </div>
   );
 }
