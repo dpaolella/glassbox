@@ -85,7 +85,7 @@ def assemble_adequacy_system(world: World, weather_years: list[int]) -> Adequacy
 
     dispatchable: list[DispatchUnit] = []
     for g in world.generators:
-        if g.is_vre or not g.in_service:
+        if g.is_vre or not g.in_service or g.status.value == "retired":
             continue
         # existing dispatchable capacity with a two-state forced-outage process
         cap = g.p_max_mw
@@ -95,6 +95,8 @@ def assemble_adequacy_system(world: World, weather_years: list[int]) -> Adequacy
             id=g.id, capacity_mw=cap,
             mttf_h=g.mttf_h or 2000.0, mttr_h=g.mttr_h or 50.0))
     for h in world.hydro_units:
+        if not h.in_service:
+            continue
         # reservoir hydro modeled as firm dispatchable capacity (optimistic but
         # standard for a copper-plate adequacy screen)
         dispatchable.append(DispatchUnit(id=h.id, capacity_mw=h.p_max_mw,
@@ -102,7 +104,8 @@ def assemble_adequacy_system(world: World, weather_years: list[int]) -> Adequacy
 
     vre: list[VREUnit] = []
     for g in world.generators:
-        if g.is_vre and g.in_service and g.availability_profile_id:
+        if (g.is_vre and g.in_service and g.status.value != "retired"
+                and g.availability_profile_id):
             cap = g.p_max_mw
             if cap > 0:
                 vre.append(VREUnit(id=g.id, capacity_mw=cap,

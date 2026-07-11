@@ -18,7 +18,9 @@ export function WeatherPanel() {
   }, []);
 
   useEffect(() => {
-    if (siteId) api.groundTruth(siteId, "availability").then(setGt);
+    if (!siteId) return;
+    setGt(null); // clear stale charts while the new site loads
+    api.groundTruth(siteId, "availability").then(setGt).catch(() => setGt(null));
   }, [siteId]);
 
   return (

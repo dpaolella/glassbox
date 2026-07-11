@@ -492,6 +492,19 @@ class ReferenceSystemBuilder:
                               lcoe_per_mwh=trench_lcoe(1.30e6, 18_000.0, 0.15)),
             ]))
 
+        # Load-center battery potential: a supply curve of storage siting —
+        # cheap interconnection first (existing substations), pricier after.
+        rp.append(ResourcePotential(
+            id="rp_batt_ZA", name="Battery potential — Load center (ZA)",
+            kind=CandidateKind.STORAGE, technology="battery", zone_id="ZA",
+            bus_id=self._a_buses[5], duration_h=4.0, capex_per_mwh=180_000.0,
+            fom_per_mw_yr=6_000.0, lifetime_yr=15,
+            efficiency_charge=0.94, efficiency_discharge=0.94, vom_per_mwh=1.0,
+            tranches=[
+                SupplyTranche(build_max_mw=200.0, capex_per_mw=220_000.0),
+                SupplyTranche(build_max_mw=300.0, capex_per_mw=300_000.0),
+            ]))
+
     def _build_loads(self) -> None:
         # demand concentrated in the load center; small loads elsewhere
         peak = self.p.mean_load_mw
@@ -530,7 +543,7 @@ class ReferenceSystemBuilder:
         # policies present but inert by default (toggled in scenarios, Section 10)
         self.world.policies = [
             Policy(id="carbon", kind=PolicyKind.CARBON_PRICE, value=0.0),
-            Policy(id="rps", kind=PolicyKind.RPS, value=0.0),
+            Policy(id="rps", kind=PolicyKind.RPS, value=0.35),
             Policy(id="prm", kind=PolicyKind.PLANNING_RESERVE_MARGIN, value=0.15),
         ]
         self.world.reserve_products = [
@@ -576,12 +589,13 @@ class ReferenceSystemBuilder:
     def _build_weather(self) -> None:
         # VRE sites bound to availability profile ids referenced by existing
         # generators AND by candidate VRE (so candidate profiles are generated).
-        def add_site(profile_id, bus_id, tech):
+        def add_site(profile_id, bus_id, tech, quality=1.0):
             site_id = profile_id.split("__", 1)[1]
             b = self.world.bus(bus_id)
             kind = "wind" if "wind" in tech else "solar"
             self.world.weather_sites.append(
-                WeatherSite(id=site_id, name=f"{kind}@{bus_id}", kind=kind, x=b.x, y=b.y))
+                WeatherSite(id=site_id, name=f"{kind}@{bus_id}", kind=kind,
+                            x=b.x, y=b.y, scale=quality))
 
         for g in self.world.generators:
             if g.availability_profile_id:
@@ -590,14 +604,19 @@ class ReferenceSystemBuilder:
             if cand.availability_profile_id and cand.bus_id:
                 add_site(cand.availability_profile_id, cand.bus_id, cand.technology)
         # zonal resource-potential VRE supply curves need their own profiles
+        # Zonal supply curves carry a resource-quality scale: the remote zone
+        # (ZB) hosts the good sites (that is the whole locational trade-off),
+        # the load center (ZA) the weaker ones (issue #10 partial).
+        rp_quality = {"rp_solar_ZB": 1.30, "rp_wind_ZB": 1.10, "rp_solar_ZA": 1.0}
         for rp in self.world.resource_potentials:
             hub = rp.bus_id or (self.world.zone(rp.zone_id).member_bus_ids[0]
                                 if rp.zone_id else None)
+            q = rp_quality.get(rp.id, 1.0)
             if rp.availability_profile_id and hub:
-                add_site(rp.availability_profile_id, hub, rp.technology)
+                add_site(rp.availability_profile_id, hub, rp.technology, q)
             for tr in rp.tranches:
                 if tr.availability_profile_id and hub:
-                    add_site(tr.availability_profile_id, hub, rp.technology)
+                    add_site(tr.availability_profile_id, hub, rp.technology, q)
 
         # load shape is per-unit (~1.0 mean); each load site's peak MW is carried
         # by WeatherSite.scale, applied inside the generator.

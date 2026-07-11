@@ -7,6 +7,7 @@ import warnings
 import numpy as np
 import pytest
 
+from glassbox.engines import assemble_view
 from glassbox.engines.economic_core import (
     EconomicView,
     EngineOptions,
@@ -202,3 +203,64 @@ def test_pcm_explain_has_uc_formulation(world):
     syms = " ".join(run.explain.formulation.symbolic)
     assert "u_{g,t}" in syms or "startup" in syms.lower()
     assert run.result.solve_status == "ok"
+
+
+def test_retirement_removes_asset_from_economic_view(world):
+    """Retiring a generator changes CEM results (issue #5: was a silent no-op)."""
+    base = _cem(world, mode="aggregate")
+    retired = _cem(world, mode="aggregate",
+                   overrides=[Override(kind="retire", collection="generators",
+                                       id=world.generators[0].id)])
+    # the retired unit never appears in dispatch, and the system re-optimizes
+    disp = retired.result.operational
+    assert world.generators[0].id not in disp.generation_mw
+    assert retired.summary["total_cost"] != base.summary["total_cost"]
+
+
+def test_reserve_requirement_ignores_unbuilt_candidates(world):
+    """Reserves are sized on existing VRE + built (not max-buildable) VRE (#6)."""
+    from glassbox.operators import SpatialMode, SpatialProjection
+
+    spatial = SpatialProjection(SpatialMode.AGGREGATE).apply(world)
+    ts = np.arange(24)
+    ids = np.zeros(24, dtype=int)
+    w = np.ones(24)
+    with_cand = assemble_view(world, spatial, ts, ids, w, 1.0, investment=True)
+    without = assemble_view(world, spatial, ts, ids, w, 1.0, investment=False)
+    # the precomputed requirement must not grow just because buildable
+    # candidates exist — their contribution is endogenous via gen_build
+    assert np.allclose(with_cand.reserve_req, without.reserve_req)
+    assert with_cand.reserve_pct_vre > 0
+
+
+def test_storage_supply_curve_builds_and_aggregates(world):
+    """Zonal storage supply curves build power AND energy per tranche (#12)."""
+    run = _cem(world, mode="identity")
+    rp_p = run.result.built_resource_potential_mw
+    rp_e = run.result.built_resource_potential_energy_mwh
+    batt = next(rp for rp in world.resource_potentials if rp.id == "rp_batt_ZA")
+    potential = sum(t.build_max_mw for t in batt.tranches)
+    if "rp_batt_ZA" in rp_p:  # built: energy tracks duration, power <= potential
+        assert rp_p["rp_batt_ZA"] <= potential + 1e-6
+        assert rp_e.get("rp_batt_ZA", 0.0) <= potential * (batt.duration_h or 4.0) + 1e-6
+        assert rp_e.get("rp_batt_ZA", 0.0) > 0
+
+
+def test_weather_streams_stable_under_site_addition():
+    """Adding a weather site leaves existing series bit-identical (#11)."""
+    from glassbox.weather.generator import WeatherGenerator
+    from glassbox.schema import WeatherModelParams, WeatherSite
+
+    from glassbox.schema import TimeSeriesStore
+
+    params = WeatherModelParams(seed=7, n_years=1, hours_per_year=240)
+    sites = [WeatherSite(id="wind_a", kind="wind", x=0, y=0),
+             WeatherSite(id="wind_b", kind="wind", x=50, y=10)]
+    st1 = TimeSeriesStore()
+    WeatherGenerator(params, sites).generate(st1)
+    extra = sites + [WeatherSite(id="wind_z", kind="wind", x=100, y=40)]
+    st2 = TimeSeriesStore()
+    WeatherGenerator(params, extra).generate(st2)
+    a1 = st1.get("availability__wind_a")
+    a2 = st2.get("availability__wind_a")
+    assert np.allclose(a1, a2), "existing site series changed when a site was added"

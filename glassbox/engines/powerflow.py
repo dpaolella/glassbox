@@ -66,6 +66,8 @@ def build_ybus(world: World) -> tuple[np.ndarray, list[Branch], dict[str, int]]:
     branches: list[Branch] = []
 
     for ln in world.ac_lines:
+        if not ln.in_service:
+            continue
         if ln.from_bus_id not in idx or ln.to_bus_id not in idx:
             continue
         i, j = idx[ln.from_bus_id], idx[ln.to_bus_id]
@@ -166,6 +168,8 @@ def assemble_pf_case(world: World, hour: int, weather_year: int,
     # generation injections
     gen_bus = {}
     for g in world.generators:
+        if not g.in_service or g.status.value == "retired":
+            continue
         if g.id in dispatch and g.bus_id in idx:
             b = idx[g.bus_id]
             p_spec[b] += dispatch[g.id] / base
@@ -174,6 +178,8 @@ def assemble_pf_case(world: World, hour: int, weather_year: int,
                 is_pv[b] = True
                 v_set[b] = g.v_setpoint_pu
     for h in world.hydro_units:
+        if not h.in_service:
+            continue
         if h.id in dispatch and h.bus_id in idx:
             b = idx[h.bus_id]
             p_spec[b] += dispatch[h.id] / base
@@ -204,6 +210,8 @@ def assemble_pf_case(world: World, hour: int, weather_year: int,
 
     # VRE/storage converters with reactive capability also regulate voltage
     for g in world.generators:
+        if not g.in_service or g.status.value == "retired":
+            continue
         if g.is_vre and g.id in dispatch and dispatch[g.id] > 0 and g.bus_id in idx:
             if g.q_max_mvar and g.q_max_mvar > 0:
                 is_pv[idx[g.bus_id]] = True

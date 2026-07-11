@@ -74,8 +74,12 @@ def assemble_frequency_system(world: World, dispatch: dict[str, float],
 
     def unit_records():
         for g in world.generators:
+            if not g.in_service or g.status.value == "retired":
+                continue
             yield (g.id, g.bus_id, g.dynamic_model_id, g.mva_base, g.p_max_mw, g.is_vre)
         for h in world.hydro_units:
+            if not h.in_service:
+                continue
             yield (h.id, h.bus_id, h.dynamic_model_id, h.mva_base, h.p_max_mw, False)
 
     for uid, _bus, mid, mva, pmax, is_vre in unit_records():
@@ -318,6 +322,8 @@ class DynamicsEngine:
         dm = {m.id: m for m in world.dynamic_models}
         best = None
         for g in world.generators:
+            if not g.in_service or g.status.value == "retired":
+                continue
             if dispatch.get(g.id, 0) > 0 and g.dynamic_model_id in dm:
                 m = dm[g.dynamic_model_id]
                 if isinstance(m, SynchronousMachineModel):

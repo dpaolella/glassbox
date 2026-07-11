@@ -120,7 +120,7 @@ export default function App() {
             checked={perUnit}
             onChange={(e) => setPerUnit(e.target.checked)}
           />
-          <span>{perUnit ? "per-unit" : "SI units"}</span>
+          <span title="Applies to the Inspector's field values">{perUnit ? "per-unit (inspector)" : "SI units (inspector)"}</span>
         </label>
         <button
           className="theme-toggle"
