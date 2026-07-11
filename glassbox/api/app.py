@@ -547,6 +547,29 @@ _BUILD_DEFAULTS: dict = {
 }
 
 
+class PlanningStudyRequest(BaseModel):
+    start_year: int = 2026
+    n_stages: int = 4
+    years_per_stage: int = 4
+    growth_per_year: float = 0.02
+    spatial: str = "aggregate"
+
+
+@app.post("/api/scenario/planning_study")
+def planning_study(req: PlanningStudyRequest):
+    """Myopic rolling multi-year expansion (issue #33): grow, retire, build,
+    commit, repeat — each stage inherits the last stage's decisions."""
+    from ..scenario import run_planning_study
+
+    try:
+        return run_planning_study(
+            service.world, start_year=req.start_year, n_stages=req.n_stages,
+            years_per_stage=req.years_per_stage,
+            growth_per_year=req.growth_per_year, spatial=req.spatial)
+    except Exception as exc:
+        raise HTTPException(500, f"planning study failed: {exc}")
+
+
 class PlaceCandidateRequest(BaseModel):
     technology: str  # ccgt | wind | solar_pv | battery | line
     bus_id: Optional[str] = None

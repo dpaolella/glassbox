@@ -105,6 +105,10 @@ class World(BaseModel):
     base_power_mva: float = facet_field(facets=["core", "pf", "dyn"], unit="MVA", default=100.0,
                                         description="system per-unit base")
     base_frequency_hz: float = facet_field(facets=["core", "dyn", "emt"], unit="Hz", default=60.0)
+    demand_scale: float = facet_field(
+        facets=["core", "inv", "ops"], default=1.0,
+        description="multiplier on every demand series — the planning study's "
+                    "load-growth knob (stored fine, derived views scale)")
     reference_bus_id: str = facet_field(facets=["pf", "dyn"], default="",
                                         description="slack / angle reference")
 

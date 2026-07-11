@@ -326,7 +326,8 @@ class ReferenceSystemBuilder:
 
     def _add_sync_gen(self, bus: str, tech: GenTechnology, pmax: float, h: float,
                       fuel: str, hr: float, vom: float, pmin_pu: float,
-                      pss: bool = False) -> Generator:
+                      pss: bool = False,
+                      retirement_year: int | None = None) -> Generator:
         """Create an existing synchronous generation asset."""
         gid = self._next_gen_id(tech.value + "_")
         mid = f"sm_{gid}"
@@ -345,6 +346,7 @@ class ReferenceSystemBuilder:
             mttf_h=2000.0, mttr_h=50.0, maintenance_weeks=3.0,
             q_min_mvar=-pmax * 0.4, q_max_mvar=pmax * 0.5,
             v_setpoint_pu=1.0, mva_base=pmax / 0.9,
+            retirement_year=retirement_year,
             dynamic_model_id=mid)
         self.world.generators.append(g)
         return g
@@ -377,8 +379,10 @@ class ReferenceSystemBuilder:
                            fuel="uranium", hr=10.4, vom=2.0, pmin_pu=0.7, pss=True)
         self._add_sync_gen(self._c_buses[2], GenTechnology.CCGT, 450.0, h=4.5,
                            fuel="gas", hr=6.9, vom=3.0, pmin_pu=0.4)
+        # the coal unit ages out mid-planning-horizon (issue #33)
         self._add_sync_gen(self._c_buses[3], GenTechnology.COAL, 500.0, h=4.0,
-                           fuel="coal", hr=9.5, vom=4.0, pmin_pu=0.4)
+                           fuel="coal", hr=9.5, vom=4.0, pmin_pu=0.4,
+                           retirement_year=2034)
 
         # Zone A (load center): peaking + mid-merit firm capacity near demand
         self._add_sync_gen(self._a_buses[6], GenTechnology.CCGT, 600.0, h=4.5,
