@@ -52,22 +52,157 @@ function fmt(n: number | undefined): string {
   if (n === undefined || n === null) return "—";
   if (Math.abs(n) >= 1e6) return (n / 1e6).toFixed(2) + "M";
   if (Math.abs(n) >= 1e3) return (n / 1e3).toFixed(1) + "k";
+  if (Math.abs(n) >= 100) return n.toFixed(0);
+  if (Math.abs(n) >= 1) return Number.isInteger(n) ? String(n) : n.toFixed(1);
   return Number.isInteger(n) ? String(n) : n.toFixed(3);
 }
 
-function ScalarRow({ label, d }: { label: string; d: DiffScalar }) {
+// Per-metric label, unit, direction semantics, and definition (issue #18).
+// `better` drives the delta color: for "lower" metrics an increase is bad.
+const METRICS: Record<
+  string,
+  { label: string; unit: string; better: "lower" | "higher" | "neutral"; tip: string }
+> = {
+  total_cost: {
+    label: "total system cost", unit: "$/yr", better: "lower",
+    tip: "Annualized investment + operating cost (weighted over representative periods).",
+  },
+  vre_penetration: {
+    label: "VRE penetration", unit: "fraction", better: "higher",
+    tip: "Wind + solar energy as a share of total generation (0–1).",
+  },
+  curtailment_mwh_weighted: {
+    label: "curtailment", unit: "MWh/yr", better: "lower",
+    tip: "Available wind/solar energy thrown away (annualized via representative-period weights).",
+  },
+  unserved_mwh_weighted: {
+    label: "unserved energy", unit: "MWh/yr", better: "lower",
+    tip: "Load that could not be served (annualized via representative-period weights). Priced at VOLL in the objective — this is what drives scarcity prices.",
+  },
+  avg_price: {
+    label: "avg price", unit: "$/MWh", better: "neutral",
+    tip: "Time- and bus-averaged marginal price (dual of the energy balance). Scarcity hours at VOLL can dominate this average.",
+  },
+  price_spread: {
+    label: "price spread", unit: "$/MWh", better: "neutral",
+    tip: "Max minus min average bus price — nonzero spread means congestion separates locations.",
+  },
+  lole_hours_per_year: {
+    label: "LOLE", unit: "h/yr", better: "lower",
+    tip: "Loss-of-load expectation: expected hours per year with unserved load.",
+  },
+  eue_mwh_per_year: {
+    label: "EUE", unit: "MWh/yr", better: "lower",
+    tip: "Expected unserved energy per year.",
+  },
+  losses_mw: { label: "losses", unit: "MW", better: "lower", tip: "Network real-power losses." },
+  frequency_nadir_hz: {
+    label: "frequency nadir", unit: "Hz", better: "higher",
+    tip: "Lowest system frequency after the disturbance — closer to 60 Hz is better.",
+  },
+  rocof_hz_per_s: {
+    label: "RoCoF", unit: "Hz/s", better: "lower",
+    tip: "Max rate of change of frequency — high RoCoF trips protection.",
+  },
+  damping_ratio: {
+    label: "damping ratio", unit: "", better: "higher",
+    tip: "How quickly oscillations decay; higher is more stable.",
+  },
+};
+
+function metricOf(key: string) {
+  return (
+    METRICS[key] ?? {
+      label: key.replace(/_/g, " "), unit: "", better: "neutral" as const,
+      tip: "",
+    }
+  );
+}
+
+function ScalarRow({ k, d }: { k: string; d: DiffScalar }) {
+  const m = metricOf(k);
   const up = (d.delta ?? 0) > 0;
+  const deltaColor =
+    m.better === "neutral" || (d.delta ?? 0) === 0
+      ? "var(--muted)"
+      : (m.better === "lower") === up
+        ? "var(--warn)"
+        : "var(--good)";
   return (
     <tr>
-      <td className="field-name">{label}</td>
+      <td className="field-name">
+        <span className={m.tip ? "has-tip" : ""} title={m.tip}>{m.label}</span>
+        {m.unit && <span className="unit"> {m.unit}</span>}
+      </td>
       <td className="field-value">{fmt(d.a)}</td>
       <td className="field-value">{fmt(d.b)}</td>
-      <td className="field-value" style={{ color: up ? "#f59e0b" : "#22c55e" }}>
+      <td className="field-value" style={{ color: deltaColor }}
+        title={m.better === "neutral" ? undefined : `for this metric, ${m.better} is better`}>
         {(d.delta ?? 0) >= 0 ? "+" : ""}
         {fmt(d.delta)}
       </td>
     </tr>
   );
+}
+
+const spatialName = (s: string) =>
+  s === "identity" ? "nodal" : s === "aggregate" ? "zonal" : s;
+const LAYER_NAME: Record<string, string> = {
+  cem: "capacity expansion", pcm: "production cost", ra: "resource adequacy",
+  pf: "power flow", dyn: "dynamics", emt: "EMT",
+};
+
+// Auto-interpretation (issue #19): turn the diff numbers into the lesson's
+// argument. Preset-aware where it matters, generic fallback otherwise.
+function interpret(diff: ScenarioDiffResult["diff"], presetKey?: string): string[] {
+  const s = diff.scalars;
+  const out: string[] = [];
+  const g = (k: string) => s[k];
+  const spatialDiffers = diff.a.spatial !== diff.b.spatial;
+  if (spatialDiffers && g("price_spread")) {
+    const d = g("price_spread");
+    out.push(
+      `Under the ${spatialName(diff.a.spatial)} view (A) the price spread is $${fmt(d.a)}/MWh; the ${spatialName(diff.b.spatial)} view (B) reveals $${fmt(d.b)}/MWh. That spread is the congestion the aggregated view averages away.`,
+    );
+  }
+  if (spatialDiffers && g("curtailment_mwh_weighted")) {
+    const d = g("curtailment_mwh_weighted");
+    if ((d.delta ?? 0) > 1)
+      out.push(
+        `Curtailment rises from ${fmt(d.a)} to ${fmt(d.b)} MWh/yr under the finer view — remote renewables get stranded behind the constrained corridor that the coarse view pretends isn't there.`,
+      );
+  }
+  if (g("unserved_mwh_weighted") && (g("unserved_mwh_weighted").b ?? 0) > 1) {
+    out.push(
+      `Scenario B leaves ${fmt(g("unserved_mwh_weighted").b)} MWh/yr unserved (red rings on the map). Those hours are priced at VOLL, which is why avg price looks extreme.`,
+    );
+  }
+  if (g("total_cost") && Math.abs(g("total_cost").delta ?? 0) > 1) {
+    const d = g("total_cost");
+    out.push(
+      `Total system cost moves from $${fmt(d.a)} to $${fmt(d.b)}/yr (${(d.delta ?? 0) > 0 ? "+" : ""}$${fmt(d.delta)}). ${spatialDiffers ? "The cheaper-looking coarse plan is not a real plan — it books power deliveries the grid can't physically make." : ""}`,
+    );
+  }
+  if (g("lole_hours_per_year")) {
+    const d = g("lole_hours_per_year");
+    out.push(
+      `LOLE goes ${fmt(d.a)} → ${fmt(d.b)} h/yr: sampling more weather years exposes tail risk a single benign year hides.`,
+    );
+  }
+  if (!out.length) {
+    // generic: the two largest relative moves
+    const ranked = Object.entries(s)
+      .filter(([, d]) => isFinite(d.a) && isFinite(d.b) && Math.abs(d.a) > 1e-9)
+      .map(([k, d]) => [k, Math.abs((d.delta ?? 0) / d.a)] as [string, number])
+      .sort((x, y) => y[1] - x[1])
+      .slice(0, 2);
+    for (const [k] of ranked) {
+      const d = s[k];
+      out.push(`${metricOf(k).label}: ${fmt(d.a)} → ${fmt(d.b)} ${metricOf(k).unit}.`);
+    }
+  }
+  void presetKey;
+  return out;
 }
 
 function EngineMath({ explain }: { explain: ExplainPayload }) {
@@ -221,16 +356,26 @@ export function ScenarioLab({
 
       {diff && (
         <>
-          <div className="diff-head">
+          <div className="diff-head"
+            title="Two runs of the same world that differ in exactly one modeling choice. A is the coarser/baseline run, B the higher-fidelity or with-policy run.">
             <span className="diff-a">
-              A · {diff.a.spatial} · {diff.a.layer} · yrs{" "}
-              {diff.a.weather_years.join(",")}
+              A — {spatialName(diff.a.spatial)} · {LAYER_NAME[diff.a.layer] ?? diff.a.layer} ·
+              weather yr {diff.a.weather_years.join(",")}
             </span>
             <span className="diff-b">
-              B · {diff.b.spatial} · {diff.b.layer} · yrs{" "}
-              {diff.b.weather_years.join(",")}
+              B — {spatialName(diff.b.spatial)} · {LAYER_NAME[diff.b.layer] ?? diff.b.layer} ·
+              weather yr {diff.b.weather_years.join(",")}
             </span>
           </div>
+
+          {interpret(diff, active?.key).length > 0 && (
+            <div className="interpret-box">
+              <div className="interpret-title">what the numbers say</div>
+              {interpret(diff, active?.key).map((line, i) => (
+                <p key={i}>{line}</p>
+              ))}
+            </div>
+          )}
 
           {(extractMapResults(result.a, diff.a, "A", active?.name ?? "") ||
             extractMapResults(result.b, diff.b, "B", active?.name ?? "")) && (
@@ -274,7 +419,7 @@ export function ScenarioLab({
             </thead>
             <tbody>
               {Object.entries(diff.scalars).map(([k, d]) => (
-                <ScalarRow key={k} label={k.replace(/_/g, " ")} d={d} />
+                <ScalarRow key={k} k={k} d={d} />
               ))}
             </tbody>
           </table>

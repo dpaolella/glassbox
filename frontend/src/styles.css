@@ -1028,3 +1028,25 @@ code {
 }
 
 /* resource-potential candidate markers on the map --------------------- */
+
+/* auto-interpretation callout (issue #19) */
+.interpret-box {
+  background: color-mix(in srgb, var(--accent) 8%, var(--bg-1));
+  border: 1px solid color-mix(in srgb, var(--accent) 35%, var(--bg-1));
+  border-radius: 6px;
+  padding: 8px 10px;
+  font-size: var(--fs-md);
+  line-height: 1.5;
+  margin: 8px 0;
+}
+.interpret-box p {
+  margin: 4px 0;
+}
+.interpret-title {
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  font-size: var(--fs-xs);
+  color: var(--muted);
+  margin-bottom: 4px;
+}
