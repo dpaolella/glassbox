@@ -122,6 +122,23 @@ export interface GraphData {
   resource_potentials: GraphResourcePotential[];
 }
 
+// A solved run's spatial results, pushed onto the map by the Scenario Lab.
+// Prices are keyed by bus id (nodal runs) or zone id (zonal runs — every bus
+// in the zone shows the one flattened price, which is itself the lesson).
+export interface MapResults {
+  label: string; // e.g. "Nodal vs Zonal (capacity) — B (nodal)"
+  scenario: "A" | "B";
+  spatial: string; // identity | aggregate | ...
+  layer: string; // cem | pcm | ...
+  nodalPrice: Record<string, number>;
+  flows: Record<string, number>; // line id -> time-averaged |flow| MW
+  builtCapacity: Record<string, number>; // candidate id -> MW
+  builtStoragePower: Record<string, number>;
+  builtTransmission: Record<string, number>; // candidate line id -> MW
+  builtResourcePotential: Record<string, number>; // supply curve id -> MW
+  unservedMwh: Record<string, number>; // node id -> weighted MWh/yr unserved
+}
+
 export interface PerUnit {
   value: number;
   unit: string;
