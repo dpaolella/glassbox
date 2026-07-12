@@ -18,7 +18,9 @@ from ..schema import (
     field_metadata,
 )
 
-DEFAULT_DATA_DIR = Path("data/default_world")
+import os
+
+DEFAULT_DATA_DIR = Path(os.environ.get("GLASSBOX_DATA_DIR", "data/default_world"))
 
 # Map World collection attribute -> the entity model type name (for metadata).
 COLLECTION_MODELS: dict[str, str] = {
