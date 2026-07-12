@@ -138,8 +138,10 @@ def world_with_builds(world: World, result: CEMResult,
             bus_id=c.bus_id or "", technology=_sto_tech(c.technology),
             p_charge_max_mw=p_mw, p_discharge_max_mw=p_mw,
             energy_capacity_mwh=e_mwh,
-            efficiency_charge=c.efficiency_charge,
-            efficiency_discharge=c.efficiency_discharge,
+            efficiency_charge=(0.95 if c.efficiency_charge is None
+                               else c.efficiency_charge),
+            efficiency_discharge=(0.95 if c.efficiency_discharge is None
+                                  else c.efficiency_discharge),
             vom_per_mwh=c.vom_per_mwh))
         draw_down_candidate(c, p_mw)
 
@@ -173,8 +175,10 @@ def world_with_builds(world: World, result: CEMResult,
                 bus_id=hub, technology=_sto_tech(rp.technology),
                 p_charge_max_mw=mw, p_discharge_max_mw=mw,
                 energy_capacity_mwh=e_mwh,
-                efficiency_charge=rp.efficiency_charge,
-                efficiency_discharge=rp.efficiency_discharge,
+                efficiency_charge=(0.95 if rp.efficiency_charge is None
+                                   else rp.efficiency_charge),
+                efficiency_discharge=(0.95 if rp.efficiency_discharge is None
+                                      else rp.efficiency_discharge),
                 vom_per_mwh=rp.vom_per_mwh))
         else:
             is_vre = rp.technology in ("wind", "solar_pv")

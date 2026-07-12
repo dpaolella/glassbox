@@ -1563,8 +1563,8 @@
       "availability_profile_id": null,
       "resource_class": null,
       "duration_h": null,
-      "efficiency_charge": 0.95,
-      "efficiency_discharge": 0.95,
+      "efficiency_charge": null,
+      "efficiency_discharge": null,
       "reactance_pu": null,
       "expected_capacity_factor": 0.5,
       "lcoe_per_mwh": 54.2
@@ -1619,8 +1619,8 @@
       "availability_profile_id": null,
       "resource_class": null,
       "duration_h": null,
-      "efficiency_charge": 0.95,
-      "efficiency_discharge": 0.95,
+      "efficiency_charge": null,
+      "efficiency_discharge": null,
       "reactance_pu": 0.11,
       "expected_capacity_factor": null,
       "lcoe_per_mwh": null
@@ -1643,8 +1643,8 @@
       "fom_per_mw_yr": 18000.0,
       "lifetime_yr": 25,
       "duration_h": null,
-      "efficiency_charge": 0.95,
-      "efficiency_discharge": 0.95,
+      "efficiency_charge": null,
+      "efficiency_discharge": null,
       "capex_per_mwh": null,
       "tranches": [
         {
@@ -1695,8 +1695,8 @@
       "fom_per_mw_yr": 26000.0,
       "lifetime_yr": 25,
       "duration_h": null,
-      "efficiency_charge": 0.95,
-      "efficiency_discharge": 0.95,
+      "efficiency_charge": null,
+      "efficiency_discharge": null,
       "capex_per_mwh": null,
       "tranches": [
         {
@@ -1747,8 +1747,8 @@
       "fom_per_mw_yr": 18000.0,
       "lifetime_yr": 25,
       "duration_h": null,
-      "efficiency_charge": 0.95,
-      "efficiency_discharge": 0.95,
+      "efficiency_charge": null,
+      "efficiency_discharge": null,
       "capex_per_mwh": null,
       "tranches": [
         {

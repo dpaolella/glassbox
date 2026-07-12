@@ -111,13 +111,17 @@ export interface GraphResourcePotential {
   y: number;
   total_build_max_mw: number;
   tranches: SupplyTranche[];
+  profile_ids: string[]; // availability profiles the curve draws on (links to the resource field)
 }
 
 export interface Terrain {
   land: [number, number][]; // seeded landmass polygon
   river: [number, number][]; // polyline through the hydro zone
   cities: { bus_id: string; name: string; x: number; y: number; size: number }[];
-  resource_blobs: { kind: string; x: number; y: number; r: number; intensity: number; profile_id?: string }[];
+  resource_blobs: {
+    kind: string; x: number; y: number; r: number; intensity: number;
+    profile_id?: string; site_id?: string; quality?: number;
+  }[];
   span: number;
 }
 
@@ -336,11 +340,6 @@ export const api = {
     post<{ created: string; name: string; collection: string;
            lcoe_per_mwh?: number | null; expected_capacity_factor?: number | null;
            capex_annual_per_mw?: number; note?: string | null }>("/world/candidates", body),
-  deleteCandidate: (cid: string) =>
-    fetch(`${BASE}/world/candidates/${cid}`, { method: "DELETE" }).then((r) => {
-      if (!r.ok) throw new Error(`delete ${cid} -> ${r.status}`);
-      return r.json();
-    }),
   resetWorld: () => post<{ ok: boolean }>("/world/reset", {}),
   // build mode v2 (issue #28): inline editing, journal, save-as
   patchEntity: (collection: string, id: string, fields: Record<string, unknown>) =>

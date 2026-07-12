@@ -80,3 +80,43 @@ def test_god_mode_creates_real_asset_and_delete_is_undoable(client):
 def test_buses_are_not_editable(client):
     r = client.patch("/api/world/buses/A1", json={"fields": {"x": 0}})
     assert r.status_code == 400
+
+
+def test_erase_tool_delete_route(client):
+    """The map's erase tool deletes via /api/world/candidates/{id} — that path
+    hits the generic route with collection='candidates', which must resolve to
+    expansion_candidates instead of 400ing (the delete-proposal bug)."""
+    cid = client.post("/api/world/candidates",
+                      json={"technology": "ccgt", "bus_id": "B5"}).json()["created"]
+    r = client.delete(f"/api/world/candidates/{cid}")
+    assert r.status_code == 200, r.text
+    ids = [c["id"] for c in client.get("/api/entities/expansion_candidates").json()]
+    assert cid not in ids
+    client.post("/api/world/undo")  # undo delete
+    client.post("/api/world/undo")  # undo placement
+
+
+def test_non_storage_candidates_carry_no_storage_efficiency(client):
+    """A solar proposal must not report a fictitious charge/discharge
+    efficiency — those fields are storage-only templates (None elsewhere)."""
+    d = client.post("/api/world/candidates",
+                    json={"technology": "solar_pv", "bus_id": "A5"}).json()
+    cands = {c["id"]: c for c in client.get("/api/entities/expansion_candidates").json()}
+    assert cands[d["created"]]["efficiency_charge"] is None
+    assert cands[d["created"]]["efficiency_discharge"] is None
+    # the battery candidate keeps a real efficiency
+    batt = next(c for c in cands.values() if c["technology"] == "battery")
+    assert batt["efficiency_charge"] is not None
+    client.post("/api/world/undo")
+
+
+def test_graph_links_resource_potentials_to_field(client):
+    """The map graph exposes which availability profiles each zonal supply
+    curve draws on, so the resource-field glow can be linked to it."""
+    g = client.get("/api/graph").json()
+    rps = [rp for rp in g["resource_potentials"]
+           if rp["technology"] in ("wind", "solar_pv")]
+    assert rps and all(rp["profile_ids"] for rp in rps)
+    blob_profiles = {bl.get("profile_id") for bl in g["terrain"]["resource_blobs"]}
+    # every VRE curve's parent profile has a matching glow on the map
+    assert any(p in blob_profiles for rp in rps for p in rp["profile_ids"])

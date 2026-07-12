@@ -329,9 +329,9 @@ export function NetworkCanvas({
 
   function candidateClicked(cid: string): boolean {
     if (tool !== "erase") return false;
-    api.deleteCandidate(cid)
+    api.deleteEntity("expansion_candidates", cid)
       .then(() => { setBuildMsg(`deleted ${cid} — undoable`); fetchGraph(); refreshJournal(); })
-      .catch((e) => setBuildMsg(String(e)));
+      .catch((e) => setBuildMsg(String(e.message ?? e)));
     return true;
   }
 
@@ -353,6 +353,18 @@ export function NetworkCanvas({
     graph?.interfaces.forEach((i) => i.member_line_ids.forEach((l) => s.add(l)));
     return s;
   }, [graph]);
+
+  // profiles behind the currently-selected supply curve (or VRE candidate):
+  // used to ring the resource-field glow(s) that feed it, making the field's
+  // function visible — the glow IS the weather the curve's builds inherit
+  const selectedProfiles = useMemo(() => {
+    if (!graph || !selection) return null;
+    if (selection.collection === "resource_potentials") {
+      const rp = graph.resource_potentials.find((r) => r.id === selection.id);
+      return rp?.profile_ids?.length ? new Set(rp.profile_ids) : null;
+    }
+    return null;
+  }, [graph, selection]);
 
   // when a run's builds arrive, reveal the build-option overlays so the
   // now-solid built candidates are visible whatever layer is active
@@ -658,20 +670,34 @@ export function NetworkCanvas({
                   const avail = hour !== null && series ? series[hour] : null;
                   const o = avail !== null ? 0.12 + 0.9 * avail : bl.intensity;
                   const r = bl.r * (0.7 + 0.5 * (avail !== null ? avail : bl.intensity));
+                  const linked = !!(bl.profile_id && selectedProfiles?.has(bl.profile_id));
+                  const tip =
+                    `${bl.kind} resource field — site quality ×${bl.quality ?? "?"} (brighter = better ${bl.kind}). ` +
+                    `Wind/solar built near here — supply-curve tranches and placed candidates — inherit this site's hourly weather profile` +
+                    (bl.profile_id ? ` (${bl.profile_id})` : "") +
+                    `. It pulses with the live weather during playback.` +
+                    (avail !== null ? ` Availability now: ${(avail * 100).toFixed(0)}%.` : "");
                   return (
-                    <circle key={i} cx={bl.x} cy={bl.y} r={r}
-                      fill={`url(#rg-${bl.kind})`} opacity={Math.min(1, o)}>
-                      {avail !== null && (
-                        <title>{`${bl.kind} availability now: ${(avail * 100).toFixed(0)}%`}</title>
+                    <g key={i}>
+                      <circle cx={bl.x} cy={bl.y} r={r}
+                        fill={`url(#rg-${bl.kind})`} opacity={Math.min(1, o)}>
+                        <title>{tip}</title>
+                      </circle>
+                      {linked && (
+                        <circle cx={bl.x} cy={bl.y} r={r * 0.55} fill="none"
+                          stroke="#f59e0b" strokeWidth={lw(1.6)}
+                          strokeDasharray={`${lw(5)} ${lw(4)}`} opacity={0.9}>
+                          <title>{`this glow feeds the selected supply curve (${bl.profile_id})`}</title>
+                        </circle>
                       )}
-                    </circle>
+                    </g>
                   );
                 })}
             </g>
           )}
-          {/* zone regions */}
+          {/* zone regions (not interactive — let terrain tooltips through) */}
           {zoneRegions.map((z) => (
-            <g key={z.id}>
+            <g key={z.id} pointerEvents="none">
               <path
                 d={z.path}
                 fill={zoneColor(z.id)}
@@ -696,9 +722,12 @@ export function NetworkCanvas({
             </g>
           ))}
 
-          {/* edges */}
+          {/* edges — interface member lines stay visible whenever the
+              flowgate overlay is on, even with the AC-lines overlay off
+              (a flowgate with invisible members looks like nothing at all) */}
           {graph?.edges
-            .filter((e) => ov[e.kind as keyof Overlays])
+            .filter((e) => ov[e.kind as keyof Overlays]
+              || (ov.interfaces && interfaceLines.has(e.id)))
             .map((e) => {
               const a = byId.get(e.from);
               const b = byId.get(e.to);
@@ -745,6 +774,38 @@ export function NetworkCanvas({
                 >
                   <title>{`${e.id} · ${e.kind} · ${Math.round(e.rating_mva)} MVA${flowTip}`}</title>
                 </line>
+              );
+            })}
+
+          {/* flowgate chips: one marker per interface at the centroid of its
+              member lines, showing the shared MW limit across the corridor */}
+          {ov.interfaces &&
+            graph?.interfaces.map((iface) => {
+              const mids = iface.member_line_ids
+                .map((lid) => {
+                  const e = graph.edges.find((ed) => ed.id === lid);
+                  if (!e) return null;
+                  const a = byId.get(e.from);
+                  const b = byId.get(e.to);
+                  return a && b ? [(a.x + b.x) / 2, (a.y + b.y) / 2] : null;
+                })
+                .filter((p): p is [number, number] => p !== null);
+              if (!mids.length) return null;
+              const cx = mids.reduce((s, p) => s + p[0], 0) / mids.length;
+              const cy = mids.reduce((s, p) => s + p[1], 0) / mids.length;
+              const label = `≤${Math.round(iface.limit_mw).toLocaleString()} MW`;
+              const bw = lw(16 + label.length * 6.4);
+              return (
+                <g key={iface.id}>
+                  <rect x={cx - bw / 2} y={cy - lw(9)} width={bw} height={lw(18)}
+                    rx={lw(9)} fill="var(--panel, #0f172a)" fillOpacity={0.92}
+                    stroke="#38bdf8" strokeWidth={lw(1.6)} />
+                  <text x={cx} y={cy + lw(3.5)} textAnchor="middle"
+                    fontSize={lw(9.5)} fontWeight={700} fill="#38bdf8">
+                    ⛖ {label}
+                  </text>
+                  <title>{`${iface.name} — a flowgate: the combined flow across its ${mids.length} member line${mids.length > 1 ? "s" : ""} (highlighted in blue) may not exceed ${Math.round(iface.limit_mw).toLocaleString()} MW, even when each line individually has headroom. Nodal engines enforce it; when it binds, its shadow price is the congestion cost you see in LMP spreads.`}</title>
+                </g>
               );
             })}
 
@@ -1305,6 +1366,26 @@ export function NetworkCanvas({
             </div>
             <div className="legend-row" title={`${GLOSSARY.weak_feeder} Drawn red when series reactance ≥ 0.25 pu.`}>
               <span className="swatch line" style={{ background: "#ef4444" }} /> weak feeder (x ≥ 0.25 pu)
+            </div>
+            <div className="legend-title" style={{ marginTop: 8 }}>terrain (decor with data behind it)</div>
+            <div className="legend-row" title="The island's coastline — a seeded polygon drawn around the buses. Pure cartography; nothing is modeled outside it.">
+              <span className="swatch" style={{ background: "transparent", border: "1.5px solid #5b7a9d", borderRadius: "40%" }} />
+              coastline / landmass
+            </div>
+            <div className="legend-row" title="The river rises past the hydro plant and flows to the coast — it's WHY the reservoir (and its energy budget) is there. Hover it on the map.">
+              <span className="swatch line" style={{ background: "#3a86ff" }} /> river → hydro reservoir
+            </div>
+            <div className="legend-row" title="Soft glow = where the wind (blue) / solar (gold) resource is strong. Brighter = better site quality. VRE built nearby inherits that site's hourly weather profile — select a zonal supply curve to see which glow feeds it (dashed ring). Pulses with live weather during playback.">
+              <span className="swatch" style={{ background: "radial-gradient(circle, rgba(255,209,102,0.7), transparent)", borderRadius: "50%" }} />
+              glow = resource quality (wind/solar)
+            </div>
+            <div className="legend-row" title="Italic names mark cities — buses with demand attached. Buses without a name label are substations; hover any bus for its name.">
+              <span className="swatch" style={{ background: "transparent", fontStyle: "italic", fontSize: 10, width: "auto" }}>abc</span>
+              italic label = city (bus with load)
+            </div>
+            <div className="legend-row" title="A flowgate: the combined flow across the blue member lines is capped at the chip's MW limit — hover the chip on the map (interfaces overlay).">
+              <span className="swatch" style={{ background: "transparent", border: "1.5px solid #38bdf8", borderRadius: 8, fontSize: 9, color: "#38bdf8", width: "auto", padding: "0 3px" }}>⛖</span>
+              chip = flowgate limit
             </div>
             {results && (
               <>
