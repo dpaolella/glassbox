@@ -1,8 +1,110 @@
 import { useEffect, useState } from "react";
-import { api, InspectPayload } from "../api";
+import { api, InspectField, InspectPayload } from "../api";
 import { Selection } from "../App";
 import { FIELD_GLOSSARY } from "../glossary";
 import { DrillPanel } from "./DrillPanel";
+
+// collections whose fields can be edited in place (issue #28 v2); the
+// backend enforces the same list and re-validates every patch with Pydantic
+const EDITABLE = new Set([
+  "generators", "storage_units", "hydro_units", "loads", "ac_lines",
+  "expansion_candidates", "resource_potentials", "fuels", "policies",
+  "interfaces", "reserve_products",
+]);
+
+// broadcast that the world changed so the map refetches its graph
+export function worldEdited() {
+  window.dispatchEvent(new Event("gb-world-edited"));
+}
+
+function EditableValue({
+  collection,
+  entityId,
+  field,
+  display,
+  onSaved,
+  onError,
+}: {
+  collection: string;
+  entityId: string;
+  field: InspectField;
+  display: string;
+  onSaved: () => void;
+  onError: (msg: string) => void;
+}) {
+  const [editing, setEditing] = useState(false);
+  const [draft, setDraft] = useState("");
+  const [busy, setBusy] = useState(false);
+
+  const editableType =
+    typeof field.value === "number" ||
+    typeof field.value === "string" ||
+    typeof field.value === "boolean" ||
+    field.value === null;
+  if (!editableType || field.name === "id") {
+    return <>{display}</>;
+  }
+
+  function commit() {
+    const raw = draft.trim();
+    let value: unknown = raw;
+    if (typeof field.value === "number" || field.value === null) {
+      if (raw === "") value = null;
+      else {
+        const n = Number(raw);
+        if (Number.isNaN(n)) {
+          onError(`"${raw}" is not a number`);
+          setEditing(false);
+          return;
+        }
+        value = n;
+      }
+    } else if (typeof field.value === "boolean") {
+      value = raw === "true" || raw === "1";
+    }
+    setBusy(true);
+    api
+      .patchEntity(collection, entityId, { [field.name]: value })
+      .then(() => {
+        onSaved();
+        worldEdited();
+      })
+      .catch((e) => onError(String(e.message ?? e)))
+      .finally(() => {
+        setBusy(false);
+        setEditing(false);
+      });
+  }
+
+  if (editing) {
+    return (
+      <input
+        className="edit-input"
+        autoFocus
+        defaultValue={field.value === null ? "" : String(field.value)}
+        onChange={(e) => setDraft(e.target.value)}
+        onKeyDown={(e) => {
+          if (e.key === "Enter") commit();
+          if (e.key === "Escape") setEditing(false);
+        }}
+        onBlur={() => setEditing(false)}
+      />
+    );
+  }
+  return (
+    <span
+      className="editable-value"
+      title="click to edit (validated server-side; undoable from the build palette)"
+      onClick={() => {
+        setDraft(field.value === null ? "" : String(field.value));
+        setEditing(true);
+      }}
+    >
+      {busy ? "…" : display}
+      <span className="edit-pencil">✎</span>
+    </span>
+  );
+}
 
 interface Props {
   selection: Selection | null;
@@ -84,6 +186,8 @@ function NestedTable({ rows }: { rows: Record<string, unknown>[] }) {
 export function Inspector({ selection, layer, perUnit, onSelect }: Props) {
   const [payload, setPayload] = useState<InspectPayload | null>(null);
   const [err, setErr] = useState<string | null>(null);
+  const [refresh, setRefresh] = useState(0);
+  const [editMsg, setEditMsg] = useState<string | null>(null);
 
   useEffect(() => {
     if (!selection) {
@@ -95,7 +199,24 @@ export function Inspector({ selection, layer, perUnit, onSelect }: Props) {
       .inspect(selection.collection, selection.id, layer)
       .then(setPayload)
       .catch((e) => setErr(String(e)));
-  }, [selection, layer]);
+  }, [selection, layer, refresh]);
+  useEffect(() => setEditMsg(null), [selection]);
+
+  const editable = selection ? EDITABLE.has(selection.collection) : false;
+
+  function retire() {
+    if (!selection) return;
+    api.patchEntity(selection.collection, selection.id, { in_service: false })
+      .then(() => { setEditMsg("retired (in_service = false) — undoable"); setRefresh((r) => r + 1); worldEdited(); })
+      .catch((e) => setEditMsg(String(e.message ?? e)));
+  }
+
+  function remove() {
+    if (!selection) return;
+    api.deleteEntity(selection.collection, selection.id)
+      .then(() => { setEditMsg(`deleted ${selection.id} — undoable from the build palette`); setPayload(null); worldEdited(); })
+      .catch((e) => setEditMsg(String(e.message ?? e)));
+  }
 
   if (!selection)
     return (
@@ -122,7 +243,20 @@ export function Inspector({ selection, layer, perUnit, onSelect }: Props) {
         <span className="muted">
           {payload.fields.length} fields in <b>{layer}</b> scope
         </span>
+        {editable && (
+          <span className="edit-actions">
+            {payload.fields.some((f) => f.name === "in_service") && (
+              <button className="edit-btn" title="Take this asset out of service (every engine honors it) — undoable" onClick={retire}>
+                ⏻ retire
+              </button>
+            )}
+            <button className="edit-btn danger" title="Remove this entity from the world — undoable from the build palette" onClick={remove}>
+              🗑 delete
+            </button>
+          </span>
+        )}
       </div>
+      {editMsg && <div className="edit-msg">{editMsg}</div>}
 
       {payload.attached && payload.attached.length > 0 && (
         <div className="attached">
@@ -183,7 +317,21 @@ export function Inspector({ selection, layer, perUnit, onSelect }: Props) {
                     <NestedTable rows={table} />
                   ) : (
                     <>
-                      {renderValue(value)}
+                      {editable && !showPu && selection ? (
+                        <EditableValue
+                          collection={selection.collection}
+                          entityId={selection.id}
+                          field={f}
+                          display={renderValue(value)}
+                          onSaved={() => {
+                            setEditMsg(`updated ${f.name} — undoable`);
+                            setRefresh((r) => r + 1);
+                          }}
+                          onError={(m) => setEditMsg(m)}
+                        />
+                      ) : (
+                        renderValue(value)
+                      )}
                       {unit && <span className="unit"> {unit}</span>}
                       {showPu && f.per_unit!.note && (
                         <div className="pu-note">{f.per_unit!.note}</div>

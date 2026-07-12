@@ -1345,3 +1345,43 @@ code {
   font-size: var(--fs-lg);
 }
 .challenge-medal { font-size: var(--fs-md); }
+
+/* inline editing (issue #28 v2) */
+.editable-value { cursor: pointer; }
+.editable-value .edit-pencil {
+  opacity: 0;
+  color: var(--accent);
+  font-size: 10px;
+  margin-left: 3px;
+}
+.editable-value:hover .edit-pencil { opacity: 1; }
+.edit-input {
+  width: 110px;
+  background: var(--bg-2);
+  border: 1px solid var(--accent);
+  border-radius: 4px;
+  color: var(--text);
+  font-family: var(--mono);
+  font-size: 12px;
+  padding: 1px 5px;
+  text-align: right;
+}
+.edit-actions { display: inline-flex; gap: 5px; margin-left: auto; }
+.edit-btn {
+  background: var(--bg-3);
+  border: 1px solid var(--border);
+  color: var(--muted);
+  border-radius: 5px;
+  padding: 2px 8px;
+  font-size: var(--fs-xs);
+  cursor: pointer;
+}
+.edit-btn:hover { color: var(--text); }
+.edit-btn.danger:hover { color: #fca5a5; border-color: var(--bad); }
+.edit-msg {
+  font-size: var(--fs-xs);
+  color: var(--accent);
+  margin: 4px 0;
+}
+.build-tool.wide { width: auto; padding: 0 8px; }
+.build-tool:disabled { opacity: 0.35; cursor: default; }

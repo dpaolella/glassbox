@@ -707,16 +707,64 @@ class PlaceCandidateRequest(BaseModel):
     from_bus_id: Optional[str] = None
     to_bus_id: Optional[str] = None
     build_max_mw: Optional[float] = None
+    # god mode (issue #28 v2): create a real operating asset instead of a
+    # proposal — it exists immediately, no CEM decision required
+    as_asset: bool = False
+
+
+def _journal():
+    from .editing import EditJournal
+
+    global _EDIT_JOURNAL
+    try:
+        return _EDIT_JOURNAL
+    except NameError:
+        _EDIT_JOURNAL = EditJournal()
+        return _EDIT_JOURNAL
+
+
+def _crf_(rate: float, life: int) -> float:
+    f = (1 + rate) ** life
+    return rate * f / (f - 1)
+
+
+def _cost_preview(w, technology: str, defaults: dict, profile: Optional[str]) -> dict:
+    """Annualized cost + rough LCOE shown at placement time (issue #28 v2).
+
+    The capacity factor is honest: for VRE it is the mean of the borrowed
+    availability profile's first year, not a brochure number.
+    """
+    capex = float(defaults.get("capex_per_mw", 0.0))
+    fom = float(defaults.get("fom_per_mw_yr", 0.0))
+    life = int(defaults.get("lifetime_yr", 30))
+    annual = capex * _crf_(0.07, life) + fom
+    cf = None
+    mc = float(defaults.get("vom_per_mwh", 0.0))
+    if profile and profile in w.time_series_store:
+        cf = float(w.time_series_store.get(profile)[:8760].mean())
+    elif technology == "ccgt":
+        cf = 0.5
+        fuel = next((f for f in w.fuels if f.id == "gas"), None)
+        mc += float(defaults.get("heat_rate_mmbtu_per_mwh", 0.0)) * \
+            (fuel.price_per_mmbtu if fuel else 3.5)
+    elif technology == "battery":
+        cf = 0.12  # ~arbitrage duty cycle, display only
+    lcoe = (annual / (cf * 8760.0) + mc) if cf else None
+    return {"capex_annual_per_mw": round(annual),
+            "expected_capacity_factor": round(cf, 3) if cf else None,
+            "lcoe_per_mwh": round(lcoe, 1) if lcoe else None}
 
 
 @app.post("/api/world/candidates")
 def place_candidate(req: PlaceCandidateRequest):
-    """Create a build proposal (ExpansionCandidate) from the map.
+    """Create a build proposal — or, in god mode, a real asset — from the map.
 
-    VRE proposals borrow the availability profile of the nearest existing
-    weather site of the same kind — same regional weather, honestly labeled.
+    VRE placements borrow the availability profile of the nearest existing
+    weather site of the same kind (same regional weather, honestly labeled).
+    Every placement is journaled for undo/redo.
     """
-    from ..schema import CandidateKind, ExpansionCandidate
+    from ..schema import (ACLine, CandidateKind, ExpansionCandidate, Generator,
+                          GenTechnology, Storage, StorageTechnology)
 
     w = service.world
     if req.technology not in _BUILD_DEFAULTS:
@@ -733,8 +781,14 @@ def place_candidate(req: PlaceCandidateRequest):
     elif not req.bus_id:
         raise HTTPException(400, "a plant proposal needs bus_id")
 
-    n = 1 + sum(1 for c in w.expansion_candidates if c.id.startswith("user_"))
-    cid = f"user_{req.technology}_{n}"
+    prefix = "asset" if req.as_asset else "user"
+    taken = ({c.id for c in w.expansion_candidates}
+             | {g.id for g in w.generators} | {st.id for st in w.storage_units}
+             | {ln.id for ln in w.ac_lines})
+    n = 1
+    while f"{prefix}_{req.technology}_{n}" in taken:
+        n += 1
+    cid = f"{prefix}_{req.technology}_{n}"
 
     profile = None
     if req.technology in ("wind", "solar_pv"):
@@ -749,35 +803,175 @@ def place_candidate(req: PlaceCandidateRequest):
         b = next((b2 for b2 in w.buses if b2.id == bid), None)
         return (b.name or bid) if b else bid
 
-    name = (f"{busname(req.from_bus_id)}–{busname(req.to_bus_id)} line (your proposal)"
+    mode = "built directly" if req.as_asset else "your proposal"
+    name = (f"{busname(req.from_bus_id)}–{busname(req.to_bus_id)} line ({mode})"
             if kind == CandidateKind.LINE
-            else f"{req.technology} @ {busname(req.bus_id)} (your proposal)")
-    cand = ExpansionCandidate(
-        id=cid, name=name, kind=kind, technology=req.technology,
-        bus_id=req.bus_id, from_bus_id=req.from_bus_id, to_bus_id=req.to_bus_id,
-        availability_profile_id=profile, **defaults)
-    w.expansion_candidates.append(cand)
-    return {"created": cid, "name": name,
-            "availability_profile_id": profile,
+            else f"{req.technology} @ {busname(req.bus_id)} ({mode})")
+    preview = _cost_preview(w, req.technology, defaults, profile)
+    mw = float(defaults.get("build_max_mw", 100.0))
+
+    if req.as_asset:
+        # god mode: a real operating asset, visible to every layer immediately
+        if kind == CandidateKind.LINE:
+            x = float(defaults.get("reactance_pu", 0.11))
+            entity = ACLine(id=cid, name=name,
+                            from_bus_id=req.from_bus_id, to_bus_id=req.to_bus_id,
+                            r=x / 10.0, x=x, b=0.02, rating_normal_mva=mw,
+                            rating_emergency_mva=mw * 1.2, rating_lt_mva=mw * 1.1)
+            collection = "ac_lines"
+        elif kind == CandidateKind.STORAGE:
+            entity = Storage(id=cid, name=name, bus_id=req.bus_id,
+                             technology=StorageTechnology.BATTERY,
+                             p_charge_max_mw=mw, p_discharge_max_mw=mw,
+                             energy_capacity_mwh=mw * float(defaults.get("duration_h", 4.0)),
+                             efficiency_charge=defaults.get("efficiency_charge", 0.94),
+                             efficiency_discharge=defaults.get("efficiency_discharge", 0.94),
+                             vom_per_mwh=defaults.get("vom_per_mwh", 1.0))
+            collection = "storage_units"
+        else:
+            is_vre = req.technology in ("wind", "solar_pv")
+            entity = Generator(
+                id=cid, name=name, bus_id=req.bus_id,
+                technology=GenTechnology(req.technology),
+                fuel_id=defaults.get("fuel_id"),
+                prime_mover="inverter" if is_vre else "thermal",
+                p_max_mw=mw, p_min_pu=(0.0 if is_vre else defaults.get("p_min_pu", 0.0)),
+                heat_rate_mmbtu_per_mwh=defaults.get("heat_rate_mmbtu_per_mwh"),
+                vom_per_mwh=defaults.get("vom_per_mwh", 0.0),
+                fom_per_mw_yr=defaults.get("fom_per_mw_yr", 0.0),
+                lifetime_yr=defaults.get("lifetime_yr", 30),
+                availability_profile_id=profile)
+            collection = "generators"
+    else:
+        entity = ExpansionCandidate(
+            id=cid, name=name, kind=kind, technology=req.technology,
+            bus_id=req.bus_id, from_bus_id=req.from_bus_id, to_bus_id=req.to_bus_id,
+            availability_profile_id=profile,
+            expected_capacity_factor=preview["expected_capacity_factor"],
+            lcoe_per_mwh=preview["lcoe_per_mwh"], **defaults)
+        collection = "expansion_candidates"
+
+    getattr(w, collection).append(entity)
+    _journal().record(
+        f"place {cid}",
+        forward=[{"op": "add", "collection": collection,
+                  "entity": entity.model_dump(mode="json")}],
+        inverse=[{"op": "remove", "collection": collection, "id": cid}])
+    return {"created": cid, "name": name, "collection": collection,
+            "availability_profile_id": profile, **preview,
             "note": (None if kind == CandidateKind.LINE or profile or
                      req.technology not in ("wind", "solar_pv")
                      else "no weather site found — treated as firm capacity")}
 
 
+class PatchRequest(BaseModel):
+    fields: dict
+
+
+@app.patch("/api/world/{collection}/{entity_id}")
+def patch_entity(collection: str, entity_id: str, req: PatchRequest):
+    """Inline field editing (issue #28 v2): Pydantic re-validates the whole
+    entity, bus references are checked, and the old values are journaled."""
+    from .editing import (EDITABLE_COLLECTIONS, EditError, _find,
+                          patch_entity_validated)
+
+    w = service.world
+    if collection not in EDITABLE_COLLECTIONS:
+        raise HTTPException(400, f"{collection} is not editable")
+    try:
+        item = _find(w, collection, entity_id)
+        old = {k: item.model_dump(mode="json").get(k) for k in req.fields}
+        patched = patch_entity_validated(w, collection, item, req.fields)
+    except EditError as exc:
+        raise HTTPException(422, str(exc))
+    items = getattr(w, collection)
+    items[items.index(item)] = patched
+    _journal().record(
+        f"edit {entity_id} ({', '.join(req.fields)})",
+        forward=[{"op": "set", "collection": collection, "id": entity_id,
+                  "fields": dict(req.fields)}],
+        inverse=[{"op": "set", "collection": collection, "id": entity_id,
+                  "fields": old}])
+    return {"patched": entity_id, "fields": list(req.fields)}
+
+
+@app.delete("/api/world/{collection}/{entity_id}")
+def delete_entity(collection: str, entity_id: str):
+    """Delete any editable entity (bulldoze mode) — journaled, undoable."""
+    from .editing import EDITABLE_COLLECTIONS
+
+    w = service.world
+    if collection not in EDITABLE_COLLECTIONS:
+        raise HTTPException(400, f"{collection} is not deletable")
+    items = getattr(w, collection)
+    item = next((x for x in items if x.id == entity_id), None)
+    if item is None:
+        raise HTTPException(404, f"no {collection[:-1]} '{entity_id}'")
+    setattr(w, collection, [x for x in items if x.id != entity_id])
+    _journal().record(
+        f"delete {entity_id}",
+        forward=[{"op": "remove", "collection": collection, "id": entity_id}],
+        inverse=[{"op": "add", "collection": collection,
+                  "entity": item.model_dump(mode="json")}])
+    return {"deleted": entity_id}
+
+
+# legacy route kept for the existing frontend erase tool
 @app.delete("/api/world/candidates/{cid}")
 def delete_candidate(cid: str):
-    w = service.world
-    before = len(w.expansion_candidates)
-    w.expansion_candidates = [c for c in w.expansion_candidates if c.id != cid]
-    if len(w.expansion_candidates) == before:
-        raise HTTPException(404, f"no candidate {cid}")
-    return {"deleted": cid}
+    return delete_entity("expansion_candidates", cid)
+
+
+@app.post("/api/world/undo")
+def undo_edit():
+    from .editing import EditError
+
+    try:
+        label = _journal().undo(service.world)
+    except EditError as exc:
+        raise HTTPException(409, str(exc))
+    return {"undone": label, **_journal().state()}
+
+
+@app.post("/api/world/redo")
+def redo_edit():
+    from .editing import EditError
+
+    try:
+        label = _journal().redo(service.world)
+    except EditError as exc:
+        raise HTTPException(409, str(exc))
+    return {"redone": label, **_journal().state()}
+
+
+@app.get("/api/world/journal")
+def journal_state():
+    return _journal().state()
+
+
+class SaveWorldRequest(BaseModel):
+    name: str
+
+
+@app.post("/api/world/save")
+def save_world_as(req: SaveWorldRequest):
+    """Persist the edited world (save-as) under data/<name>."""
+    import re as _re
+
+    from ..world.serialize import save_world
+
+    name = _re.sub(r"[^A-Za-z0-9_-]", "_", req.name).strip("_") or "edited_world"
+    out = Path("data") / name
+    save_world(service.world, out)
+    return {"saved": str(out),
+            "hint": f"serve it with GLASSBOX_DATA_DIR={out}"}
 
 
 @app.post("/api/world/reset")
 def reset_world():
     """Discard in-memory edits; reload the saved world from disk."""
     service.reset()
+    _journal().clear()
     return {"ok": True}
 
 

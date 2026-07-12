@@ -281,16 +281,34 @@ export function NetworkCanvas({
   const [tool, setTool] = useState<Tool | null>(null);
   const [lineFrom, setLineFrom] = useState<string | null>(null);
   const [buildMsg, setBuildMsg] = useState<string | null>(null);
+  // god mode (issue #28 v2): place real operating assets instead of proposals
+  const [godMode, setGodMode] = useState(false);
+  const [journal, setJournal] = useState<{ can_undo: boolean; can_redo: boolean } | null>(null);
+  const refreshJournal = () =>
+    api.journalState().then(setJournal).catch(() => setJournal(null));
+  // any world edit (inspector patches, deletes) refreshes the map
+  useEffect(() => {
+    const onEdit = () => { fetchGraph(); refreshJournal(); };
+    window.addEventListener("gb-world-edited", onEdit);
+    return () => window.removeEventListener("gb-world-edited", onEdit);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
   useEffect(() => {
     // leaving the inv layer puts the toolbox away
     if (layer !== "inv") { setTool(null); setLineFrom(null); }
   }, [layer]);
 
   function place(body: Record<string, unknown>) {
-    api.placeCandidate(body)
+    api.placeCandidate({ ...body, as_asset: godMode })
       .then((r) => {
-        setBuildMsg(`placed ${r.name}${r.note ? ` — ${r.note}` : ""}`);
+        const cost = r.lcoe_per_mwh
+          ? ` · ~$${r.lcoe_per_mwh}/MWh at CF ${r.expected_capacity_factor ?? "—"}`
+          : r.capex_annual_per_mw
+            ? ` · $${Math.round(r.capex_annual_per_mw / 1000)}k/MW-yr annualized`
+            : "";
+        setBuildMsg(`placed ${r.name}${cost}${r.note ? ` — ${r.note}` : ""}`);
         fetchGraph();
+        refreshJournal();
       })
       .catch((e) => setBuildMsg(String(e)));
   }
@@ -312,7 +330,7 @@ export function NetworkCanvas({
   function candidateClicked(cid: string): boolean {
     if (tool !== "erase") return false;
     api.deleteCandidate(cid)
-      .then(() => { setBuildMsg(`deleted ${cid}`); fetchGraph(); })
+      .then(() => { setBuildMsg(`deleted ${cid} — undoable`); fetchGraph(); refreshJournal(); })
       .catch((e) => setBuildMsg(String(e)));
     return true;
   }
@@ -1044,9 +1062,45 @@ export function NetworkCanvas({
               {t === "erase" ? "✕" : <Icon icon={icon} size={13} color={tool === t ? "#221503" : "#f59e0b"} />}
             </button>
           ))}
+          <button
+            className={`build-tool wide ${godMode ? "active" : ""}`}
+            title={godMode
+              ? "GOD MODE: placements become real operating assets immediately (every layer sees them). Click to place proposals instead."
+              : "Placements are proposals the CEM decides on. Click for god mode: place real assets directly."}
+            onClick={() => {
+              setGodMode((g) => !g);
+              setBuildMsg(godMode ? "placing proposals (CEM decides)" : "GOD MODE: placing real assets");
+            }}
+          >
+            {godMode ? "🏗" : "📋"}
+          </button>
+          <button className="build-tool" disabled={!journal?.can_undo}
+            title="Undo the last world edit (placements, deletions, field edits)"
+            onClick={() => api.undoEdit()
+              .then((r) => { setBuildMsg(`undid: ${r.undone}`); fetchGraph(); refreshJournal(); })
+              .catch((e) => setBuildMsg(String(e.message ?? e)))}>
+            ↶
+          </button>
+          <button className="build-tool" disabled={!journal?.can_redo}
+            title="Redo the last undone edit"
+            onClick={() => api.redoEdit()
+              .then((r) => { setBuildMsg(`redid: ${r.redone}`); fetchGraph(); refreshJournal(); })
+              .catch((e) => setBuildMsg(String(e.message ?? e)))}>
+            ↷
+          </button>
+          <button className="build-tool"
+            title="Save the edited world to disk (save-as) — serve it later with GLASSBOX_DATA_DIR"
+            onClick={() => {
+              const name = window.prompt("save world as (data/<name>):", "my_world");
+              if (name) api.saveWorld(name)
+                .then((r) => setBuildMsg(`saved to ${r.saved}`))
+                .catch((e) => setBuildMsg(String(e)));
+            }}>
+            💾
+          </button>
           <button className="build-tool" title="Discard all map edits and reload the saved world"
             onClick={() => {
-              api.resetWorld().then(() => { setBuildMsg("world reset"); fetchGraph(); });
+              api.resetWorld().then(() => { setBuildMsg("world reset"); fetchGraph(); refreshJournal(); });
             }}>
             ⟲
           </button>
