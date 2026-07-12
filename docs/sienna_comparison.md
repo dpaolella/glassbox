@@ -4,11 +4,16 @@ A review of [SiennaGridDB's data model](https://github.com/G-PST/data-schema-exe
 (the NREL Sienna ecosystem schema) against Glassbox's, focused on how each one
 organizes one power system for many kinds of analysis.
 
+> *As of the current `main` (post oracle-depth / build-mode-v2). Since the first
+> cut of this doc the buildable side of the schema grew a second representation
+> (zonal supply curves), reserves and cross-layer requirements became
+> first-class, and the world became editable in place — all reflected below.*
+
 ## TL;DR
 
 Both schemas separate **one physical system** into views for different analyses,
 store **time series out-of-line**, attach **explicit per-field units with a base**,
-and (now) keep **existing assets distinct from investment options**. The core
+and keep **existing assets distinct from investment options**. The core
 difference is the *mechanism* of separation: Sienna splits into **domain
 packages** (Core / Operations / Investments / Dynamics) made of distinct
 component types; Glassbox keeps **shared component types** and tags **each field
@@ -21,17 +26,21 @@ pedagogical schema whose facets also drive the UI.
 | Concern | Sienna | Glassbox |
 |---|---|---|
 | One system, many analyses | 4 domain packages over one core | 7 field-level facets over one `World` |
-| Existing vs. buildable | Operations domain vs. **Investments** domain | `Generator`/`Storage` assets vs. **`ExpansionCandidate`** |
+| Existing vs. buildable | Operations domain vs. **Investments** domain | `Generator`/`Storage`/`ACLine` assets vs. **`ExpansionCandidate`** + **`ResourcePotential`** |
+| Investment as supply curve | Investment technologies with build limits | `ResourcePotential` → stepped `SupplyTranche`s (rising $/MW) |
+| Reserves / ancillary services | AGC, constant + variable reserves (up/down), reserve groups | `ReserveProduct` (spinning, `pct_load`/`pct_vre`/`fixed_mw` rule) |
 | Units | per-field unit metadata + `UnitSystem` enum, base V/power | per-field `unit` + `base` (`system_mva`/`machine_mva`), per-unit derived |
-| Time series | HDF5 arrays, referenced from the DB | parquet/npz arrays, referenced by id from `TimeSeriesStore` |
+| Time series | HDF5 arrays, referenced from the DB | npz arrays, referenced by id from `TimeSeriesStore` |
 | Substrate | Pydantic (among Julia/SQL) | Pydantic v2 |
 | Component shape | "flat and self-contained" | flat entities in one container |
 | Dynamics | separate Dynamics package | polymorphic `DynamicModel` + `dyn`/`emt` facets |
 
 The existing-vs-candidate refactor brought Glassbox into line with Sienna's
-**Operations vs. Investments** split — candidates are now their own entity with
-build limits / resource potential and an operating template, not a boolean on
-the asset.
+**Operations vs. Investments** split — candidates are their own entities with
+build limits and an operating template, not a boolean on the asset. Transmission
+is a genuine build decision too (`ExpansionCandidate` of `kind=line`, modeled as
+a transport corridor by the CEM), matching Sienna's supply/storage/**and network**
+investment scope.
 
 ## Where they differ
 
@@ -49,29 +58,79 @@ then slices the same object per layer.
   the layer-filtered inspector and makes the abstraction levels visible *in the
   data*. That's the whole pedagogical point.
 
-**2. Units formalization.**
+**2. Investment representation — two granularities, and a stepped supply curve.**
+Glassbox now carries *two* buildable representations, which the earlier version
+of this doc predated:
+- **`ExpansionCandidate`** — a specific plant, storage unit, or line at a
+  specific bus (nodal granularity; "should we build *this* here?").
+- **`ResourcePotential`** — the aggregate buildable potential of a technology
+  across a whole *zone*, expressed as a **stepped supply curve** of
+  `SupplyTranche`s: the best (cheapest, highest-CF) sites are exhausted first, so
+  a technology's cost is a *rising* curve of $/MW, not a scalar. The CEM builds
+  tranches cheapest-first up to the potential and sites them at the zone's
+  interconnection hub.
+
+Sienna's Investments domain covers "supply/storage/demand-side technologies,
+financial parameters, existing capacity, retirement/retrofit potential" with
+build limits, but its published summary does not surface a *stepped zonal supply
+curve / resource-class* construct — the thing GenX-style CEMs use to make VRE
+siting economics rise with deployment. This is a place Glassbox goes further on
+CEM realism. Conversely, Sienna models **demand-side technologies** and
+**retirement/retrofit potential** as investment options; Glassbox handles
+retirement *exogenously* (a `retirement_year` / `status` the engines honor), not
+yet as an endogenous CEM decision, and has no demand-side investment class.
+
+**3. Reserves / ancillary services.**
+Both represent reserves as their own objects rather than generator flags. Sienna
+covers **AGC, constant and variable reserves (up/down), and reserve groups**.
+Glassbox's `ReserveProduct` carries a `requirement_rule`
+(`pct_load` / `pct_vre` / `fixed_mw`) with a `zone_scope`; the CEM/PCM enforce a
+spinning-up requirement as a soft (penalized-shortfall) constraint, and the
+`pct_vre` term is effectively a *variable* reserve. Glassbox does **not** yet
+model AGC, down-reserves, or reserve groups — an honest gap versus Sienna's
+services package. (FFR sizing, by contrast, flows in from the dynamics layer.)
+
+**4. Cross-layer requirements are encoded in the schema.**
+Distinct to Glassbox: requirements derived in one layer are carried into others
+*as data*. `Interface.limit_source` records that a flowgate limit may be a
+**stability** limit descending from the dynamics layer, and `SystemConstraint`
+(`min_inertia` / `min_synchronous_units` / `rocof_limit` / `min_system_strength`)
+carries a dynamics-derived floor **up** into planning and operations, tagged with
+`inv`/`ops`/`dyn` facets. Sienna's packages are cleanly separable but its summary
+does not describe requirement flow *between* packages; in Glassbox the coupling is
+first-class in the schema, which is what lets the tool teach the 6.7 handoffs.
+
+**5. Units formalization.**
 Sienna has a dataset-level `UnitSystem` enum (`SYSTEM_BASE / DEVICE_BASE /
 NATURAL_UNITS`) that cost/fuel curves reference. Glassbox stores SI per field
 with a `base` tag and derives per-unit on demand, plus an explicit machine→system
 base conversion in the dynamics engine. Same intent; Sienna's is more formalized
 at the dataset level. *Adopting a `UnitSystem`-style enum is a clean future step.*
 
-**3. Persistence & interop.**
+**6. Persistence, interop & export.**
 Sienna: SQLite (3.45+, JSONB) for the static schema + HDF5 for time series, with
 a "Case Generator" emitting JSON/HDF5 for downstream tools; language-agnostic via
 JSON Schema (Draft-07) + OpenAPI 3.1.0; implementations in Python, Julia, SQL;
 explicit interop with GenX/PyPSA/CIM. Glassbox: JSON + npz on the local
-filesystem, Pydantic-as-source, Python-only (the PRD deferred a JSON Schema /
-LinkML exporter). Glassbox is single-user and local by design; Sienna is built
-for multi-adopter, GW-scale interchange.
+filesystem, Pydantic-as-source, Python-only. Two things narrow this gap since the
+first cut, though: the facet/unit/base metadata rides in each field's Pydantic
+`json_schema_extra`, so `World.model_json_schema()` already emits a **facet-tagged
+JSON Schema for free** (verified: every field carries its `facets`), and the
+FastAPI surface already serves OpenAPI 3.1 — a language-agnostic export is now
+packaging, not new design. Glassbox remains single-user and local by design;
+Sienna is built for multi-adopter, GW-scale interchange.
 
-**4. Validation philosophy.**
+**7. Validation philosophy.**
 Both push *domain* validation to the consuming engine rather than the schema.
 Sienna says so explicitly ("domain-specific validations left to adopting
 libraries"); Glassbox validates structure via Pydantic and validates *phenomena*
-via the test/oracle suite.
+via the test/oracle suite. Glassbox now also re-validates structure **live**: the
+build-mode editor re-runs full Pydantic validation on every in-place patch
+(rejecting bad types/enums/negative values and dangling bus references) and
+journals the inverse op, so the "schema validates structure" contract holds for
+interactive edits, not just load.
 
-**5. Presentation.**
+**8. Presentation.**
 Glassbox's facets do double duty: besides driving the engines, they drive the
 inspector, the operator/overlay UI, and the modeling-layer selector. Sienna is a
 pure data schema and (correctly) says nothing about presentation.
@@ -80,9 +139,13 @@ pure data schema and (correctly) says nothing about presentation.
 
 - A dataset-level `UnitSystem` enum to make the SI/device/per-unit choice
   first-class rather than implicit per field.
-- A language-agnostic export (JSON Schema / OpenAPI) so the facet-tagged schema
-  could interoperate, matching Sienna's interchange goal (the PRD already lists
-  this as an optional exporter).
+- Richer services: AGC, down-reserves, and reserve groups, to match Sienna's
+  ancillary-services coverage.
+- Endogenous **retirement/retrofit** as investment options (Glassbox retires
+  exogenously today), and a demand-side technology class.
+- Ship the (now nearly-free) language-agnostic export — emit the facet-tagged
+  JSON Schema from `model_json_schema()` as a published artifact so the schema
+  could interoperate, matching Sienna's interchange goal.
 - Optionally, a package/dependency grouping on top of facets for reuse — though
   facets already give most of the modularity benefit for a single tool.
 
@@ -90,6 +153,12 @@ pure data schema and (correctly) says nothing about presentation.
 
 - **Field-level facets** as the single source of truth for "which layer sees
   what," driving both engines and UI from one annotation.
+- **Cross-layer requirements as data** (`SystemConstraint`, `Interface.limit_source`)
+  — the up/down handoffs between stability, operations, and planning are
+  encoded in the schema, not just implied by the tools.
+- A **stepped zonal supply curve** (`ResourcePotential`/`SupplyTranche`) sitting
+  alongside nodal candidates, so VRE siting economics rise with deployment.
 - A **transparency contract** (`explain()` on every engine/operator) and an
-  **oracle layer** (pandapower/PyPSA/Andes) — concerns outside a data schema's
-  scope, but central to Glassbox's "inspectable" thesis.
+  **oracle layer** (pandapower/PyPSA/Andes, now including multi-hour dispatch and
+  capacity-expansion round-trips) — concerns outside a data schema's scope, but
+  central to Glassbox's "inspectable" thesis.
