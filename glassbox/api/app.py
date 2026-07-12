@@ -1168,6 +1168,171 @@ def oracle_dispatch_scenario(req: OracleRequest):
     return _run_oracle_dispatch(req)
 
 
+class WindowOracleRequest(BaseModel):
+    """Multi-hour oracle round-trips (issue #14): a chronological zonal window."""
+
+    scenario: Optional[Scenario] = None
+    start_hour: int = 0
+    hours: int = 168
+    weather_year: int = 0
+
+
+def _run_oracle_dispatch_window(req: Optional[WindowOracleRequest]):
+    from ..validation.oracles.pypsa_oracle import HAVE_PYPSA
+    from ..validation.oracles.pypsa_view_oracle import compare_dispatch_window
+
+    if not HAVE_PYPSA:
+        return {"available": False, "oracle": "pypsa"}
+    w, note = _oracle_world(req)
+    start = max(0, req.start_hour if req else 0)
+    hours = int(min(max(req.hours if req else 168, 24), 336))
+    year = req.weather_year if req else 0
+    try:
+        cmp = compare_dispatch_window(w, start, hours, year)
+    except Exception as exc:
+        return {
+            "available": True, "oracle": "PyPSA", "engine": "pcm",
+            "converged_both": False, "failure": str(exc),
+            "why": ("One side failed to solve the multi-hour window. Common "
+                    "causes: a scenario override that removed the last supply "
+                    "in a zone, or an oracle translation gap."),
+            "note": note,
+        }
+    # energy tolerances scale with the window's load, not fixed absolutes
+    mwh_tol = max(10.0, 0.001 * cmp.total_load_energy_mwh)
+    return {
+        "available": True, "oracle": "PyPSA", "engine": "pcm",
+        "hour": start, "note": note,
+        "metrics": [
+            {"name": "objective", "kernel": cmp.objective_glassbox,
+             "oracle": cmp.objective_pypsa, "diff": cmp.objective_rel_diff,
+             "unit": "rel", "tol": 1e-5,
+             "why": ("The same zonal multi-hour dispatch — storage SOC, hydro "
+                     "budget, transfer limits — solved by two independent "
+                     "formulations must reach the same optimal cost.")},
+            {"name": "max per-generator energy difference", "kernel": "—",
+             "oracle": "—", "diff": cmp.max_gen_energy_diff_mwh, "unit": "MWh",
+             "tol": mwh_tol,
+             "why": ("Window energy per generator; can differ when units tie "
+                     "on marginal cost (degenerate optima).")},
+            {"name": "storage throughput", "kernel": cmp.storage_throughput_glassbox_mwh,
+             "oracle": cmp.storage_throughput_pypsa_mwh,
+             "diff": abs(cmp.storage_throughput_glassbox_mwh
+                         - cmp.storage_throughput_pypsa_mwh),
+             "unit": "MWh", "tol": mwh_tol,
+             "why": ("Discharge energy over the window — nonzero means the "
+                     "cyclic SOC constraints were actually exercised on both "
+                     "sides, not just present.")},
+            {"name": "hydro energy used", "kernel": cmp.hydro_energy_glassbox_mwh,
+             "oracle": cmp.hydro_energy_pypsa_mwh,
+             "diff": abs(cmp.hydro_energy_glassbox_mwh - cmp.hydro_energy_pypsa_mwh),
+             "unit": "MWh", "tol": mwh_tol,
+             "why": (f"Both sides carry the real reservoir budget "
+                     f"({cmp.hydro_budget_mwh:.0f} MWh) as an energy-limit "
+                     "constraint." if cmp.hydro_budget_mwh
+                     else "No hydro in this world.")},
+            {"name": "unserved energy", "kernel": cmp.unserved_glassbox_mwh,
+             "oracle": cmp.unserved_pypsa_mwh,
+             "diff": abs(cmp.unserved_glassbox_mwh - cmp.unserved_pypsa_mwh),
+             "unit": "MWh", "tol": mwh_tol,
+             "why": "Scarcity must appear identically at the shared VOLL."},
+        ],
+        "detail": {"hours": cmp.hours, "n_zones": cmp.n_nodes,
+                   "corridor_congested_hours": cmp.corridor_congested_hours},
+        "scope_note": (f"A {cmp.hours}-hour zonal transport-network dispatch "
+                       f"window: storage, hydro energy budget and inter-zonal "
+                       f"transfer limits are all active "
+                       f"({cmp.corridor_congested_hours} corridor-hours at "
+                       f"their limit). "
+                       + " ".join(cmp.notes)),
+    }
+
+
+@app.get("/api/oracle/dispatch_window")
+def oracle_dispatch_window(start_hour: int = 0, hours: int = 168,
+                           weather_year: int = 0):
+    """Multi-hour zonal dispatch: storage + hydro budget + transfer limits,
+    transparent linopy core vs PyPSA (issue #14)."""
+    return _run_oracle_dispatch_window(WindowOracleRequest(
+        start_hour=start_hour, hours=hours, weather_year=weather_year))
+
+
+@app.post("/api/oracle/dispatch_window")
+def oracle_dispatch_window_scenario(req: WindowOracleRequest):
+    return _run_oracle_dispatch_window(req)
+
+
+def _run_oracle_expansion(req: Optional[WindowOracleRequest]):
+    from ..validation.oracles.pypsa_oracle import HAVE_PYPSA
+    from ..validation.oracles.pypsa_view_oracle import compare_expansion
+
+    if not HAVE_PYPSA:
+        return {"available": False, "oracle": "pypsa"}
+    w, note = _oracle_world(req)
+    start = max(0, req.start_hour if req else 0)
+    hours = int(min(max(req.hours if req else 168, 24), 336))
+    year = req.weather_year if req else 0
+    try:
+        cmp = compare_expansion(w, start, hours, year)
+    except Exception as exc:
+        return {
+            "available": True, "oracle": "PyPSA", "engine": "cem",
+            "converged_both": False, "failure": str(exc),
+            "why": ("One side failed to solve the expansion problem. A "
+                    "scenario override that removed all candidates, or an "
+                    "oracle translation gap, are the usual causes."),
+            "note": note,
+        }
+    build_tol = max(1.0, 0.005 * max(cmp.total_built_glassbox_mw, 1.0))
+    excluded: dict = {}
+    if cmp.excluded_candidate_storage:
+        excluded["candidate_storage"] = cmp.excluded_candidate_storage
+    return {
+        "available": True, "oracle": "PyPSA", "engine": "cem", "note": note,
+        "metrics": [
+            {"name": "total cost (capex + operations)",
+             "kernel": cmp.objective_glassbox, "oracle": cmp.objective_pypsa,
+             "diff": cmp.objective_rel_diff, "unit": "rel", "tol": 1e-5,
+             "why": ("Least-cost investment + operations, including the RPS "
+                     "alternative-compliance term, must agree between the "
+                     "transparent core and PyPSA's p_nom_extendable path.")},
+            {"name": "max per-candidate build difference", "kernel": "—",
+             "oracle": "—", "diff": cmp.max_build_diff_mw, "unit": "MW",
+             "tol": build_tol,
+             "why": ("Built MW per candidate (generators, supply-curve "
+                     "tranches, transmission). Ties between equally-priced "
+                     "options can split differently at the same total cost.")},
+            {"name": "total capacity built", "kernel": cmp.total_built_glassbox_mw,
+             "oracle": cmp.total_built_pypsa_mw,
+             "diff": abs(cmp.total_built_glassbox_mw - cmp.total_built_pypsa_mw),
+             "unit": "MW", "tol": build_tol,
+             "why": "The aggregate build decision must match."},
+        ],
+        "detail": {"built_kernel_mw": cmp.built_glassbox_mw,
+                   "built_oracle_mw": cmp.built_pypsa_mw,
+                   "rps_fraction": cmp.rps_fraction, "hours": cmp.hours},
+        "excluded": excluded,
+        "scope_note": (f"Capacity expansion on a {cmp.hours}-hour zonal window "
+                       f"weighted to a year, RPS {cmp.rps_fraction:.0%} with the "
+                       "production ACP formulation mirrored inside PyPSA. "
+                       + " ".join(cmp.notes)),
+    }
+
+
+@app.get("/api/oracle/expansion")
+def oracle_expansion(start_hour: int = 0, hours: int = 168,
+                     weather_year: int = 0):
+    """Capacity expansion: transparent linopy CEM vs PyPSA p_nom_extendable
+    (issue #14)."""
+    return _run_oracle_expansion(WindowOracleRequest(
+        start_hour=start_hour, hours=hours, weather_year=weather_year))
+
+
+@app.post("/api/oracle/expansion")
+def oracle_expansion_scenario(req: WindowOracleRequest):
+    return _run_oracle_expansion(req)
+
+
 @app.get("/api/oracle/dynamics")
 def oracle_dynamics():
     """RMS swing: transparent SMIB integrator vs Andes (Section 6.6)."""
