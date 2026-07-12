@@ -350,8 +350,10 @@ def assemble_view(
             storages.append(StorageSpec(
                 id=c.id, node=node, p_nom_existing=0.0, e_nom_existing=0.0,
                 is_candidate=True, capex_annual_per_mw=capex_p,
-                capex_annual_per_mwh=capex_e, eff_c=c.efficiency_charge,
-                eff_d=c.efficiency_discharge, soc_min_pu=0.05, soc_max_pu=1.0,
+                capex_annual_per_mwh=capex_e,
+                eff_c=(0.95 if c.efficiency_charge is None else c.efficiency_charge),
+                eff_d=(0.95 if c.efficiency_discharge is None else c.efficiency_discharge),
+                soc_min_pu=0.05, soc_max_pu=1.0,
                 vom=c.vom_per_mwh, build_max_mw=(c.build_max_mw or 0.0),
                 build_max_mwh=(c.build_max_mw or 0.0) * dur))
 
@@ -372,8 +374,10 @@ def assemble_view(
                 storages.append(StorageSpec(
                     id=f"{rp.id}#t{k}", node=node, p_nom_existing=0.0, e_nom_existing=0.0,
                     is_candidate=True, capex_annual_per_mw=capex_p,
-                    capex_annual_per_mwh=capex_e, eff_c=rp.efficiency_charge,
-                    eff_d=rp.efficiency_discharge, soc_min_pu=0.05, soc_max_pu=1.0,
+                    capex_annual_per_mwh=capex_e,
+                    eff_c=(0.95 if rp.efficiency_charge is None else rp.efficiency_charge),
+                    eff_d=(0.95 if rp.efficiency_discharge is None else rp.efficiency_discharge),
+                    soc_min_pu=0.05, soc_max_pu=1.0,
                     vom=rp.vom_per_mwh, build_max_mw=tr.build_max_mw,
                     build_max_mwh=tr.build_max_mw * dur, parent_id=rp.id))
 

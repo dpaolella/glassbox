@@ -387,11 +387,14 @@ class ExpansionCandidate(BaseModel):
         facets=["inv"], default=None, description="VRE candidate availability profile")
     resource_class: Optional[str] = facet_field(facets=["inv"], default=None)
 
-    # storage template
+    # storage template (only meaningful for kind=storage; None elsewhere so a
+    # solar candidate doesn't carry a fictitious round-trip efficiency)
     duration_h: Optional[float] = facet_field(facets=["inv"], unit="h", default=None,
                                               description="energy/power ratio for storage")
-    efficiency_charge: float = facet_field(facets=["inv"], default=0.95)
-    efficiency_discharge: float = facet_field(facets=["inv"], default=0.95)
+    efficiency_charge: Optional[float] = facet_field(
+        facets=["inv"], default=None, description="storage candidates only")
+    efficiency_discharge: Optional[float] = facet_field(
+        facets=["inv"], default=None, description="storage candidates only")
 
     # transmission template
     reactance_pu: Optional[float] = facet_field(facets=["inv"], unit="pu", default=None)
@@ -462,10 +465,12 @@ class ResourcePotential(BaseModel):
     fom_per_mw_yr: float = facet_field(facets=["inv"], unit="currency/MW/yr", default=0.0)
     lifetime_yr: int = facet_field(facets=["inv"], unit="yr", default=25)
 
-    # storage template
+    # storage template (only meaningful for kind=storage; None elsewhere)
     duration_h: Optional[float] = facet_field(facets=["inv"], unit="h", default=None)
-    efficiency_charge: float = facet_field(facets=["inv"], default=0.95)
-    efficiency_discharge: float = facet_field(facets=["inv"], default=0.95)
+    efficiency_charge: Optional[float] = facet_field(
+        facets=["inv"], default=None, description="storage potentials only")
+    efficiency_discharge: Optional[float] = facet_field(
+        facets=["inv"], default=None, description="storage potentials only")
     capex_per_mwh: Optional[float] = facet_field(facets=["inv"], unit="currency/MWh", default=None)
 
     tranches: list[SupplyTranche] = facet_field(facets=["inv"], default_factory=list)

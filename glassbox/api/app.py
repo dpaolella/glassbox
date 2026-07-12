@@ -900,6 +900,11 @@ def delete_entity(collection: str, entity_id: str):
     """Delete any editable entity (bulldoze mode) — journaled, undoable."""
     from .editing import EDITABLE_COLLECTIONS
 
+    # the map's erase tool historically calls /api/world/candidates/{id}; that
+    # path matches THIS route (collection="candidates") before the legacy alias
+    # below, so resolve the alias here
+    if collection == "candidates":
+        collection = "expansion_candidates"
     w = service.world
     if collection not in EDITABLE_COLLECTIONS:
         raise HTTPException(400, f"{collection} is not deletable")
@@ -914,12 +919,6 @@ def delete_entity(collection: str, entity_id: str):
         inverse=[{"op": "add", "collection": collection,
                   "entity": item.model_dump(mode="json")}])
     return {"deleted": entity_id}
-
-
-# legacy route kept for the existing frontend erase tool
-@app.delete("/api/world/candidates/{cid}")
-def delete_candidate(cid: str):
-    return delete_entity("expansion_candidates", cid)
 
 
 @app.post("/api/world/undo")

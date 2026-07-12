@@ -261,12 +261,18 @@ class WorldService:
                 "expected_capacity_factor": t.expected_capacity_factor,
                 "lcoe_per_mwh": t.lcoe_per_mwh,
             } for t in rp.tranches]
+            # the availability profiles this curve draws on — the map uses them
+            # to link the supply-curve badge to its resource-field glow(s)
+            profile_ids = [p for p in dict.fromkeys(
+                [rp.availability_profile_id]
+                + [t.availability_profile_id for t in rp.tranches]) if p]
             resource_potentials.append({
                 "id": rp.id, "name": rp.name, "kind": rp.kind.value,
                 "technology": rp.technology, "zone_id": rp.zone_id,
                 "bus_id": hub, "x": xy[0], "y": xy[1],
                 "total_build_max_mw": sum(t.build_max_mw for t in rp.tranches),
                 "tranches": tranches,
+                "profile_ids": profile_ids,
             })
         return {"nodes": nodes, "edges": edges,
                 "zones": [{"id": z.id, "name": z.name,
@@ -348,6 +354,8 @@ class WorldService:
             blobs.append({"kind": site.kind, "x": site.x, "y": site.y,
                           "r": span * 0.16,
                           "profile_id": f"availability__{site.id}",
+                          "site_id": site.id,
+                          "quality": round(site.scale or 1.0, 2),
                           "intensity": max(0.2, min(1.0, (site.scale or 1.0) - 0.2))})
 
         return {"land": land, "river": river, "cities": cities,
