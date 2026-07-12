@@ -1,0 +1,621 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Schema Atlas — Glassbox vs. Sienna vs. PyPSA</title>
+<style>*{box-sizing:border-box}html,body{margin:0}</style>
+</head>
+<body>
+<title>Schema Atlas — Glassbox vs. Sienna vs. PyPSA</title>
+
+<style>
+  :root {
+    /* neutrals — warm off-white, biased toward the amber accent */
+    --plane:      #f4f2ec;
+    --surface:    #fbfaf6;
+    --surface-2:  #f0ede4;
+    --ink:        #14140f;
+    --ink-2:      #56534a;
+    --muted:      #8a877d;
+    --hair:       #e0ddd2;
+    --hair-2:     #cfcbbd;
+    --ring:       rgba(20,20,15,0.10);
+
+    /* schema identities (validated categorical trio) */
+    --gb:  #c47f00;   /* Glassbox — amber (its build accent) */
+    --gb-soft: rgba(196,127,0,0.12);
+    --si:  #c1552c;   /* Sienna — burnt sienna */
+    --si-soft: rgba(193,85,44,0.12);
+    --py:  #2a6fd0;   /* PyPSA — cool blue */
+    --py-soft: rgba(42,111,208,0.12);
+
+    /* coverage — neutral ordinal, no good/bad valence */
+    --cov-full: var(--ink);
+    --cov-part: #a29d90;
+    --cov-none: transparent;
+
+    --mono: ui-monospace, "SF Mono", "JetBrains Mono", "Fira Mono", Menlo, monospace;
+    --sans: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+
+    --maxw: 1120px;
+    --r: 12px;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --plane:     #0c0f14;
+      --surface:   #141922;
+      --surface-2: #1b212c;
+      --ink:       #f3f1ea;
+      --ink-2:     #b6b2a6;
+      --muted:     #8b897f;
+      --hair:      #262d38;
+      --hair-2:    #313a48;
+      --ring:      rgba(255,255,255,0.10);
+      --gb:  #eeb43f;  --gb-soft: rgba(238,180,63,0.15);
+      --si:  #e07a4e;  --si-soft: rgba(224,122,78,0.15);
+      --py:  #5a9bee;  --py-soft: rgba(90,155,238,0.15);
+      --cov-full: var(--ink);
+      --cov-part: #7c7a70;
+    }
+  }
+  :root[data-theme="light"] {
+    --plane:#f4f2ec; --surface:#fbfaf6; --surface-2:#f0ede4; --ink:#14140f; --ink-2:#56534a;
+    --muted:#8a877d; --hair:#e0ddd2; --hair-2:#cfcbbd; --ring:rgba(20,20,15,0.10);
+    --gb:#c47f00; --gb-soft:rgba(196,127,0,0.12); --si:#c1552c; --si-soft:rgba(193,85,44,0.12);
+    --py:#2a6fd0; --py-soft:rgba(42,111,208,0.12); --cov-full:var(--ink); --cov-part:#a29d90;
+  }
+  :root[data-theme="dark"] {
+    --plane:#0c0f14; --surface:#141922; --surface-2:#1b212c; --ink:#f3f1ea; --ink-2:#b6b2a6;
+    --muted:#8b897f; --hair:#262d38; --hair-2:#313a48; --ring:rgba(255,255,255,0.10);
+    --gb:#eeb43f; --gb-soft:rgba(238,180,63,0.15); --si:#e07a4e; --si-soft:rgba(224,122,78,0.15);
+    --py:#5a9bee; --py-soft:rgba(90,155,238,0.15); --cov-full:var(--ink); --cov-part:#7c7a70;
+  }
+
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; background: var(--plane); color: var(--ink);
+    font-family: var(--sans); line-height: 1.55;
+    -webkit-font-smoothing: antialiased;
+  }
+  .wrap { max-width: var(--maxw); margin: 0 auto; padding: clamp(20px, 4vw, 56px) clamp(16px, 4vw, 40px) 80px; }
+
+  /* ---- masthead ---- */
+  .eyebrow { font-family: var(--mono); font-size: 12px; letter-spacing: .16em; text-transform: uppercase;
+             color: var(--muted); margin: 0 0 14px; }
+  h1 { font-size: clamp(30px, 5.2vw, 52px); line-height: 1.04; letter-spacing: -0.02em; margin: 0 0 18px;
+       font-weight: 680; text-wrap: balance; max-width: 16ch; }
+  .lede { font-size: clamp(16px, 2vw, 19px); color: var(--ink-2); max-width: 62ch; margin: 0 0 4px; }
+  .lede b { color: var(--ink); font-weight: 620; }
+  .lede .gb { color: var(--gb); font-weight: 640; }
+  .lede .si { color: var(--si); font-weight: 640; }
+  .lede .py { color: var(--py); font-weight: 640; }
+
+  /* ---- legend / controls ---- */
+  .legend { display: flex; flex-wrap: wrap; gap: 10px 12px; align-items: center; margin: 30px 0 8px; }
+  .chip { display: inline-flex; align-items: center; gap: 8px; border: 1px solid var(--hair-2);
+          background: var(--surface); border-radius: 999px; padding: 7px 13px 7px 10px; cursor: pointer;
+          font-size: 13.5px; color: var(--ink-2); transition: border-color .15s, background .15s, color .15s; }
+  .chip:hover { border-color: var(--hair); }
+  .chip .dot { width: 11px; height: 11px; border-radius: 3px; flex: none; }
+  .chip[data-k="gb"] .dot { background: var(--gb); }
+  .chip[data-k="si"] .dot { background: var(--si); }
+  .chip[data-k="py"] .dot { background: var(--py); }
+  .chip b { color: var(--ink); font-weight: 620; }
+  .chip.dim { opacity: .34; }
+  .chip:focus-visible { outline: 2px solid var(--py); outline-offset: 2px; }
+  .legend .hint { font-family: var(--mono); font-size: 11.5px; color: var(--muted); letter-spacing: .04em; margin-left: auto; }
+
+  /* ---- section frame ---- */
+  section { margin-top: clamp(46px, 7vw, 78px); }
+  .sec-head { display: flex; align-items: baseline; gap: 12px; margin-bottom: 6px; flex-wrap: wrap; }
+  .sec-num { font-family: var(--mono); font-size: 12px; color: var(--muted); letter-spacing: .1em; }
+  h2 { font-size: clamp(21px, 3vw, 27px); letter-spacing: -0.01em; margin: 0; font-weight: 640; }
+  .sec-sub { color: var(--ink-2); max-width: 66ch; margin: 8px 0 22px; font-size: 15.5px; }
+
+  /* ---- philosophy cards ---- */
+  .cards { display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; }
+  @media (max-width: 760px) { .cards { grid-template-columns: 1fr; } }
+  .card { background: var(--surface); border: 1px solid var(--hair); border-radius: var(--r);
+          padding: 20px 20px 22px; position: relative; overflow: hidden; }
+  .card::before { content: ""; position: absolute; inset: 0 0 auto 0; height: 3px; background: var(--edge, var(--muted)); }
+  .card[data-k="gb"] { --edge: var(--gb); } .card[data-k="si"] { --edge: var(--si); } .card[data-k="py"] { --edge: var(--py); }
+  .card .name { font-family: var(--mono); font-size: 13px; letter-spacing: .04em; color: var(--edge); font-weight: 600; }
+  .card h3 { margin: 4px 0 10px; font-size: 18.5px; font-weight: 640; letter-spacing: -0.01em; }
+  .card p { margin: 0 0 14px; font-size: 14.5px; color: var(--ink-2); }
+  .card .mech { margin-top: auto; }
+  .card svg { display: block; width: 100%; height: 74px; }
+  .card .tag { font-family: var(--mono); font-size: 11px; color: var(--muted); letter-spacing: .05em; text-transform: uppercase; }
+
+  /* ---- coverage matrix ---- */
+  .scroll { overflow-x: auto; border: 1px solid var(--hair); border-radius: var(--r); background: var(--surface); }
+  table.matrix { border-collapse: collapse; width: 100%; min-width: 720px; }
+  .matrix thead th { position: sticky; top: 0; background: var(--surface); z-index: 2; }
+  .matrix th, .matrix td { text-align: left; padding: 0; }
+  .matrix .corner { width: 30%; }
+  .matrix thead .sch { padding: 14px 16px; border-bottom: 1px solid var(--hair-2); vertical-align: bottom; }
+  .matrix thead .sch .schname { font-family: var(--mono); font-weight: 640; font-size: 14px; }
+  .matrix thead .sch .schsub { font-size: 11.5px; color: var(--muted); font-family: var(--mono); letter-spacing: .03em; }
+  .sch[data-k="gb"] .schname { color: var(--gb); } .sch[data-k="si"] .schname { color: var(--si); } .sch[data-k="py"] .schname { color: var(--py); }
+  .matrix .band td { font-family: var(--mono); font-size: 11px; letter-spacing: .12em; text-transform: uppercase;
+                     color: var(--muted); padding: 16px 16px 7px; border-bottom: 1px solid var(--hair); }
+  .matrix tbody tr.row td { border-bottom: 1px solid var(--hair); vertical-align: top; }
+  .matrix tbody tr.row:last-child td { border-bottom: 0; }
+  .rowlabel { padding: 13px 16px; font-size: 14.5px; font-weight: 560; color: var(--ink); }
+  .cell { padding: 13px 16px; cursor: default; transition: background .12s; }
+  .cell.on { background: var(--soft); }
+  .cell.dim { opacity: .28; }
+  .cov { display: flex; align-items: center; gap: 9px; }
+  .cov .g { width: 15px; height: 15px; flex: none; border-radius: 50%; position: relative; }
+  .cov .g.full { background: var(--mk); }
+  .cov .g.part { background: linear-gradient(90deg, var(--mk) 50%, transparent 50%); box-shadow: inset 0 0 0 1.6px var(--mk); }
+  .cov .g.none { box-shadow: inset 0 0 0 1.6px var(--hair-2); }
+  .cell[data-k="gb"] { --mk: var(--gb); --soft: var(--gb-soft); }
+  .cell[data-k="si"] { --mk: var(--si); --soft: var(--si-soft); }
+  .cell[data-k="py"] { --mk: var(--py); --soft: var(--py-soft); }
+  .cov .lbl { font-size: 13.5px; color: var(--ink-2); }
+  .cov .lbl b { color: var(--ink); font-weight: 600; }
+  .cov code { font-family: var(--mono); font-size: 12px; background: var(--surface-2); padding: 1px 5px;
+              border-radius: 5px; color: var(--ink); }
+
+  /* tooltip */
+  #tip { position: fixed; z-index: 40; max-width: 300px; background: var(--ink); color: var(--plane);
+         padding: 10px 12px; border-radius: 9px; font-size: 13px; line-height: 1.45; pointer-events: none;
+         opacity: 0; transform: translateY(3px); transition: opacity .12s, transform .12s;
+         box-shadow: 0 10px 30px rgba(0,0,0,.25); }
+  #tip.show { opacity: 1; transform: translateY(0); }
+  #tip .tk { font-family: var(--mono); font-size: 11px; letter-spacing: .06em; text-transform: uppercase; opacity: .7; display: block; margin-bottom: 3px; }
+
+  /* ---- rosetta ---- */
+  .rosetta { overflow-x: auto; border: 1px solid var(--hair); border-radius: var(--r); background: var(--surface); }
+  table.ros { border-collapse: collapse; width: 100%; min-width: 720px; }
+  .ros th { text-align: left; font-family: var(--mono); font-size: 11px; letter-spacing: .1em; text-transform: uppercase;
+            color: var(--muted); padding: 14px 16px 10px; border-bottom: 1px solid var(--hair-2); font-weight: 500; }
+  .ros th[data-k="gb"] { color: var(--gb); } .ros th[data-k="si"] { color: var(--si); } .ros th[data-k="py"] { color: var(--py); }
+  .ros td { padding: 11px 16px; border-bottom: 1px solid var(--hair); vertical-align: top; }
+  .ros tr:last-child td { border-bottom: 0; }
+  .ros .concept { font-size: 14px; color: var(--ink-2); width: 22%; }
+  .ros code { font-family: var(--mono); font-size: 12.5px; color: var(--ink); }
+  .ros td.dim { opacity: .3; }
+  .ros .absent { color: var(--muted); font-family: var(--mono); font-size: 12.5px; }
+  .ros .spine td { background: var(--surface-2); }
+  .ros .spine .concept::after { content: " · shared spine"; color: var(--muted); font-size: 11px; font-family: var(--mono); }
+
+  /* ---- reach ---- */
+  .reach { border: 1px solid var(--hair); border-radius: var(--r); background: var(--surface); padding: 8px 20px 22px; }
+  .reach-scroll { overflow-x: auto; }
+  .reach-axis, .reach-row { min-width: 480px; }
+  .reach-axis { display: grid; grid-template-columns: 92px repeat(6, minmax(0, 1fr)); gap: 0; align-items: end;
+                padding: 18px 0 8px; }
+  .reach-axis .ax { font-family: var(--mono); font-size: 10.5px; letter-spacing: .02em; color: var(--muted);
+                    text-align: center; padding: 0 4px; line-height: 1.25; text-transform: uppercase; }
+  .reach-row { display: grid; grid-template-columns: 92px repeat(6, minmax(0, 1fr)); gap: 0; align-items: center;
+               height: 40px; position: relative; }
+  .reach-row + .reach-row { border-top: 1px dashed var(--hair); }
+  .reach-row .who { font-family: var(--mono); font-size: 13px; font-weight: 620; }
+  .reach-row[data-k="gb"] .who { color: var(--gb); } .reach-row[data-k="si"] .who { color: var(--si); } .reach-row[data-k="py"] .who { color: var(--py); }
+  .reach-cell { display: flex; justify-content: center; align-items: center; height: 100%; }
+  .reach-cell .g { width: 14px; height: 14px; border-radius: 50%; }
+  .reach-cell .g.full { background: var(--mk); }
+  .reach-cell .g.part { background: linear-gradient(90deg, var(--mk) 50%, transparent 50%); box-shadow: inset 0 0 0 1.5px var(--mk); }
+  .reach-cell .g.none { box-shadow: inset 0 0 0 1.5px var(--hair-2); }
+  .reach-row[data-k="gb"] { --mk: var(--gb); } .reach-row[data-k="si"] { --mk: var(--si); } .reach-row[data-k="py"] { --mk: var(--py); }
+  .reach-track { position: absolute; left: 92px; right: 0; top: 50%; height: 6px; transform: translateY(-50%);
+                 border-radius: 4px; opacity: .13; background: var(--mk); z-index: 0; }
+  .reach-cell { position: relative; z-index: 1; }
+  .reach-note { font-size: 13px; color: var(--ink-2); margin: 16px 0 0; max-width: 64ch; }
+
+  /* ---- takeaways ---- */
+  .takes { display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; }
+  @media (max-width: 760px) { .takes { grid-template-columns: 1fr; } }
+  .take { border: 1px solid var(--hair); border-radius: var(--r); padding: 18px 20px 20px; background: var(--surface); }
+  .take .q { font-family: var(--mono); font-size: 11px; letter-spacing: .1em; text-transform: uppercase; color: var(--muted); }
+  .take h4 { margin: 8px 0 8px; font-size: 16.5px; letter-spacing: -0.01em; font-weight: 620; }
+  .take p { margin: 0; font-size: 14px; color: var(--ink-2); }
+  .take .gb { color: var(--gb); font-weight: 600; } .take .si { color: var(--si); font-weight: 600; } .take .py { color: var(--py); font-weight: 600; }
+
+  /* legend for coverage glyphs */
+  .covkey { display: flex; gap: 18px; flex-wrap: wrap; margin: 14px 2px 0; font-size: 12.5px; color: var(--ink-2); }
+  .covkey span { display: inline-flex; align-items: center; gap: 7px; }
+  .covkey .g { width: 13px; height: 13px; border-radius: 50%; }
+  .covkey .g.full { background: var(--muted); }
+  .covkey .g.part { background: linear-gradient(90deg, var(--muted) 50%, transparent 50%); box-shadow: inset 0 0 0 1.5px var(--muted); }
+  .covkey .g.none { box-shadow: inset 0 0 0 1.5px var(--hair-2); }
+
+  footer { margin-top: 66px; padding-top: 22px; border-top: 1px solid var(--hair); color: var(--muted);
+           font-size: 12.5px; font-family: var(--mono); letter-spacing: .02em; display: flex; gap: 8px 18px; flex-wrap: wrap; }
+  footer a { color: var(--ink-2); }
+
+  @media (prefers-reduced-motion: reduce) { * { transition: none !important; } }
+</style>
+
+<div class="wrap">
+  <p class="eyebrow">Power-system data models · a field guide</p>
+  <h1>Three ways to write down one grid</h1>
+  <p class="lede">
+    <span class="gb">Glassbox</span>, <span class="si">SiennaGridDB</span>, and
+    <span class="py">PyPSA</span> each store <b>one physical power system</b> and serve it to many
+    kinds of analysis — capacity expansion, operations, power flow, stability. They agree almost
+    perfectly on the <b>physical spine</b> and diverge on the hard parts: how you say
+    "this could be <em>built</em>," how you carve one model into many views, and how far up the
+    physics stack the schema reaches.
+  </p>
+
+  <div class="legend" role="group" aria-label="Highlight a schema">
+    <button class="chip" data-k="gb" aria-pressed="false"><span class="dot"></span><b>Glassbox</b>&nbsp;· field-facet</button>
+    <button class="chip" data-k="si" aria-pressed="false"><span class="dot"></span><b>Sienna</b>&nbsp;· domain-package</button>
+    <button class="chip" data-k="py" aria-pressed="false"><span class="dot"></span><b>PyPSA</b>&nbsp;· component-frame</button>
+    <span class="hint">click a schema to focus · hover cells for detail</span>
+  </div>
+
+  <!-- 1 · philosophies -->
+  <section id="mech">
+    <div class="sec-head"><span class="sec-num">01</span><h2>The organizing idea</h2></div>
+    <p class="sec-sub">Every schema needs "one system, many analyses." What differs is the seam
+      each one cuts to get there — and that single choice explains most of everything below.</p>
+    <div class="cards">
+      <article class="card" data-k="gb">
+        <div class="name">Glassbox</div>
+        <h3>Tag every field</h3>
+        <p>One shared <code>Generator</code>; each field carries the layers that read it
+          (<code>core / inv / ops / dyn …</code>). A projection slices the same object per view.</p>
+        <div class="mech">
+          <div class="tag">one entity, faceted fields</div>
+          <svg viewBox="0 0 200 74" aria-hidden="true">
+            <rect x="6" y="10" width="188" height="54" rx="6" fill="none" stroke="var(--gb)" stroke-width="1.5"/>
+            <rect x="16" y="20" width="60" height="10" rx="2" fill="var(--gb)" opacity="0.9"/>
+            <rect x="16" y="34" width="46" height="10" rx="2" fill="var(--gb)" opacity="0.55"/>
+            <rect x="16" y="48" width="54" height="10" rx="2" fill="var(--gb)" opacity="0.32"/>
+            <text x="150" y="28" font-family="var(--mono)" font-size="8" fill="var(--muted)">core</text>
+            <text x="150" y="42" font-family="var(--mono)" font-size="8" fill="var(--muted)">inv</text>
+            <text x="150" y="56" font-family="var(--mono)" font-size="8" fill="var(--muted)">dyn</text>
+          </svg>
+        </div>
+      </article>
+      <article class="card" data-k="si">
+        <div class="name">SiennaGridDB</div>
+        <h3>Split into packages</h3>
+        <p>Four domains over one core — <code>Core · Operations · Investments · Dynamics</code>.
+          A tool imports only the packages it needs; a thing may differ across them.</p>
+        <div class="mech">
+          <div class="tag">domain packages over a core</div>
+          <svg viewBox="0 0 200 74" aria-hidden="true">
+            <rect x="70" y="30" width="60" height="16" rx="3" fill="var(--si)" opacity="0.85"/>
+            <rect x="10" y="8"  width="52" height="15" rx="3" fill="none" stroke="var(--si)" stroke-width="1.4"/>
+            <rect x="138" y="8" width="52" height="15" rx="3" fill="none" stroke="var(--si)" stroke-width="1.4"/>
+            <rect x="10" y="52" width="52" height="15" rx="3" fill="none" stroke="var(--si)" stroke-width="1.4"/>
+            <rect x="138" y="52" width="52" height="15" rx="3" fill="none" stroke="var(--si)" stroke-width="1.4"/>
+            <path d="M62 15H70V33M138 15H130V33M62 60H70V44M138 60H130V44" fill="none" stroke="var(--si)" stroke-width="1" opacity="0.5"/>
+          </svg>
+        </div>
+      </article>
+      <article class="card" data-k="py">
+        <div class="name">PyPSA</div>
+        <h3>One flat component set</h3>
+        <p>A network of typed components in DataFrames; analyses are <em>options</em>
+          (<code>optimize()</code>, power flow), and "buildable" is a flag on the asset itself.</p>
+        <div class="mech">
+          <div class="tag">components + a flag</div>
+          <svg viewBox="0 0 200 74" aria-hidden="true">
+            <circle cx="40" cy="24" r="7" fill="var(--py)" opacity="0.9"/>
+            <circle cx="100" cy="24" r="7" fill="var(--py)" opacity="0.9"/>
+            <circle cx="160" cy="24" r="7" fill="var(--py)" opacity="0.9"/>
+            <line x1="40" y1="24" x2="100" y2="24" stroke="var(--py)" stroke-width="1.4"/>
+            <line x1="100" y1="24" x2="160" y2="24" stroke="var(--py)" stroke-width="1.4"/>
+            <rect x="26" y="46" width="148" height="16" rx="3" fill="none" stroke="var(--py)" stroke-width="1.3"/>
+            <text x="100" y="57" text-anchor="middle" font-family="var(--mono)" font-size="8.5" fill="var(--py)">p_nom_extendable = True</text>
+          </svg>
+        </div>
+      </article>
+    </div>
+  </section>
+
+  <!-- 2 · coverage matrix -->
+  <section id="matrix">
+    <div class="sec-head"><span class="sec-num">02</span><h2>What each schema can express</h2></div>
+    <p class="sec-sub">Coverage of a capability <em>in the data model itself</em> — first-class
+      support, a partial/derived form, or not represented. Absence is often a deliberate scope
+      choice, not a deficiency.</p>
+    <div class="scroll">
+      <table class="matrix" id="mtx" aria-describedby="covkey">
+        <thead>
+          <tr>
+            <th class="corner"></th>
+            <th class="sch" data-k="gb"><div class="schname">Glassbox</div><div class="schsub">Pydantic v2 · facets</div></th>
+            <th class="sch" data-k="si"><div class="schname">Sienna</div><div class="schsub">JSON Schema · packages</div></th>
+            <th class="sch" data-k="py"><div class="schname">PyPSA</div><div class="schsub">DataFrames · components</div></th>
+          </tr>
+        </thead>
+        <tbody><!-- filled by JS --></tbody>
+      </table>
+    </div>
+    <div class="covkey" id="covkey">
+      <span><span class="g full"></span> first-class in the schema</span>
+      <span><span class="g part"></span> partial / derived / via a flag</span>
+      <span><span class="g none"></span> not in the data model</span>
+    </div>
+  </section>
+
+  <!-- 3 · rosetta -->
+  <section id="rosetta">
+    <div class="sec-head"><span class="sec-num">03</span><h2>The same thing, three names</h2></div>
+    <p class="sec-sub">The physical spine is nearly identical everywhere — a bus is a bus. The names
+      part ways exactly where the models part ways: investment, reserves, dynamics.</p>
+    <div class="rosetta">
+      <table class="ros" id="ros">
+        <thead>
+          <tr><th>Concept</th><th data-k="gb">Glassbox</th><th data-k="si">Sienna</th><th data-k="py">PyPSA</th></tr>
+        </thead>
+        <tbody><!-- filled by JS --></tbody>
+      </table>
+    </div>
+  </section>
+
+  <!-- 4 · reach -->
+  <section id="reach-sec">
+    <div class="sec-head"><span class="sec-num">04</span><h2>How far up the stack each reaches</h2></div>
+    <p class="sec-sub">Breadth of analyses the schema is built to feed, from economics to the finest
+      physics. All three do investment through power flow; only two model stability; one goes further.</p>
+    <div class="reach">
+      <div class="reach-scroll">
+        <div class="reach-axis">
+          <div></div>
+          <div class="ax">Invest&shy;ment</div>
+          <div class="ax">Unit commit&shy;ment</div>
+          <div class="ax">Power flow · N-1</div>
+          <div class="ax">Resource adequacy</div>
+          <div class="ax">RMS dynamics</div>
+          <div class="ax">EMT · resonance</div>
+        </div>
+        <div id="reach"><!-- filled by JS --></div>
+      </div>
+      <p class="reach-note"><b>PyPSA</b> stops at steady-state power flow by design — it is an
+        optimization-first tool. <b>Sienna</b> adds a dynamics domain. <b>Glassbox</b> spans the
+        full teaching stack, adequacy and EMT included, and pins each layer to an oracle
+        (pandapower / PyPSA / Andes).</p>
+    </div>
+  </section>
+
+  <!-- 5 · takeaways -->
+  <section id="takeaways">
+    <div class="sec-head"><span class="sec-num">05</span><h2>If you remember three things</h2></div>
+    <div class="takes">
+      <div class="take">
+        <div class="q">On investment</div>
+        <h4>The clearest fork in the road</h4>
+        <p><span class="py">PyPSA</span> overloads the asset with an <code>extendable</code> flag;
+          <span class="si">Sienna</span> gives investment its own package;
+          <span class="gb">Glassbox</span> gives it its own entities <em>and</em> a stepped zonal
+          supply curve. Same decision, three depths.</p>
+      </div>
+      <div class="take">
+        <div class="q">On modularity</div>
+        <h4>Package vs. facet vs. flag</h4>
+        <p>Sienna's packages are independently adoptable across a tool ecosystem; Glassbox's
+          per-field facets make "one world, many views" literal and drive its UI; PyPSA keeps
+          everything in one component frame and switches analysis by method.</p>
+      </div>
+      <div class="take">
+        <div class="q">On scope</div>
+        <h4>A schema encodes an ambition</h4>
+        <p>The reach chart <em>is</em> the mission statement: optimization interchange (PyPSA),
+          production-grade multi-domain modeling (Sienna), or a transparent, inspectable teaching
+          instrument spanning every layer (Glassbox).</p>
+      </div>
+    </div>
+  </section>
+
+  <footer>
+    <span>Schema Atlas</span><span>·</span>
+    <span>grounded in each schema's published model + live introspection</span><span>·</span>
+    <span>coverage reflects the data model, not the surrounding tooling</span>
+  </footer>
+</div>
+
+<div id="tip" role="tooltip"></div>
+
+<script>
+(function () {
+  // ---- coverage matrix data (grounded against each schema's model) ----
+  var F = "full", P = "part", N = "none";
+  var bands = [
+    { band: "Investment", rows: [
+      { label: "Existing vs. buildable, kept apart",
+        gb: [F, "Separate <code>ExpansionCandidate</code> entities", "Candidates are their own objects with build limits and an operating template — never a boolean on the asset."],
+        si: [F, "Dedicated <b>Investments</b> domain", "Existing capacity lives in Operations; buildable technologies + financials live in the Investments package."],
+        py: [P, "Same asset, an <code>extendable</code> flag", "No separate candidate object: a buildable unit is an ordinary Generator with p_nom_extendable = True + p_nom_min/max + capital_cost."] },
+      { label: "Buildable as a stepped supply curve",
+        gb: [F, "<code>ResourcePotential</code> → <code>SupplyTranche</code>", "Best zonal sites exhaust first, so cost rises with deployment — a curve of $/MW, not a scalar. A GenX-style construct."],
+        si: [P, "Technologies + build limits", "Investment technologies carry financial params and limits; the published summary doesn't surface a stepped resource-class curve."],
+        py: [N, "One <code>p_nom_max</code> per asset", "Approximable by adding many extendable generators per bus, but there is no first-class supply-curve object."] },
+      { label: "Transmission as a build decision",
+        gb: [F, "Candidate line = CEM corridor", "A line ExpansionCandidate is modeled as an extendable transport corridor by the capacity-expansion engine."],
+        si: [F, "Network investment in scope", "The Investments domain spans supply, storage, and network options."],
+        py: [F, "<code>Line/Link s_nom_extendable</code>", "Transmission expands with the same extendability mechanism as generation."] }
+    ]},
+    { band: "Operations & services", rows: [
+      { label: "Unit commitment (binaries)",
+        gb: [F, "MILP UC in the PCM", "Min up/down, start cost, no-load — a real mixed-integer commitment in the production-cost engine."],
+        si: [F, "Operations domain", "Chronological unit commitment + economic dispatch."],
+        py: [F, "<code>committable = True</code>", "PyPSA supports MILP unit commitment with min up/down and start-up costs on committable generators."] },
+      { label: "Reserves / ancillary services",
+        gb: [P, "<code>ReserveProduct</code>, spinning-up", "A requirement rule (pct_load / pct_vre / fixed_mw) enforced as a penalized shortfall; the pct_vre term is a variable reserve. No AGC or down-reserves yet."],
+        si: [F, "AGC + up/down + reserve groups", "Constant and variable reserves in both directions, AGC, and grouped reserve management."],
+        py: [N, "No native reserve object", "Reserves are not part of the documented component model; they must be added as custom constraints."] }
+    ]},
+    { band: "Physics scope", rows: [
+      { label: "Steady-state power flow · N-1",
+        gb: [F, "Newton-Raphson + contingencies", "AC power flow with N-1 screening; validated against pandapower."],
+        si: [F, "Operations / network", "Steady-state network representation for security analysis."],
+        py: [F, "Non-linear AC + linearised", "Newton-Raphson AC/DC and linear power flow are built in (the core workflow is the LP, though)."] },
+      { label: "RMS / phasor stability",
+        gb: [F, "<code>dyn</code> facet + <code>DynamicModel</code>", "Swing dynamics, RoCoF, critical-clearing-time; validated against Andes."],
+        si: [F, "Dedicated Dynamics domain", "A first-class dynamics package sits over the core."],
+        py: [N, "Steady-state only", "PyPSA has no RMS/phasor dynamics representation."] },
+      { label: "EMT / resonance",
+        gb: [P, "<code>emt</code> facet micro-examples", "LCL-filter resonance and converter micro-examples at the finest layer."],
+        si: [N, "Not a domain", "The published package set is Core / Ops / Investments / Dynamics — no EMT layer."],
+        py: [N, "Out of scope", "Not represented."] },
+      { label: "Resource adequacy (Monte Carlo)",
+        gb: [F, "<code>adq</code> facet · LOLE/EUE/ELCC", "A Monte-Carlo adequacy engine over weather years and forced-outage draws."],
+        si: [P, "Ecosystem tooling", "Adequacy lives in the surrounding Sienna tools, not called out as a schema domain."],
+        py: [N, "Not in the core schema", "No native probabilistic adequacy representation."] }
+    ]},
+    { band: "Units & data", rows: [
+      { label: "Units declared per field",
+        gb: [F, "<code>unit</code> + <code>base</code> per field", "Every numeric field carries its SI unit and per-unit base as first-class metadata."],
+        si: [F, "per-field unit + <code>UnitSystem</code>", "Per-field units plus a dataset-level UnitSystem enum (system / device / natural)."],
+        py: [F, "per-attribute <code>unit</code>", "Each component attribute documents its unit in the component table."] },
+      { label: "Units enforced / auto per-unit",
+        gb: [F, "Pydantic + on-demand pu", "Validation on load and on every edit; per-unit derived on demand, with an explicit machine↔system base conversion."],
+        si: [P, "UnitSystem references", "The enum formalizes the choice at the dataset level; conversion is the adopting library's job."],
+        py: [N, "Documented, not enforced", "Units are documented per attribute but not enforced at runtime; no conversion library."] },
+      { label: "Time series stored out-of-line",
+        gb: [F, "npz arrays by id", "A TimeSeriesStore holds arrays referenced by id from the JSON schema."],
+        si: [F, "HDF5 from the DB", "Static schema in SQLite; time series in HDF5, referenced from the database."],
+        py: [F, "DataFrames · <code>attr_t</code>", "Time-varying attributes are a dict of DataFrames, split from the static components; netCDF/CSV on disk."] }
+    ]},
+    { band: "Reach & transparency", rows: [
+      { label: "Cross-layer requirement coupling",
+        gb: [F, "<code>SystemConstraint</code>, <code>limit_source</code>", "Stability-derived floors (min-inertia, RoCoF) and stability interface limits are carried up into planning/ops as data."],
+        si: [N, "Packages separable", "Cleanly separable domains; no requirement flow between packages in the summary."],
+        py: [N, "Not modeled", "No cross-analysis requirement objects."] },
+      { label: "Language-agnostic interchange",
+        gb: [P, "JSON Schema derivable", "Python-first and local, but the facet-tagged schema exports straight from model_json_schema(); OpenAPI is already served."],
+        si: [F, "JSON Schema + OpenAPI", "Draft-07 + OpenAPI 3.1, implementations in Python/Julia/SQL, explicit GenX/PyPSA/CIM interop."],
+        py: [P, "Python + netCDF", "A Python library with netCDF interchange and a large PyPSA-Eur ecosystem, but not a language-neutral schema spec."] },
+      { label: "Transparency / explain layer",
+        gb: [F, "<code>explain()</code> + oracles", "Every engine and operator explains its formulation; kernels are round-tripped against mature libraries."],
+        si: [N, "Out of schema scope", "A data schema; transparency is a tooling concern."],
+        py: [P, "Open LP model", "The optimization is an inspectable linopy model, though not a schema-level contract."] },
+      { label: "Drives a user interface",
+        gb: [F, "Facets drive the inspector", "The same facet tags power the layer-filtered inspector, map overlays, and modeling-layer selector."],
+        si: [N, "Pure data schema", "Says nothing about presentation, by design."],
+        py: [N, "Library, not a UI", "No presentation layer in the schema."] }
+    ]}
+  ];
+
+  var covWord = { full: "first-class", part: "partial", none: "absent" };
+  var tbody = document.querySelector("#mtx tbody");
+  function cell(k, spec) {
+    var lvl = spec[0], summary = spec[1], detail = spec[2];
+    var td = document.createElement("td");
+    td.className = "cell";
+    td.setAttribute("data-k", k);
+    td.innerHTML = '<div class="cov"><span class="g ' + lvl + '"></span><span class="lbl">' + summary + '</span></div>';
+    td.setAttribute("data-tip", '<span class="tk">' + ({gb:"Glassbox",si:"Sienna",py:"PyPSA"}[k]) + " · " + covWord[lvl] + "</span>" + detail);
+    return td;
+  }
+  bands.forEach(function (b) {
+    var btr = document.createElement("tr");
+    btr.className = "band";
+    btr.innerHTML = '<td colspan="4">' + b.band + "</td>";
+    tbody.appendChild(btr);
+    b.rows.forEach(function (r) {
+      var tr = document.createElement("tr");
+      tr.className = "row";
+      var lab = document.createElement("td");
+      lab.className = "rowlabel";
+      lab.textContent = r.label;
+      tr.appendChild(lab);
+      tr.appendChild(cell("gb", r.gb));
+      tr.appendChild(cell("si", r.si));
+      tr.appendChild(cell("py", r.py));
+      tbody.appendChild(tr);
+    });
+  });
+
+  // ---- rosetta data ----
+  var ros = [
+    { c: "Node / bus", spine: true, gb: "Bus", si: "Bus", py: "Bus" },
+    { c: "Thermal / VRE unit", spine: true, gb: "Generator", si: "Generator", py: "Generator" },
+    { c: "Demand", spine: true, gb: "Load", si: "Load", py: "Load" },
+    { c: "AC branch", spine: true, gb: "ACLine", si: "Line", py: "Line" },
+    { c: "Controllable / DC branch", gb: "DCLine", si: "Line (DC)", py: "Link" },
+    { c: "Storage", gb: "Storage", si: "Storage", py: "StorageUnit + Store" },
+    { c: "Energy carrier / fuel", gb: "Fuel", si: "Fuel", py: "Carrier" },
+    { c: "Buildable option", gb: "ExpansionCandidate + ResourcePotential", si: "Investments domain", py: "*_nom_extendable" },
+    { c: "Zonal transfer limit", gb: "Interface (flowgate)", si: "Interface", py: "GlobalConstraint / line limit" },
+    { c: "System policy", gb: "Policy", si: "Services / constraints", py: "GlobalConstraint" },
+    { c: "Reserve product", gb: "ReserveProduct", si: "AGC / Reserve", py: null },
+    { c: "Dynamic model", gb: "DynamicModel", si: "Dynamics domain", py: null }
+  ];
+  var rtb = document.querySelector("#ros tbody");
+  ros.forEach(function (r) {
+    var tr = document.createElement("tr");
+    if (r.spine) tr.className = "spine";
+    function nm(v) { return v ? '<code>' + v + '</code>' : '<span class="absent">— none —</span>'; }
+    tr.innerHTML = '<td class="concept">' + r.c + "</td>" +
+      '<td data-k="gb">' + nm(r.gb) + "</td>" +
+      '<td data-k="si">' + nm(r.si) + "</td>" +
+      '<td data-k="py">' + nm(r.py) + "</td>";
+    rtb.appendChild(tr);
+  });
+
+  // ---- reach data (Investment, UC, PF, Adequacy, RMS, EMT) ----
+  var reach = {
+    gb: { name: "Glassbox", cov: [F, F, F, F, F, P] },
+    si: { name: "Sienna",   cov: [F, F, F, P, F, N] },
+    py: { name: "PyPSA",    cov: [F, F, F, N, N, N] }
+  };
+  var rc = document.getElementById("reach");
+  ["gb", "si", "py"].forEach(function (k) {
+    var row = document.createElement("div");
+    row.className = "reach-row";
+    row.setAttribute("data-k", k);
+    var html = '<div class="reach-track"></div><div class="who">' + reach[k].name + "</div>";
+    reach[k].cov.forEach(function (lvl) {
+      html += '<div class="reach-cell"><span class="g ' + lvl + '"></span></div>';
+    });
+    row.innerHTML = html;
+    rc.appendChild(row);
+  });
+
+  // ---- focus a schema (legend + click) ----
+  var chips = Array.prototype.slice.call(document.querySelectorAll(".chip"));
+  var active = null;
+  function applyFocus() {
+    document.querySelectorAll(".cell").forEach(function (c) {
+      var k = c.getAttribute("data-k");
+      c.classList.toggle("dim", active && k !== active);
+      c.classList.toggle("on", active && k === active);
+    });
+    document.querySelectorAll(".ros td[data-k]").forEach(function (c) {
+      c.classList.toggle("dim", active && c.getAttribute("data-k") !== active);
+    });
+    chips.forEach(function (ch) {
+      var on = active === ch.getAttribute("data-k");
+      ch.setAttribute("aria-pressed", on ? "true" : "false");
+      ch.classList.toggle("dim", active && !on);
+    });
+  }
+  chips.forEach(function (ch) {
+    ch.addEventListener("click", function () {
+      var k = ch.getAttribute("data-k");
+      active = active === k ? null : k;
+      applyFocus();
+    });
+  });
+
+  // ---- tooltip ----
+  var tip = document.getElementById("tip");
+  function place(e) {
+    var pad = 14, w = tip.offsetWidth, h = tip.offsetHeight;
+    var x = e.clientX + pad, y = e.clientY + pad;
+    if (x + w > window.innerWidth - 8) x = e.clientX - w - pad;
+    if (y + h > window.innerHeight - 8) y = e.clientY - h - pad;
+    tip.style.left = x + "px"; tip.style.top = y + "px";
+  }
+  document.querySelectorAll("[data-tip]").forEach(function (el) {
+    el.addEventListener("mouseenter", function (e) {
+      tip.innerHTML = el.getAttribute("data-tip");
+      tip.classList.add("show"); place(e);
+    });
+    el.addEventListener("mousemove", place);
+    el.addEventListener("mouseleave", function () { tip.classList.remove("show"); });
+  });
+})();
+</script>
+
+</body>
+</html>
