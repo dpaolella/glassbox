@@ -330,13 +330,37 @@ export const api = {
   weatherEvents: () => get<WeatherEvent[]>("/weather/events"),
   // build mode (issue #28)
   placeCandidate: (body: Record<string, unknown>) =>
-    post<{ created: string; name: string; note?: string | null }>("/world/candidates", body),
+    post<{ created: string; name: string; collection: string;
+           lcoe_per_mwh?: number | null; expected_capacity_factor?: number | null;
+           capex_annual_per_mw?: number; note?: string | null }>("/world/candidates", body),
   deleteCandidate: (cid: string) =>
     fetch(`${BASE}/world/candidates/${cid}`, { method: "DELETE" }).then((r) => {
       if (!r.ok) throw new Error(`delete ${cid} -> ${r.status}`);
       return r.json();
     }),
   resetWorld: () => post<{ ok: boolean }>("/world/reset", {}),
+  // build mode v2 (issue #28): inline editing, journal, save-as
+  patchEntity: (collection: string, id: string, fields: Record<string, unknown>) =>
+    fetch(`${BASE}/world/${collection}/${id}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ fields }),
+    }).then(async (r) => {
+      if (!r.ok) throw new Error((await r.json()).detail ?? `patch -> ${r.status}`);
+      return r.json();
+    }),
+  deleteEntity: (collection: string, id: string) =>
+    fetch(`${BASE}/world/${collection}/${id}`, { method: "DELETE" }).then(async (r) => {
+      if (!r.ok) throw new Error((await r.json()).detail ?? `delete -> ${r.status}`);
+      return r.json();
+    }),
+  undoEdit: () => post<{ undone: string; can_undo: boolean; can_redo: boolean }>("/world/undo", {}),
+  redoEdit: () => post<{ redone: string; can_undo: boolean; can_redo: boolean }>("/world/redo", {}),
+  journalState: () =>
+    get<{ can_undo: boolean; can_redo: boolean; undo_label: string | null;
+          redo_label: string | null; n_edits: number }>("/world/journal"),
+  saveWorld: (name: string) =>
+    post<{ saved: string; hint: string }>("/world/save", { name }),
   runScenario: (scenario: Record<string, unknown>) =>
     post<ScenarioRunPayload>("/scenario/run", scenario),
   diffScenarios: (a: Record<string, unknown>, b: Record<string, unknown>) =>
