@@ -18,6 +18,10 @@ from glassbox.validation.oracles.pandapower_oracle import (
     compare_power_flow,
 )
 from glassbox.validation.oracles.pypsa_oracle import HAVE_PYPSA, compare_dispatch
+from glassbox.validation.oracles.pypsa_view_oracle import (
+    compare_dispatch_window,
+    compare_expansion,
+)
 from glassbox.world import build_default_world_with_weather
 
 warnings.filterwarnings("ignore")
@@ -60,6 +64,41 @@ def test_dispatch_matches_pypsa(world):
         cmp = compare_dispatch(world, hour, 0)
         assert cmp.objective_rel_diff < 1e-4, f"objective mismatch at hour {hour}"
         assert cmp.max_dispatch_diff_mw < 1.0, f"dispatch mismatch at hour {hour}"
+
+
+# --- PyPSA: multi-hour window + expansion (issue #14) ------------------------
+
+
+@pytest.mark.skipif(not HAVE_PYPSA, reason="pypsa not installed")
+def test_dispatch_window_matches_pypsa(world):
+    """Zonal 72h window with cyclic storage, the real hydro energy budget and
+    congested inter-zonal corridors — both sides must agree everywhere."""
+    cmp = compare_dispatch_window(world, start=0, hours=72)
+    assert cmp.objective_rel_diff < 1e-5
+    assert abs(cmp.unserved_glassbox_mwh - cmp.unserved_pypsa_mwh) < 1.0
+    mwh_tol = max(10.0, 0.001 * cmp.total_load_energy_mwh)
+    assert cmp.max_gen_energy_diff_mwh < mwh_tol
+    # the window must actually EXERCISE the broadened coverage, not just carry it
+    assert cmp.storage_throughput_glassbox_mwh > 1.0, "storage never cycled"
+    assert abs(cmp.storage_throughput_glassbox_mwh
+               - cmp.storage_throughput_pypsa_mwh) < mwh_tol
+    assert cmp.hydro_budget_mwh is not None, "hydro budget missing from both sides"
+    assert abs(cmp.hydro_energy_glassbox_mwh - cmp.hydro_energy_pypsa_mwh) < mwh_tol
+    assert cmp.corridor_congested_hours > 0, "transfer limits never binding"
+
+
+@pytest.mark.skipif(not HAVE_PYPSA, reason="pypsa not installed")
+def test_expansion_matches_pypsa(world):
+    """Capacity expansion vs PyPSA p_nom_extendable: same total cost AND the
+    same built MW per candidate (generators, tranches, transmission)."""
+    cmp = compare_expansion(world, start=0, hours=96)
+    assert cmp.objective_rel_diff < 1e-5
+    assert cmp.total_built_glassbox_mw > 1.0, "nothing built — comparison is vacuous"
+    build_tol = max(1.0, 0.005 * cmp.total_built_glassbox_mw)
+    assert cmp.max_build_diff_mw < build_tol
+    assert abs(cmp.total_built_glassbox_mw - cmp.total_built_pypsa_mw) < build_tol
+    # honesty check: candidate storage is excluded and REPORTED, never silent
+    assert cmp.excluded_candidate_storage, "default world has candidate storage"
 
 
 # --- Andes: RMS dynamics swing (Section 6.6) --------------------------------

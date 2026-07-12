@@ -295,7 +295,7 @@ export interface OracleResult {
   metrics?: OracleMetric[];
   converged_both?: boolean;
   n_buses?: number;
-  detail?: Record<string, number>;
+  detail?: Record<string, unknown>;
   failure?: string; // structured divergence (no more raw 500s)
   why?: string;
   note?: string | null;
@@ -325,6 +325,9 @@ export const api = {
     post<OracleResult>("/oracle/powerflow", { scenario }),
   oracleDispatchFor: (scenario: Record<string, unknown>) =>
     post<OracleResult>("/oracle/dispatch", { scenario }),
+  // deep oracles (issue #14): multi-hour window + capacity expansion
+  oracleDispatchWindow: () => get<OracleResult>("/oracle/dispatch_window"),
+  oracleExpansion: () => get<OracleResult>("/oracle/expansion"),
   oracleDynamics: () => get<OracleResult>("/oracle/dynamics"),
   presets: () => get<ScenarioPreset[]>("/scenario/presets"),
   weatherEvents: () => get<WeatherEvent[]>("/weather/events"),

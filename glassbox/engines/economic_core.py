@@ -28,6 +28,11 @@ from ..operators.spatial import SpatialView
 from ..schema import World
 
 
+# RPS/CES alternative compliance payment ($/MWh short). Module-level so the
+# PyPSA expansion oracle can mirror the exact same policy term (issue #14).
+RPS_ACP_PER_MWH = 150.0
+
+
 # --- finance ----------------------------------------------------------------
 
 
@@ -838,7 +843,6 @@ def build_dispatch_model(view: EconomicView, options: EngineOptions) -> BuiltMod
 
     # --- objective ---
     obj = 0.0
-    RPS_ACP_PER_MWH = 150.0  # alternative compliance payment ($/MWh short)
     if rps_short is not None:
         obj = obj + rps_short * RPS_ACP_PER_MWH
     # operating cost (fuel+vom), weighted and annualized

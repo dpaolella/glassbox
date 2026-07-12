@@ -30,6 +30,20 @@ const CARDS: CardSpec[] = [
     run: () => api.oracleDispatch(),
   },
   {
+    key: "dispatch_window",
+    title: "Multi-hour zonal dispatch: storage · hydro budget · transfer limits",
+    kernel: "transparent linopy core",
+    oracle: "PyPSA (week window)",
+    run: () => api.oracleDispatchWindow(),
+  },
+  {
+    key: "expansion",
+    title: "Capacity expansion: what gets built (Section 6.2)",
+    kernel: "transparent linopy CEM",
+    oracle: "PyPSA p_nom_extendable",
+    run: () => api.oracleExpansion(),
+  },
+  {
     key: "dynamics",
     title: "RMS swing dynamics (Section 6.6)",
     kernel: "hand-built SMIB integrator",
@@ -62,6 +76,37 @@ function MetricRow({ m }: { m: OracleMetric }) {
         {m.unit !== "rel" && m.diff !== 0 ? ` ${m.unit}` : ""} {pass ? "✓" : "✗"}
       </td>
     </tr>
+  );
+}
+
+// per-candidate build decisions, side by side (the expansion oracle's payoff:
+// not just the same cost, the same *plan*)
+function BuildTable({ detail }: { detail?: Record<string, unknown> }) {
+  const kernel = detail?.built_kernel_mw as Record<string, number> | undefined;
+  const oracle = detail?.built_oracle_mw as Record<string, number> | undefined;
+  if (!kernel || !oracle) return null;
+  const ids = Array.from(new Set([...Object.keys(kernel), ...Object.keys(oracle)])).sort();
+  if (ids.length === 0)
+    return <p className="muted">Neither side built anything (existing capacity suffices).</p>;
+  return (
+    <table className="field-table">
+      <thead>
+        <tr>
+          <th>candidate built</th>
+          <th className="field-value">kernel MW</th>
+          <th className="field-value">oracle MW</th>
+        </tr>
+      </thead>
+      <tbody>
+        {ids.map((id) => (
+          <tr key={id}>
+            <td className="field-name">{id}</td>
+            <td className="field-value">{(kernel[id] ?? 0).toFixed(1)}</td>
+            <td className="field-value">{(oracle[id] ?? 0).toFixed(1)}</td>
+          </tr>
+        ))}
+      </tbody>
+    </table>
   );
 }
 
@@ -142,6 +187,7 @@ function OracleCard({ spec, enabled }: { spec: CardSpec; enabled: boolean }) {
                 ))}
               </tbody>
             </table>
+            <BuildTable detail={res.detail} />
             {res.hour !== undefined && (
               <p className="muted">snapshot hour {res.hour}{res.note ? ` · ${res.note}` : ""}</p>
             )}
@@ -175,6 +221,8 @@ export function OraclePanel() {
   const libFor: Record<string, string> = {
     powerflow: "pandapower",
     dispatch: "pypsa",
+    dispatch_window: "pypsa",
+    expansion: "pypsa",
     dynamics: "andes",
   };
 
