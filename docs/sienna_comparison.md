@@ -1,13 +1,21 @@
 # Glassbox vs. SiennaGridDB — data-model comparison
 
 A review of [SiennaGridDB's data model](https://github.com/G-PST/data-schema-exercise/blob/main/data_schemas/sienna-griddb_data_model.yaml)
-(the NREL Sienna ecosystem schema) against Glassbox's, focused on how each one
-organizes one power system for many kinds of analysis.
+(the NREL Sienna ecosystem schema) and [PyPSA's data model](https://github.com/G-PST/data-schema-exercise/blob/main/data_schemas/pypsa_data_model.yaml)
+against Glassbox's, focused on how each one organizes one power system for many
+kinds of analysis.
 
 > *As of the current `main` (post oracle-depth / build-mode-v2). Since the first
 > cut of this doc the buildable side of the schema grew a second representation
 > (zonal supply curves), reserves and cross-layer requirements became
-> first-class, and the world became editable in place — all reflected below.*
+> first-class, the world became editable in place, and **PyPSA was added as a
+> third point of comparison** — all reflected below.*
+
+> **Visual companion:** an interactive three-way comparison lives at
+> [`docs/schema_atlas.html`](./schema_atlas.html) — the organizing philosophy of
+> each schema, a capability-coverage matrix, an entity "Rosetta stone," and how
+> far up the physics stack each one reaches. Open it in a browser (it is
+> self-contained). The tables below are the written form of the same material.
 
 ## TL;DR
 
@@ -134,6 +142,53 @@ interactive edits, not just load.
 Glassbox's facets do double duty: besides driving the engines, they drive the
 inspector, the operator/overlay UI, and the modeling-layer selector. Sienna is a
 pure data schema and (correctly) says nothing about presentation.
+
+## Adding PyPSA — the third model
+
+[PyPSA](https://pypsa.org) is an optimization-first toolkit, and its schema
+reflects that: a **network of typed components** held in pandas DataFrames
+(`Bus`, `Generator`, `Line`, `Link`, `StorageUnit`, `Store`, `Load`, `Carrier`,
+`GlobalConstraint`, …), with time-varying attributes split into a parallel dict
+of DataFrames (`<attr>_t`). Where Sienna separates by **package** and Glassbox by
+**field-level facet**, PyPSA barely separates at all — one flat component set, and
+the "analysis" is a *method* you call (`n.optimize()`, `n.pf()`), not a slice of
+the schema.
+
+The sharpest three-way contrast is **investment**, and it is instructive:
+
+| | Mechanism | First-class object? |
+|---|---|---|
+| **PyPSA** | `p_nom_extendable = True` + `p_nom_min/max` + `capital_cost` **on the asset** | no — the operating component *is* the candidate |
+| **Sienna** | a dedicated **Investments** domain package | yes — a separate domain |
+| **Glassbox** | `ExpansionCandidate` (nodal) + `ResourcePotential`→`SupplyTranche` (zonal supply curve) | yes — separate entities, two granularities |
+
+Same decision — "what could be built?" — expressed at three depths: a flag, a
+package, or a pair of dedicated entities including a stepped supply curve.
+
+Other notable PyPSA positions (verified against the installed component model and
+its published schema summary):
+
+- **Transmission expansion** is first-class the same way generation is
+  (`Line`/`Link`/`Transformer` `s_nom_extendable`).
+- **Unit commitment** is supported (`committable = True`, min up/down, start-up).
+- **Reserves / ancillary services** are **not** in the component model — they must
+  be added as custom constraints; there is no reserve object.
+- **RMS dynamics / EMT**: **absent**. PyPSA covers investment, operations, and
+  static AC/DC + linearised power flow, but has no phasor-dynamics or EMT
+  representation — its core workflow is the LP, and stability is out of scope.
+- **Units** are *documented per attribute but not enforced at runtime*, and there
+  is no conversion library — the loosest of the three (Glassbox enforces via
+  Pydantic and derives per-unit; Sienna formalizes a `UnitSystem` enum).
+- **Interoperability** is strong in practice (a large PyPSA-Eur ecosystem, netCDF
+  interchange) but it is a Python library, not a language-neutral schema spec the
+  way Sienna publishes JSON Schema + OpenAPI.
+
+The punchline the visual makes obvious: **the physical spine is nearly identical
+across all three** — `Bus`, `Generator`, `Load`, and an AC branch line up almost
+name-for-name — and the schemas diverge exactly where modeling *ambition*
+diverges: investment representation, reserves, and how far up the physics stack
+each is built to reach (PyPSA → power flow; Sienna → + stability; Glassbox → the
+full teaching stack, each layer pinned to an oracle).
 
 ## What we'd borrow from Sienna
 
