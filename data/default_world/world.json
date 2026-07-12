@@ -4,6 +4,7 @@
   "description": "Default seed system: 3 zones, binding intertie, mixed synchronous + inverter-based resources, weak pocket.",
   "base_power_mva": 1000.0,
   "base_frequency_hz": 60.0,
+  "demand_scale": 1.0,
   "reference_bus_id": "C_slack",
   "buses": [
     {
@@ -1014,7 +1015,7 @@
       "fuel_id": "coal",
       "prime_mover": "steam",
       "in_service": true,
-      "retirement_year": null,
+      "retirement_year": 2034,
       "status": "existing",
       "fom_per_mw_yr": 30000.0,
       "lifetime_yr": 40,

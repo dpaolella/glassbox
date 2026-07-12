@@ -12,6 +12,7 @@ import {
 } from "../api";
 import { SCENARIO_A, SCENARIO_B } from "../theme";
 import { Dashboard } from "./Dashboard";
+import { PlanningStudy } from "./PlanningStudy";
 import { Plot } from "./Plot";
 
 // Pull the spatial results out of one run payload for the map (issue #17).
@@ -539,6 +540,8 @@ export function ScenarioLab({
           )}
         </>
       )}
+
+      {layerEngine === "cem" && <PlanningStudy />}
 
       {active && <div className="lesson-box">{active.lesson}</div>}
       {loading && <div className="empty-hint">solving both scenarios…</div>}

@@ -211,7 +211,7 @@ def assemble_view(
         if ld.demand_profile_id not in store:
             continue
         series = store.get(ld.demand_profile_id)[abs_timesteps]
-        load[node_idx[node]] += series
+        load[node_idx[node]] += series * world.demand_scale
 
     # --- existing generators (physical assets; capacity fixed) ---
     gens: list[GenSpec] = []
@@ -820,17 +820,27 @@ def build_dispatch_model(view: EconomicView, options: EngineOptions) -> BuiltMod
     # can respond (CEM). A short operational window (PCM/ED) cannot conjure
     # VRE energy that isn't available — applying it there is infeasible by
     # construction, not a lesson.
+    rps_short = None
     if view.rps_fraction > 0 and options.investment:
         vre_ids = [g.id for g in gens if g.is_vre]
         if vre_ids:
             vre_energy = (p.sel(g=vre_ids).sum("g") * w).sum()
             total_load_energy = float((view.load.sum(axis=0) * view.period_weight).sum()
                                       / view.annual_divisor)
-            m.add_constraints(vre_energy >= view.rps_fraction * total_load_energy,
+            # Real RPS policies are enforced with an alternative compliance
+            # payment, not an infeasibility: when buildable clean energy runs
+            # out (e.g. late planning-study stages), the model pays the ACP on
+            # the shortfall instead of failing. The dual/shortfall is the lesson.
+            rps_short = m.add_variables(lower=0.0, name="rps_shortfall")
+            m.add_constraints(vre_energy + rps_short
+                              >= view.rps_fraction * total_load_energy,
                               name="rps")
 
     # --- objective ---
     obj = 0.0
+    RPS_ACP_PER_MWH = 150.0  # alternative compliance payment ($/MWh short)
+    if rps_short is not None:
+        obj = obj + rps_short * RPS_ACP_PER_MWH
     # operating cost (fuel+vom), weighted and annualized
     for g in gens:
         gp = p.sel(g=g.id)
