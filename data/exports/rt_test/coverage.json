@@ -1,0 +1,51 @@
+{
+  "route": [
+    "glassbox->pypsa"
+  ],
+  "hops": [
+    {
+      "bridge": "glassbox->pypsa",
+      "translated": {
+        "buses": 2,
+        "ac_lines": 1,
+        "generators": 2,
+        "loads": 1
+      },
+      "approximated": [
+        {
+          "what": "fuel-price decomposition",
+          "how": "heat_rate x fuel price + VOM folded into one marginal_cost; fuel objects, UC params (min up/down, start cost) dropped"
+        }
+      ],
+      "parked": [
+        {
+          "concept": "glassbox:zones",
+          "n": 1,
+          "why": "no PyPSA representation"
+        }
+      ],
+      "restored": [],
+      "dropped": [
+        {
+          "what": "emergency / long-term line ratings",
+          "why": "PyPSA Line has a single s_nom"
+        },
+        {
+          "what": "VOLL per load",
+          "why": "PyPSA has no native unserved-energy price"
+        }
+      ],
+      "invented": [],
+      "manual_mapping_required": []
+    }
+  ],
+  "totals": {
+    "approximated": 1,
+    "parked": 1,
+    "restored": 0,
+    "dropped": 2,
+    "invented": 0,
+    "manual_mapping_required": 0
+  },
+  "sidecar_remaining": 1
+}

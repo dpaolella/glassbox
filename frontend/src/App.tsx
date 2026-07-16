@@ -11,6 +11,7 @@ import { Catalog } from "./components/Catalog";
 import { ChallengesPanel } from "./components/ChallengesPanel";
 import { GlossaryPanel } from "./components/GlossaryPanel";
 import { Tour, TourStep, tourDone } from "./components/Tour";
+import { TranslatePanel } from "./components/TranslatePanel";
 
 export interface Selection {
   collection: string;
@@ -26,7 +27,8 @@ type Tab =
   | "challenges"
   | "glossary"
   | "weather"
-  | "series";
+  | "series"
+  | "translate";
 
 // World collections that map to a Catalog group (for clickable status-bar counts)
 const CATALOG_COLLECTIONS = new Set([
@@ -44,6 +46,8 @@ export default function App() {
   const [perUnit, setPerUnit] = useState(false);
   const [selection, setSelection] = useState<Selection | null>(null);
   const [tab, setTab] = useState<Tab>("inspector");
+  // bumped when a rosetta import replaces the world, to remount data views
+  const [worldEpoch, setWorldEpoch] = useState(0);
   const [catalogFocus, setCatalogFocus] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   // solved-run results painted on the map (pushed by the Scenario Lab)
@@ -218,6 +222,7 @@ export default function App() {
             </div>
           ) : (
           <NetworkCanvas
+            key={worldEpoch}
             layer={layer}
             selection={selection}
             results={mapResults}
@@ -266,7 +271,7 @@ export default function App() {
 
         <aside className="side-pane" style={{ width: panelWidth }}>
           <nav className="tabs">
-            {(["inspector", "catalog", "scenarios", "math", "oracles", "challenges", "glossary", "weather", "series"] as Tab[]).map(
+            {(["inspector", "catalog", "scenarios", "math", "oracles", "challenges", "glossary", "weather", "series", "translate"] as Tab[]).map(
               (t) => (
                 <button
                   key={t}
@@ -310,6 +315,17 @@ export default function App() {
             {tab === "oracles" && <OraclePanel />}
             {tab === "weather" && <WeatherPanel />}
             {tab === "series" && <TimeSeriesPanel />}
+            {tab === "translate" && (
+              <TranslatePanel
+                onImported={() => {
+                  setSelection(null);
+                  setMapResults(null);
+                  setCompare(null);
+                  setWorldEpoch((e) => e + 1);
+                  api.worldSummary().then(setSummary).catch((e) => setError(String(e)));
+                }}
+              />
+            )}
           </div>
         </aside>
       </div>

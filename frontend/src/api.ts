@@ -394,7 +394,78 @@ export const api = {
     get<ExplainPayload>(`/operators/spatial/${mode}/explain`),
   temporalExplain: (kind: string, nDays = 12) =>
     get<ExplainPayload>(`/operators/temporal/explain?kind=${kind}&n_days=${nDays}`),
+
+  // --- translate: import/export via grid-rosetta (issue #53) ---
+  translateAvailability: () => get<TranslateAvailability>("/translate/availability"),
+  translateImport: (req: TranslateImportRequest) =>
+    post<TranslateImportResult>("/translate/import", req),
+  translateExport: (req: TranslateExportRequest) =>
+    post<TranslateExportResult>("/translate/export", req),
 };
+
+// --- translate types (issue #53) ---
+
+export interface TranslateAvailability {
+  available: boolean;
+  reason?: string;
+  rosetta_version?: string;
+  schemas?: string[];
+  importable_from?: string[];
+  hubs?: string[];
+  bridges?: string[];
+  solvers?: string[];
+}
+
+export interface TranslateImportRequest {
+  source: string;
+  schema_name: string;
+  hub?: string | null;
+  hours?: number;
+}
+
+export interface CoverageHop {
+  bridge: string;
+  translated: Record<string, number>;
+  approximated: { what: string; how: string }[];
+  parked: { concept: string; n?: number; why: string }[];
+  restored: { concept: string; n?: number }[];
+  dropped: { what: string; why: string }[];
+  invented: { what: string; value: unknown; why: string }[];
+  manual_mapping_required: { entity: string; label: string; note: string }[];
+}
+
+export interface CoverageManifest {
+  route: string[];
+  hops: CoverageHop[];
+  totals: Record<string, number>;
+  sidecar_remaining: number;
+}
+
+export interface SidecarEntrySummary {
+  concept: string;
+  entity_id: string;
+  reason: string;
+}
+
+export interface TranslateImportResult {
+  imported: boolean;
+  world: { id: string; name: string; counts: Record<string, number> };
+  manifest: CoverageManifest;
+  sidecar: SidecarEntrySummary[];
+}
+
+export interface TranslateExportRequest {
+  schema_name: string;
+  hub?: string | null;
+  name?: string;
+  hours?: number;
+}
+
+export interface TranslateExportResult {
+  exported: string;
+  manifest: CoverageManifest;
+  sidecar_remaining: SidecarEntrySummary[];
+}
 
 // Facet -> which World collections it meaningfully consumes, for the canvas.
 export const COLLECTIONS = [

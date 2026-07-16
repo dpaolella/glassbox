@@ -50,6 +50,9 @@ class WorldService:
     def __init__(self, data_dir: Path = DEFAULT_DATA_DIR):
         self.data_dir = data_dir
         self._world: World | None = None
+        # sidecar from a rosetta import (issue #53): concepts the translation
+        # parked; kept so a later export can restore them on the way out
+        self.translation_sidecar = None
 
     @property
     def world(self) -> World:
@@ -60,6 +63,12 @@ class WorldService:
     def reset(self) -> None:
         """Drop the in-memory world (build-mode edits) and reload from disk."""
         self._world = None
+        self.translation_sidecar = None
+
+    def adopt(self, world: World, translation_sidecar=None) -> None:
+        """Replace the live world with an imported one (rosetta import)."""
+        self._world = world
+        self.translation_sidecar = translation_sidecar
 
     def _load_or_build(self) -> World:
         from ..world import build_default_world_with_weather, load_world

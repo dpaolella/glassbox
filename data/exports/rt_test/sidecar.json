@@ -1,0 +1,17 @@
+[
+  {
+    "concept": "glassbox:zones",
+    "entity_id": "Z1",
+    "payload": {
+      "id": "Z1",
+      "name": "Zone 1",
+      "member_bus_ids": [
+        "b1",
+        "b2"
+      ],
+      "partition": "balancing"
+    },
+    "source_schema": "glassbox",
+    "reason": "no PyPSA representation"
+  }
+]

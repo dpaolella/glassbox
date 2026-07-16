@@ -974,6 +974,92 @@ def reset_world():
     return {"ok": True}
 
 
+# --- translate: import/export via grid-rosetta (issue #53) --------------------
+
+
+@app.get("/api/translate/availability")
+def translate_availability():
+    """Is the optional translation layer installed, and what can it reach?"""
+    from ..interop import availability
+
+    return availability()
+
+
+class TranslateImportRequest(BaseModel):
+    source: str                       # path or builtin case name (e.g. case14)
+    schema_name: str                  # rosetta schema of the source
+    hub: Optional[str] = None         # force the route through a hub
+    hours: int = 168
+    mapping: Optional[dict] = None    # rosetta mapping dict (typeless debt)
+
+
+def _sidecar_summary(sidecar) -> list[dict]:
+    return [{"concept": e.concept, "entity_id": e.entity_id,
+             "reason": e.reason} for e in getattr(sidecar, "entries", [])]
+
+
+@app.post("/api/translate/import")
+def translate_import(req: TranslateImportRequest):
+    """Import a foreign model as the live world — with its receipts.
+
+    The coverage manifest and sidecar come back with the summary so the UI
+    can show what the route approximated, parked, dropped, invented, and
+    which entities still need a human type mapping. The sidecar stays
+    attached to the live world for a later export to restore.
+    """
+    from ..interop import import_model
+
+    try:
+        result = import_model(req.source, req.schema_name, hub=req.hub,
+                              hours=req.hours, mapping=req.mapping)
+    except RuntimeError as exc:          # rosetta not installed
+        raise HTTPException(501, str(exc))
+    except KeyError as exc:              # unknown schema / missing bridge
+        raise HTTPException(400, str(exc))
+    except Exception as exc:
+        raise HTTPException(422, f"translation failed: {exc}")
+    service.adopt(result.world, translation_sidecar=result.sidecar)
+    _journal().clear()
+    return {"imported": True,
+            "world": {"id": result.world.id, "name": result.world.name,
+                      "counts": {k: len(getattr(result.world, k))
+                                 for k in COLLECTION_MODELS
+                                 if hasattr(result.world, k)}},
+            "manifest": result.manifest,
+            "sidecar": _sidecar_summary(result.sidecar)}
+
+
+class TranslateExportRequest(BaseModel):
+    schema_name: str
+    hub: Optional[str] = None
+    name: str = "exported_model"
+    hours: int = 168
+
+
+@app.post("/api/translate/export")
+def translate_export(req: TranslateExportRequest):
+    """Export the live world to another schema (with the import sidecar,
+    so concepts glassbox could not hold ride home)."""
+    import re as _re
+
+    from ..interop import export_model
+
+    safe = _re.sub(r"[^A-Za-z0-9_-]", "_", req.name).strip("_") or "export"
+    out = Path("data") / "exports" / safe
+    try:
+        result = export_model(service.world, req.schema_name, out,
+                              hub=req.hub, hours=req.hours,
+                              sidecar=service.translation_sidecar)
+    except RuntimeError as exc:
+        raise HTTPException(501, str(exc))
+    except KeyError as exc:
+        raise HTTPException(400, str(exc))
+    except ValueError as exc:            # e.g. inbound-only spokes (plexos)
+        raise HTTPException(400, str(exc))
+    return {"exported": str(out), "manifest": result.manifest,
+            "sidecar_remaining": _sidecar_summary(result.sidecar)}
+
+
 @app.get("/api/weather/events")
 def weather_events():
     """Named stress/showcase events auto-detected from the ensemble (#34)."""
