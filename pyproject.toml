@@ -1,0 +1,28 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "grid-rosetta"
+version = "0.1.0"
+description = "Hub-and-spoke translation test bench for power-system data schemas: swap PyPSA / Sienna / Glassbox in and out as hubs, measure what every translation drops."
+requires-python = ">=3.10"
+dependencies = [
+    "pydantic>=2",
+    "numpy",
+    "pandas",
+]
+
+[project.optional-dependencies]
+# each spoke/hub is optional: install what you want on the bench
+pypsa = ["pypsa>=0.30"]
+matpower = ["pandapower>=2.13"]
+glassbox = ["glassbox @ git+https://github.com/dpaolella/glassbox"]
+all = ["grid-rosetta[pypsa,matpower,glassbox]"]
+dev = ["pytest", "grid-rosetta[all]"]
+
+[project.scripts]
+rosetta = "rosetta.cli:main"
+
+[tool.setuptools.packages.find]
+include = ["rosetta*"]
