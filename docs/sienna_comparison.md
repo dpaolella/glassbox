@@ -190,6 +190,65 @@ diverges: investment representation, reserves, and how far up the physics stack
 each is built to reach (PyPSA → power flow; Sienna → + stability; Glassbox → the
 full teaching stack, each layer pinned to an oracle).
 
+## Adding CIM/CGMES — the fourth model (the exchange standard)
+
+[IEC CIM](https://www.entsoe.eu/data/cim/cim-for-grid-models-exchange/) is not
+an analysis schema at all, which is exactly why it belongs in this comparison:
+it is the industry's **exchange/asset ontology** — a ~1,500-class UML model
+(IEC 61970 transmission / 61968 distribution / 62325 markets) serialized as
+RDF/XML, describing what equipment *is* and how it is physically connected,
+with no solver semantics whatsoever. **CGMES** (currently 3.0 = IEC
+61970-600-1/-2) is ENTSO-E's profile of it, legally required for European TSO
+model exchange under EU Regulation 2017/1485.
+
+Three structural ideas separate CIM from everything else on this page:
+
+1. **Node-breaker, not bus-branch.** CIM models every breaker and disconnector
+   (`Substation` → `VoltageLevel` → `Bay`; `ConnectivityNode`s;
+   `Breaker`/`Disconnector` under `Switch`; the physical bus is *equipment* —
+   `BusbarSection`). A power-flow "bus" (`TopologicalNode`) is **computed, not
+   stored**: collapse connectivity nodes across closed switches and each
+   connected component is one bus. Whether a line is "in service" is a derived
+   fact. Every analysis schema here (PyPSA, Sienna, Glassbox pre-rtops) starts
+   from the bus-branch view a real EMS *derives* — which is why analysis tools
+   import CIM by running topology processing and collapsing it.
+2. **The profile split as a data-ownership statement.** CGMES ships a model as
+   separate files with different owners and cadences: **EQ** (equipment —
+   changes rarely), **SSH** (one scenario's switch states and setpoints —
+   hourly), **TP** (derived topology), **SV** (the solved state), plus
+   DY/DL/GL. Planning tools live on TP/SV; operations authors EQ/SSH. That
+   split *is* the ops/planning schema distinction, standardized.
+3. **Identity over convenience.** Every object carries a permanent `mRID`
+   across every exchange — the same equipment serves power flow,
+   short-circuit, dynamics, asset management, and SCADA binding
+   (`Analog`/`Discrete` measurements attach to equipment at `Terminal`s).
+   Analysis schemas index by whatever the solver finds convenient.
+
+The four-way contrast in one sentence each:
+
+| Schema | What it fundamentally is | The generator, in its own words |
+|---|---|---|
+| **CIM/CGMES** | exchange ontology: what exists, analysis-agnostic | `SynchronousMachine` (electrical) + `ThermalGeneratingUnit` (prime mover) — two objects, permanent mRIDs |
+| **Sienna** | typed analysis schema, package-partitioned | `ThermalStandard` with closed `PrimeMover`/`ThermalFuel` enums |
+| **PyPSA** | problem schema: columns are solver inputs | a `Generator` row: `p_nom`, `marginal_cost`, free-text carrier |
+| **Glassbox** | teaching schema, facet-tagged | `Generator` with closed enum + per-field facet/unit metadata |
+
+Notable interop fact: **Sienna has no CIM/CGMES import path** (its parsers are
+PSS/E RAW, MATPOWER, CSV) — the mandated European exchange format and the
+modern open analysis stacks barely touch. The practical route is
+CGMES → PowSyBl or pandapower (`cim2pp`) → MATPOWER → Sienna. For the
+hub-and-spoke question this is the sharpest finding yet: *neither candidate
+hub speaks the industry's actual exchange standard*, and a CGMES spoke on the
+grid-rosetta bench (via `cim2pp`/cimpy, validated against ENTSO-E's MiniGrid
+conformity model) would measure exactly what each hub drops of it.
+
+Glassbox's response (per the [Ops Mode PRD](./prd_ops_mode.md), issue #56): an
+`rtops` substation layer that mirrors CIM's node-breaker classes by name, a
+topology processor so the planning views consume a derived bus-branch model,
+and the EQ/SSH/TP/SV split mapped onto world / shift-scenario / derived
+topology / results — a legible miniature of the real standard rather than a
+caricature.
+
 ## What we'd borrow from Sienna
 
 - A dataset-level `UnitSystem` enum to make the SI/device/per-unit choice

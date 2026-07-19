@@ -2,7 +2,9 @@
 
 **One sentence:** simulate one operating day (a 12-hour shift, 05:30→17:30) on the exact system the planning views built, with the user in the operator's seat — graded the way NERC grades real control desks.
 
-This PRD is grounded in three research passes (sources at bottom): real control-room doctrine (NERC BAL/TOP/IRO/EOP standards, EMS function stacks, dispatcher-training-simulator design), Grid2Op's formalization of grid operation as a sequential decision environment (the L2RPN rulebook), and NREL Sienna's PowerSimulations staged-simulation architecture. Where this PRD names a number or a rule, it is a real one, not an invention.
+This PRD is grounded in four research passes (sources at bottom): real control-room doctrine (NERC BAL/TOP/IRO/EOP standards, EMS function stacks, dispatcher-training-simulator design), Grid2Op's formalization of grid operation as a sequential decision environment (the L2RPN rulebook), NREL Sienna's PowerSimulations staged-simulation architecture, and IEC CIM/CGMES (the node-breaker substation model and profile discipline that European TSOs are legally required to exchange). Where this PRD names a number, a rule, or a class name, it is a real one, not an invention.
+
+**Scope decision (v2-from-start):** the network model gains a **substation layer — breakers, disconnectors, busbar sections, connectivity nodes — mirroring CIM's node-breaker classes**, and the bus-branch view the planning engines consume becomes a *derived* artifact computed by topology processing. This is deliberate: the node-breaker/bus-branch split is the canonical schema difference between operations and planning (it is *why CIM exists*), and representing it honestly is what makes glassbox a vehicle for understanding CIM/CGMES rather than a caricature of it.
 
 ---
 
@@ -25,6 +27,7 @@ This PRD is grounded in three research passes (sources at bottom): real control-
 - **System under operation:** the current world, optionally the *committed* world from `plan_then_operate` (`/api/scenario/plan_then_operate` already materializes CEM builds via `world_with_builds`). Planning fixes it; ops cannot change capacity — only commit/dispatch/switch what exists.
 - **The player's role:** a combined **BA + TOP** desk (the common real-world configuration): balance the area (ACE, reserves, interchange) *and* operate the network within limits (flows, switching, clearances). The **RC** is simulated — it declares EEA levels and issues directives via the event log.
 - **The external world:** the toy system becomes an *area within a larger interconnection*: one or two **tie lines** connect to an external area with large inertia, a frequency bias, and an hourly **scheduled interchange**. This is what makes ACE real (you can lean on the ties, and the sim can tell), and it is the single most important addition for balancing realism.
+- **The network has a substation layer.** Every planning "bus" elaborates into a `Substation` containing voltage levels, busbar sections, and switching devices (§9.0). Planning views keep consuming the **derived bus-branch model** — a topology processor collapses connectivity nodes across closed switches into topological nodes, exactly as a real EMS does — so the planning curriculum is untouched while the ops curriculum gains breakers that actually open. A default **substation elaboration** rule auto-generates arrangements from any existing world (single-busbar for most, one ring-bus and one breaker-and-a-half station to make topology interesting), at the scale of ENTSO-E's own MiniGrid conformity model (2–4 interesting substations is enough).
 - **The clock:** sim runs on a controllable clock (freeze / 1× / 10× / 60×), 5-minute market steps, 1-second UI ticks. A full shift at 60× is ~12 wall-minutes; challenges use shorter windows.
 - **Determinism:** every shift is a seeded `ShiftScenario` — same seed, same day, byte-identical replay (the oracle/testing story depends on this, §11).
 
@@ -50,7 +53,9 @@ Staged architecture borrowed from Sienna PowerSimulations (decision models + fee
 - **AGC:** distributes regulation among reserve-eligible units toward ACE zero-crossing, within ramp rates. Regulation exhaustion → sustained ACE → BAAL clock starts (§8.1).
 
 ### 3.4 Stage 3 — Network & protection (every 5-min step, and immediately on events)
+- **Topology processing first**: collapse `ConnectivityNode`s across closed switches into `TopologicalNode`s (the EMS's first act after any breaker operation); the DC power flow runs on the derived bus-branch model. A line is "out" because breakers at its terminals are open — status is *derived from switch state*, never stored. Opening a bus-section breaker can split a substation into two topological nodes (or island a station), and the sim handles it because the topology processor makes it ordinary.
 - DC power flow on actuals (existing machinery); **rho = |flow| / rating** is the hero metric, per Grid2Op.
+- **Protection acts through breakers**: a protection trip *is* the breakers at the affected terminals opening (with a small per-breaker stuck probability — the breaker-failure scenario, §10). Reclose/restore is likewise a switching act.
 - **Protection emulation, three numbers (Grid2Op parameter names in parens):**
   - rho > 1.0 vs `rating_normal_mva` → **warning** (alarm, amber);
   - rho > 1.0 vs `rating_emergency_mva` sustained for **2 consecutive steps** (`NB_TIMESTEP_OVERFLOW_ALLOWED`) → protection **trips the line** (soft overflow);
@@ -71,7 +76,8 @@ Grid2Op's legality model, adopted wholesale: **ambiguous** actions (nonsense: re
 | **Commit / decommit** quick-start units | start cost, min up/down times, notification lag |
 | **Deploy reserves** (spin → non-spin) | consumes the product; DCS requires *restoring* it within 90 min |
 | **Curtail VRE** | scored (both cost and renewables-use metric, à la L2RPN 2023) |
-| **Switch a line out / in** | cooldowns (`NB_TIMESTEP_COOLDOWN_LINE` = 3 steps), one switching action per step (`MAX_LINE_STATUS_CHANGED` = 1) — "you can't fix everything at once" |
+| **Operate a switching device** (breaker / disconnector) | interlocks enforced (never open a disconnector under load — breakers break current, disconnectors provide visible isolation); device cooldowns; one switching action per step (Grid2Op `MAX_LINE_STATUS_CHANGED` = 1) — "you can't fix everything at once" |
+| **Execute a switching order** | taking a line out is a *sequence* (open breakers both ends → open disconnectors → tag), presented as a checklist the operator steps through; wrong order = interlock rejection with an explanation; a **stuck breaker** turns a routine order into an incident |
 | **Adjust interchange** with the external area | takes effect at the next schedule step (hourly, ramped :50→:10); emergency schedule changes need RC approval (simulated) |
 | **Grant / recall maintenance clearances** | recall takes 30 sim-min (crews drive back); denying the morning clearance has consequences at 14:00 |
 | **Manual load shed** (by block) | EEA-3 doctrine: last resort, but scored *better* than letting protection do it for you |
@@ -138,7 +144,33 @@ The report card ends with **"what planning missed"**: auto-generated findings fr
 
 ## 9. Schema deltas (purpose 2 made concrete)
 
-### 9.1 New entities (facet `rtops`)
+### 9.0 The substation layer (CIM-aligned node-breaker model)
+
+New entities mirroring CIM class names (IEC 61970-301 / CGMES), so the toy schema *is* a legible miniature of the real exchange standard:
+
+| Glassbox entity | CIM class it mirrors | Notes |
+|---|---|---|
+| `Substation` | `Substation` | container; every planning bus elaborates into one |
+| `VoltageLevel` | `VoltageLevel` (+ `BaseVoltage`) | kV grouping inside a substation |
+| `BusbarSection` | `BusbarSection` | the physical bus is *equipment*, not a node — the key node-breaker insight |
+| `ConnectivityNode` | `ConnectivityNode` | authored connection points; equipment terminals attach here |
+| `Breaker`, `Disconnector` | `Breaker`, `Disconnector` (under `Switch`) | `normal_open` (structural) vs `open` (operating state) — two different files' worth of truth in CIM (EQ vs SSH) |
+| terminal refs on existing entities | `Terminal` | lines/gens/loads/transformers attach to connectivity nodes via ordered terminals |
+| `MeasurementPoint` (`analog`/`discrete`) | `Analog` / `Discrete` + `MeasurementValue` | SCADA points bound to equipment *at a terminal* — how telemetry maps to the model (Phase 3 uses these instead of a freestanding TelemetryModel) |
+| *(derived, never stored)* | `TopologicalNode` | output of topology processing over connectivity nodes + closed switches; the planning engines consume this |
+
+**The profile lesson, embedded in the architecture** — CGMES splits the model into files with different owners and cadences, and glassbox now maps onto that split naturally:
+
+| CGMES profile | What it holds | Glassbox analog |
+|---|---|---|
+| **EQ** (equipment) | what exists and how it's wired; changes rarely | the world's static schema (planning's whole universe) |
+| **SSH** (steady-state hypothesis) | switch states, setpoints, load P/Q for *one scenario* | `ShiftScenario` + live operating state |
+| **TP** (topology) | derived bus-branch view | topology-processor output |
+| **SV** (state variables) | the solved power flow | engine results |
+
+That planning tools consume TP/SV while operations authors EQ/SSH *is* the ops-vs-planning schema lesson, stated in the industry's own vocabulary.
+
+### 9.1 Process entities (facet `rtops`)
 | Entity | Fields (sketch) | Planning-schema analog? |
 |---|---|---|
 | `OperatingArea` | frequency_bias_mw_per_0.1hz (B), external_inertia, scheduled_interchange ref | none — planning has no "elsewhere" |
@@ -147,7 +179,7 @@ The report card ends with **"what planning missed"**: auto-generated findings fr
 | `ForecastVintage` | kind (DA-hourly / ST-5min), error model params, issued_at | planning uses one deterministic series — vintage is the ops concept |
 | `Clearance` | asset_id, window, recall_time, crew note | planning has retirement_year; ops has *this Tuesday, 09:00–15:00* |
 | `ShiftScenario` | seed, date, weather day, scripted events, initial conditions | the planning Scenario names a *study*; this names a *day* |
-| `TelemetryModel` (Phase 3) | per-measurement σ, scan rate, failure prob | none — planning data is exact by construction |
+| noise/failure params on `MeasurementPoint` (Phase 3) | per-point σ, scan rate, failure prob | none — planning data is exact by construction |
 | `OperatorActionLog` / `DispatchInstruction` | runtime artifacts, exportable | none — planning outputs are decisions, not directives |
 
 ### 9.2 Extensions to existing entities
@@ -156,8 +188,9 @@ The report card ends with **"what planning missed"**: auto-generated findings fr
 - `ACLine`: the emergency/lt ratings become *live* semantics (protection tiers) instead of stored-but-unused.
 
 ### 9.3 The comparison payload
-- Update `docs/sienna_comparison.md` + the schema atlas with an **operations coverage** band: Sienna has services/dynamic data and an explicit ops heritage (PSY grew out of production-cost + dynamics needs); PyPSA has none of telemetry/reserves/clearances (pure sidecar territory); glassbox-rtops sits in between by design.
-- Add a **grid-rosetta experiment**: round-trip a `ShiftScenario`-bearing world through the PyPSA and Sienna hubs; the coverage manifests quantify "can planning schemas carry ops concepts?" — the interoperability purpose, measured not asserted.
+- **CIM/CGMES joins the schema comparison** as a fourth reference point (see `docs/sienna_comparison.md`): CIM is an *exchange/asset ontology* (analysis-agnostic, node-breaker, permanent mRIDs, no solver semantics), where PyPSA is a *problem schema* (columns are optimization inputs), Sienna a *typed analysis schema*, and glassbox a *teaching schema*. Notably, Sienna has **no CIM/CGMES import path** (its parsers are PSS/E, MATPOWER, CSV) — the industry-standard exchange format and the modern analysis stacks barely touch, which is itself a finding for the interoperability purpose.
+- Update the schema atlas with an **operations coverage** band: CIM carries substations/switches/measurements natively; Sienna has services/dynamic data; PyPSA has none of telemetry/reserves/clearances (pure sidecar territory); glassbox-rtops deliberately spans the seam.
+- **grid-rosetta experiments**: (a) round-trip a `ShiftScenario`-bearing world through the PyPSA and Sienna hubs; the coverage manifests quantify "can planning schemas carry ops concepts?"; (b) future **CGMES spoke** — pandapower's `cim2pp` converter and cimpy give a real import path, and translating ENTSO-E's MiniGrid conformity model into glassbox would be the definitive validation of the substation layer.
 
 ## 10. Pedagogy: scenario library & challenges
 
@@ -168,6 +201,7 @@ Ship 5 seeded scenarios, each a `ShiftScenario` + a challenge entry in the exist
 3. **DCS drill** — largest unit trips at 10:47 with no warning; pass = ACE recovered ≤ 15 min, reserves restored ≤ 90 min. SFR overlay teaches nadir vs. inertia (replay it with the planning slider: retire the coal unit, rerun, watch the nadir deepen — planning meets ops in one move).
 4. **The 30-minute clock** — maintenance clearance active, RTCA flags a post-contingency overload; pass = violation cleared (redispatch or recall) inside 30 min without shedding.
 5. **Storm shift** — weather event day: VRE collapse + elevated line outage rates + an EEA ladder; pass = survive to turnover with minimal firm shed, shed *proactively* if needed (scored better than protection-forced interruption).
+6. **The switching order** — walk a real clearance: isolate line L7 (breakers → disconnectors → tag), hand it to the crew, then mid-shift the **stuck breaker**: a fault trips L4 but one breaker fails to open, protection clears the whole busbar section instead, and the topology processor shows the substation split. Pass = recognize the breaker-failure signature, re-serve the lost section by closing the bus-tie, and get the RTCA list clean again. This is the scenario that makes the substation layer earn its keep.
 
 Glossary gains ~30 terms (ACE, AGC, BAAL, basepoint, clearance, CPS1, DCS, EEA, HRUC, IROL, LMP already exists, nadir, RTCA, SCED, SE, SOL, TLR, three-part communication, …), each linked from the UI element where it first appears.
 
@@ -182,18 +216,20 @@ Glossary gains ~30 terms (ACE, AGC, BAAL, basepoint, clearance, CPS1, DCS, EEA, 
 
 ## 12. Explicitly out of scope (v1)
 
-Per the research's "skip" guidance: busbar splitting / substation topology (Grid2Op's signature, too subtle for the intro tool), continuous AC/voltage-VAR operations (Phase 3: VAR-001 schedules using the existing Newton-Raphson engine), protection-relay detail (PRC is field engineering), EMT timescales, multi-user/multi-desk play, an RL/Gym API (natural future: glassbox-as-Grid2Op-backend through grid-rosetta), TLR levels 2–6 (single external area makes TLR mostly moot; keep the vocabulary in an RC event).
+Substation topology is now IN scope (v2-from-start decision): breakers, disconnectors, busbar sections, topology processing, switching orders, stuck-breaker events. What stays out: **topology optimization as a puzzle** (Grid2Op's bus-splitting-as-remedial-action game — we *represent* substations and let operators switch them, but no scenario requires discovering clever splits to pass), full CIM/RDF serialization (we mirror class names and the EQ/SSH/TP split conceptually; RDF/XML export is a rosetta follow-up, not a v1 feature), `Bay` containment and the long tail of CIM switch subclasses (LoadBreakSwitch, GroundDisconnector, Recloser — Breaker + Disconnector suffice to teach the distinction), continuous AC/voltage-VAR operations (Phase 3: VAR-001 schedules using the existing Newton-Raphson engine; tap changers arrive then too, as CIM `RatioTapChanger`), protection-relay detail beyond the stuck-breaker model (PRC is field engineering), EMT timescales, multi-user/multi-desk play, an RL/Gym API (natural future: glassbox-as-Grid2Op-backend through grid-rosetta), TLR levels 2–6 (single external area makes TLR mostly moot; keep the vocabulary in an RC event).
 
 ## 13. Phasing
 
-- **Phase 0 — kernel (headless):** rtops engine, staged DA→RT with feedforward, actuals process, protection rules, forced outages, ACE/frequency emulation, deterministic replay, oracle + doctrine tests. *Exit: a scripted agent completes a seeded shift; all §11 tests green.*
+- **Phase 0a — the substation layer:** CIM-aligned entities (§9.0), the substation-elaboration rule (any existing world auto-gains substations), the topology processor, and the invariant that every existing planning engine and UI view runs *unchanged* on the derived bus-branch model. *Exit: default world elaborates; topology processor round-trips (all breakers closed ⇒ derived model ≡ original bus-branch model, engine results byte-identical); opening a bus-tie splits a node; CI proves planning outputs unchanged.* This phase roughly doubles the network-model work and is priced in — it's the cost of the CIM curriculum.
+- **Phase 0b — kernel (headless):** rtops engine, staged DA→RT with feedforward, actuals process, protection-through-breakers, forced outages, ACE/frequency emulation, deterministic replay, oracle + doctrine tests. *Exit: a scripted agent completes a seeded shift; all §11 tests green.*
 - **Phase 1 — the room:** Control Room tab with all 10 panels, action bar with legality explanations, clock controls, shift report card. *Exit: a human completes scenario 1 end-to-end in the browser.*
-- **Phase 2 — doctrine depth:** HRUC approvals, EEA ladder + RC directives, DCS/BAAL/CPS scoring finalized, clearances, instructor console, scenario library + challenges, glossary. *Exit: all 5 scenarios shippable and graded.*
-- **Phase 3 — trust & volts:** telemetry noise + SE health (WLS on the AC model, bad-data drills, "flying blind" scenario), voltage schedules/VAR dispatch, restoration epilogue, rosetta ops-interop experiment, schema-atlas ops band.
+- **Phase 2 — doctrine depth:** HRUC approvals, EEA ladder + RC directives, DCS/BAAL/CPS scoring finalized, switching orders + clearances + stuck-breaker events, instructor console, scenario library + challenges (all six), glossary. *Exit: all 6 scenarios shippable and graded.*
+- **Phase 3 — trust & volts:** measurement points live (telemetry noise, scan gaps, failures) + SE health (WLS on the AC model, bad-data drills, "flying blind" scenario), voltage schedules/VAR dispatch + tap changers, restoration epilogue, rosetta ops-interop + CGMES-spoke experiments, schema-atlas ops band.
 
 ## 14. Open questions
 
 1. Single combined BA+TOP desk (proposed) vs. selectable roles per scenario?
+   1b. Substation arrangements in the default elaboration: how many stations get interesting topology (proposed: one ring bus + one breaker-and-a-half; the rest single-busbar) — enough for scenario 6 without drowning the one-line diagram?
 2. ACE emulation cadence: 1 sim-second per AGC cycle (proposed) vs. honest 4-s cycles at 60× (240 ticks/min may stress the 1 Hz poll — SSE instead?).
 3. Should blackout end the shift (Grid2Op purism) or always continue into restoration (proposed: continue — more is learned in the epilogue)?
 4. Reuse the `ops` facet or introduce `rtops` (proposed: new facet; planning-`ops` is production-cost simulation, a different animal — and the naming distinction is itself curriculum).
@@ -211,5 +247,6 @@ Per the research's "skip" guidance: busbar splitting / substation topology (Grid
 - Dispatcher Training Simulator feature sets (GE Vernova DTS; DTS literature) — gegridsolutions.com; Kent State DTS experiences paper
 - NESO "Balancing the Grid" game (scoring triad) — neso.energy
 - GRTOS (RTCA→SCED pipeline vocabulary) — github.com/rpglab/GRTOS
+- IEC CIM / CGMES: CGMES 3.0 = IEC 61970-600-1/-2 (ENTSO-E, mandated under EU Regulation 2017/1485); node-breaker class model per IEC 61970-301; ENTSO-E conformity test models (MicroGrid/MiniGrid/SmallGrid/RealGrid); EPRI CIM Primer; profile artifacts — github.com/entsoe/application-profiles-library; tooling: PowSyBl CGMES import/export, pandapower `cim2pp`, cimpy (SOGNO/RWTH)
 
 *Related issues: #47 (sortable results tables — the ops sim needs the same machinery live), #50 (server-side session avoids tab-switch state loss by construction), #51 (VOLL semantics), #52 (playback strip generalizes into the live control-room strip). Related repo: grid-rosetta (ops-concept interoperability experiments, §9.3).*
