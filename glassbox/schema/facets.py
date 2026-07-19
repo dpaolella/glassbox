@@ -36,6 +36,7 @@ class Facet(str, Enum):
     PF = "pf"      # steady-state power flow and contingency
     DYN = "dyn"    # RMS / phasor dynamics
     EMT = "emt"    # electromagnetic transients and resonance
+    RTOPS = "rtops"  # real-time operations (control room / EMS)
 
     @classmethod
     def from_str(cls, value: "str | Facet") -> "Facet":
@@ -53,6 +54,7 @@ FACET_LABELS: dict[Facet, str] = {
     Facet.PF: "Power Flow & Contingency",
     Facet.DYN: "Stability (RMS Dynamics)",
     Facet.EMT: "Electromagnetic Transients",
+    Facet.RTOPS: "Real-Time Operations (Control Room)",
 }
 
 # One-line explanation of what each modeling layer does, surfaced in the UI.
@@ -71,6 +73,10 @@ FACET_DESCRIPTIONS: dict[Facet, str] = {
                 "stay synchronized and recover frequency?' — inertia, RoCoF, damping."),
     Facet.EMT: ("Electromagnetic transients: microsecond converter + resonance "
                 "micro-examples. 'What actually happens in the wires and power electronics?'"),
+    Facet.RTOPS: ("Real-time operations (EMS/control room): the node-breaker substation "
+                  "layer, switching state, telemetry and shift artifacts. 'How is this "
+                  "system actually operated, minute by minute?' Planning consumes the "
+                  "derived bus-branch view; operations authors this one."),
 }
 
 # The engine / scenario layer each facet drives (None for the shared core layer).
@@ -82,6 +88,7 @@ FACET_ENGINE: dict[Facet, str | None] = {
     Facet.PF: "pf",
     Facet.DYN: "dyn",
     Facet.EMT: "emt",
+    Facet.RTOPS: None,  # engine arrives with the rtops kernel (issue #56 Phase 0b)
 }
 
 

@@ -43,6 +43,12 @@ COLLECTION_MODELS: dict[str, str] = {
     "reserve_products": "ReserveProduct",
     "system_constraints": "SystemConstraint",
     "disturbances": "Disturbance",
+    "substations": "Substation",
+    "voltage_levels": "VoltageLevel",
+    "busbar_sections": "BusbarSection",
+    "connectivity_nodes": "ConnectivityNode",
+    "switches": "Switch",
+    "equipment_terminals": "EquipmentTerminal",
 }
 
 
