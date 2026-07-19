@@ -13,6 +13,8 @@ from typing import ClassVar, Optional
 from pydantic import BaseModel, ConfigDict, Field
 
 from .dynamic_models import ConverterModel, SynchronousMachineModel
+from .substation import (BusbarSection, ConnectivityNode, EquipmentTerminal,
+                         Substation, Switch, VoltageLevel)
 from .entities import (
     ACLine,
     Bus,
@@ -142,6 +144,15 @@ class World(BaseModel):
     reserve_products: list[ReserveProduct] = Field(default_factory=list)
     system_constraints: list[SystemConstraint] = Field(default_factory=list)
     disturbances: list[Disturbance] = Field(default_factory=list)
+
+    # node-breaker substation layer (rtops facet; PRD issue #56 §9.0).
+    # Strictly additive: empty lists = un-elaborated world, planning unaffected.
+    substations: list[Substation] = Field(default_factory=list)
+    voltage_levels: list[VoltageLevel] = Field(default_factory=list)
+    busbar_sections: list[BusbarSection] = Field(default_factory=list)
+    connectivity_nodes: list[ConnectivityNode] = Field(default_factory=list)
+    switches: list[Switch] = Field(default_factory=list)
+    equipment_terminals: list[EquipmentTerminal] = Field(default_factory=list)
 
     # temporal + weather
     temporal_maps: list[TemporalMap] = Field(default_factory=list)

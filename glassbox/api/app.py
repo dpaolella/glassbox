@@ -974,6 +974,72 @@ def reset_world():
     return {"ok": True}
 
 
+# --- rtops: substation layer (issue #56 Phase 0a) ---------------------------
+
+
+@app.post("/api/world/elaborate")
+def elaborate_substations():
+    """Grow the node-breaker substation layer out of the current world.
+
+    Idempotent. Planning engines are unaffected: they consume the derived
+    bus-branch view, which is identical while every switch is closed.
+    """
+    from ..rtops import elaborate_world
+
+    w = elaborate_world(service.world)
+    return {"substations": len(w.substations),
+            "connectivity_nodes": len(w.connectivity_nodes),
+            "switches": len(w.switches),
+            "busbar_sections": len(w.busbar_sections),
+            "equipment_terminals": len(w.equipment_terminals)}
+
+
+@app.get("/api/topology")
+def derived_topology():
+    """Run topology processing and return the derived bus-branch summary."""
+    from ..rtops import derive_bus_branch
+
+    return derive_bus_branch(service.world).summary()
+
+
+class SwitchOp(BaseModel):
+    open: bool
+
+
+@app.post("/api/switch/{switch_id}")
+def switch_operate(switch_id: str, op: SwitchOp):
+    """Operate a breaker/disconnector under interlocks; returns fresh topology."""
+    from ..rtops import derive_bus_branch, operate_switch
+
+    res = operate_switch(service.world, switch_id, op.open)
+    out = {"applied": res.applied, "switch_id": switch_id, "open": op.open,
+           "reason": res.reason}
+    if res.applied:
+        out["topology"] = derive_bus_branch(service.world).summary()
+    return out
+
+
+@app.get("/api/substations")
+def substation_detail():
+    """Node-breaker detail per substation, for the one-line detail view."""
+    w = service.world
+    subs = []
+    for sub in w.substations:
+        subs.append({
+            "id": sub.id, "name": sub.name, "bus_id": sub.bus_id,
+            "arrangement": sub.arrangement.value,
+            "busbar_sections": [b.model_dump(mode="json") for b in w.busbar_sections
+                                 if b.substation_id == sub.id],
+            "switches": [s.model_dump(mode="json") for s in w.switches
+                          if s.substation_id == sub.id],
+            "terminals": [t.model_dump(mode="json") for t in w.equipment_terminals
+                           if any(c.id == t.connectivity_node_id and
+                                  c.substation_id == sub.id
+                                  for c in w.connectivity_nodes)],
+        })
+    return subs
+
+
 @app.get("/api/weather/events")
 def weather_events():
     """Named stress/showcase events auto-detected from the ensemble (#34)."""
