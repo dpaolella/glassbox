@@ -56,6 +56,23 @@ SCENARIOS: dict[str, dict] = {
             scripted_events=[{"step": 6, "kind": "derate_line",
                               "id": "", "factor": 0.55}]),  # id filled at start
     },
+    "switching_order": {
+        "name": "The switching order",
+        "lesson": "Walk a real clearance: open the line's breakers, then its "
+                  "disconnectors (the interlocks enforce the order), and "
+                  "request the clearance. Mid-shift, a breaker mechanism "
+                  "fails during a fault — protection clears the whole busbar "
+                  "section. Recognize the breaker-failure signature and "
+                  "re-serve the lost section.",
+        "pass": "clearance granted on the target line; after the breaker "
+                "failure, restore service (reclose the cleared section)",
+        "config": lambda: ShiftConfig(
+            seed=606, n_steps=60, forced_outages=False,
+            stuck_breakers=[],           # armed by the scripted event below
+            scripted_events=[
+                {"step": 10, "kind": "stick_breaker", "id": ""},
+                {"step": 30, "kind": "derate_line", "id": "", "factor": 0.3}]),
+    },
     "storm_shift": {
         "name": "Storm shift",
         "lesson": "High forecast error, elevated outage risk, and two "
@@ -88,4 +105,8 @@ def scenario_config(key: str, world) -> ShiftConfig:
         if ev.get("kind") == "trip_generator" and \
                 not any(g.id == ev["id"] for g in world.generators):
             ev["id"] = max(world.generators, key=lambda g: g.p_max_mw).id
+        if ev.get("kind") == "stick_breaker" and not ev.get("id"):
+            # arm the stuck mechanism on one end-breaker of the derated line
+            target = max(world.ac_lines, key=lambda l: l.rating_normal_mva).id
+            ev["id"] = f"cb__{target}__1"
     return cfg

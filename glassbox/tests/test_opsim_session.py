@@ -143,3 +143,60 @@ def test_no_session_is_a_clean_409():
         assert r.status_code == 409 and "opsim/start" in r.json()["detail"]
     finally:
         app_module._ops_session["session"] = saved
+
+
+# --- clearances + switching orders + stuck breaker (issue #57) ---------------
+
+
+def test_switching_order_and_clearance_flow(client):
+    _start(client, n_steps=30)
+    subs = client.get("/api/substations").json()
+    # a line with a conventional bay at end 1
+    line = next(s["bay_equipment_id"] for sub in subs for s in sub["switches"]
+                if s["kind"] == "breaker" and s["bay_equipment_id"].startswith("L"))
+    order = client.post("/api/opsim/action", json={
+        "type": "switching_order", "id": line}).json()
+    assert order["applied"]
+    kinds = [st["kind"] for st in order["order"]]
+    assert kinds == sorted(kinds, key=lambda k: 0 if k == "breaker" else 1), \
+        "breakers must come before disconnectors"
+    # clearance before isolation: rejected with the pending devices named
+    r = client.post("/api/opsim/action", json={
+        "type": "clearance", "id": line}).json()
+    assert not r["applied"] and "visible isolation" in r["reason"]
+    # execute the checklist in sequence — interlocks permit each step
+    for st in order["order"]:
+        rr = client.post("/api/opsim/action", json={
+            "type": "switch", "id": st["switch_id"], "open": True}).json()
+        assert rr["applied"], rr.get("reason")
+    r = client.post("/api/opsim/action", json={
+        "type": "clearance", "id": line}).json()
+    assert r["applied"] and r["clearance"] == "active"
+
+
+def test_stuck_breaker_rejects_and_protection_bus_clears(client):
+    st0 = _start(client, n_steps=40, scripted_events=[
+        {"step": 1, "kind": "stick_breaker", "id": ""},
+        {"step": 4, "kind": "derate_line", "id": "", "factor": 0.2}])
+    # late-bound ids resolve only via the scenario helper; arm explicitly here
+    subs = client.get("/api/substations").json()
+    line = next(s["bay_equipment_id"] for sub in subs for s in sub["switches"]
+                if s["kind"] == "breaker" and s["bay_equipment_id"].startswith("L"))
+    cb = f"cb__{line}__1"
+    client.post("/api/opsim/instructor", json={
+        "kind": "stick_breaker", "id": cb, "step": 1})
+    # operator open on a stuck breaker: teaching rejection
+    client.post("/api/opsim/clock", json={"speed": 1e6})
+    client.get("/api/opsim/state")
+    client.post("/api/opsim/clock", json={"speed": 0})
+    r = client.post("/api/opsim/action", json={
+        "type": "switch", "id": cb, "open": True}).json()
+    assert not r["applied"] and "mechanism did not respond" in r["reason"]
+
+
+def test_scenario6_in_library(client):
+    lst = client.get("/api/opsim/scenarios").json()
+    sc = next(s for s in lst if s["id"] == "switching_order")
+    assert "breaker" in sc["lesson"] and "clearance" in sc["pass"]
+    assert client.post("/api/opsim/start", json={
+        "scenario": "switching_order", "speed": 0}).status_code == 200

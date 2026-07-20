@@ -74,6 +74,87 @@ export const GLOSSARY: Record<string, string> = {
   reserve_products: "Reserve products: operating reserves (spinning, non-spinning, regulation, fast frequency response).",
   system_constraints: "System constraints: min inertia, min synchronous units, RoCoF limit, system strength — fed up from the dynamics layer.",
   disturbances: "Disturbances: contingencies (element outages) and faults used by power flow, dynamics and EMT.",
+
+  // --- control room / real-time operations (issue #57) ---
+  ace:
+    "Area Control Error: (actual - scheduled interchange) - 10B(actual - " +
+    "scheduled frequency). The balancing signal AGC drives toward zero; " +
+    "negative = under-generating (leaning on the interconnection).",
+  agc:
+    "Automatic Generation Control: the EMS loop (every ~4 s in real life) " +
+    "that nudges regulating units to chase ACE toward zero.",
+  baal:
+    "Balancing Authority ACE Limit (BAL-001-2): a dynamic ACE bound that " +
+    "tightens as frequency strays; exceeding it for more than 30 " +
+    "consecutive minutes is a violation.",
+  basepoint:
+    "The MW setpoint the real-time market (SCED) sends each unit every " +
+    "interval; AGC adjusts around it.",
+  breaker:
+    "Circuit breaker: the switching device that can interrupt load and " +
+    "fault current. Contrast with a disconnector.",
+  breaker_failure:
+    "When a breaker's mechanism fails to open on command, protection " +
+    "escalates and clears the entire busbar section behind it.",
+  busbar_section:
+    "The physical bus inside a substation — conductor equipment occupying " +
+    "a connectivity node (CIM's key node-breaker insight: the bus is " +
+    "equipment, not a node).",
+  clearance:
+    "Authorization for a field crew to work on equipment, granted only " +
+    "after visible isolation (breakers open, then disconnectors open, " +
+    "then tagged).",
+  connectivity_node:
+    "CIM ConnectivityNode: an authored connection point inside a " +
+    "substation; topology processing groups them into power-flow buses " +
+    "across closed switches.",
+  cps1:
+    "Control Performance Standard 1 (BAL-001): a 100-plus-percent score " +
+    "measuring whether your ACE helps or hurts interconnection frequency.",
+  dcs:
+    "Disturbance Control Standard (BAL-002): after losing a big unit, " +
+    "recover ACE within 15 minutes and restore reserves within 90.",
+  disconnector:
+    "Disconnector (isolator): provides visible isolation but cannot " +
+    "interrupt load current — it may only operate de-energized, which the " +
+    "interlocks enforce.",
+  eea:
+    "Energy Emergency Alert (EOP-011): the RC-declared ladder — EEA-1 " +
+    "(reserves below requirement), EEA-2 (deficient; load management), " +
+    "EEA-3 (firm load interruption imminent or in progress).",
+  interchange:
+    "Net scheduled/actual power flowing to neighboring areas over the " +
+    "ties. Schedules change hourly, ramped from :50 to :10.",
+  node_breaker:
+    "The operations-grade network model where every breaker and " +
+    "disconnector is explicit; the planning bus-branch model is DERIVED " +
+    "from it by topology processing.",
+  ordc:
+    "Operating Reserve Demand Curve: prices reserve shortage on a rising " +
+    "curve so energy prices scream BEFORE load is shed.",
+  rtca:
+    "Real-Time Contingency Analysis: after each state solution, screen " +
+    "N-1 outages and flag post-contingency violations.",
+  sced:
+    "Security-Constrained Economic Dispatch: the real-time market solve " +
+    "producing basepoints and prices every interval.",
+  scarcity_adder:
+    "The reserve-shortage price that couples into the energy price when " +
+    "reserves run short — the market recruiting help before shedding.",
+  sol_clock:
+    "TOP-001: a post-contingency System Operating Limit exceedance must " +
+    "be mitigated within 30 minutes; the clock in the Control Room " +
+    "counts it down.",
+  stuck_breaker:
+    "A breaker whose mechanism fails on command; the classic drill where " +
+    "a routine switching order becomes an incident.",
+  system_lambda:
+    "The marginal cost of the marginal dispatched unit each interval — " +
+    "the system energy price (plus any scarcity adder).",
+  topology_processing:
+    "The EMS's first act after any switching: collapse connectivity " +
+    "nodes across closed switches into topological nodes (buses). A " +
+    "power-flow bus is computed, never stored.",
 };
 
 export function gloss(key: string): string | undefined {
