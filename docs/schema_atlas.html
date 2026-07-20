@@ -443,6 +443,24 @@
         si: [F, "AGC + up/down + reserve groups", "Constant and variable reserves in both directions, AGC, and grouped reserve management."],
         py: [N, "No native reserve object", "Reserves are not part of the documented component model; they must be added as custom constraints."] }
     ]},
+    { band: "Operations layer — the control room", rows: [
+      { label: "Node-breaker substations",
+        gb: [F, "<code>rtops</code> substation layer", "Substations, busbars, connectivity nodes, breakers/disconnectors — CIM node-breaker classes by name; the power-flow bus is computed, not stored."],
+        si: [N, "Bus-branch only", "No node-breaker classes. Round-tripped through the grid-rosetta Sienna hub, the whole layer parks in the sidecar and survives only as opaque baggage (test_ops_interop.py)."],
+        py: [N, "Bus-branch only", "PyPSA is bus-branch; through its hub the node-breaker layer likewise only survives as sidecar baggage, never as a native object."] },
+      { label: "Balancing area / ACE context",
+        gb: [F, "<code>OperatingArea</code>", "Frequency bias, tie capacity, scheduled interchange — the inputs to Reporting ACE. Planning has no 'elsewhere'; operations is defined by it."],
+        si: [N, "String area tag only", "A SiennaBus carries an area/load_zone string, not a first-class balancing area with bias and ties — so it parks in the sidecar too."],
+        py: [N, "No area object", "PyPSA has no balancing-area object; it parks in the sidecar on a hub round-trip."] },
+      { label: "Live switch state (EQ vs SSH)",
+        gb: [F, "<code>normal_open</code> / <code>open</code>", "As-drawn state vs live operating state as two fields — a legible copy of CGMES's EQ-vs-SSH profile split."],
+        si: [N, "No switch model", "No switches, so no operating-state layer."],
+        py: [N, "No switch model", "No breaker/disconnector representation in the component model."] },
+      { label: "Telemetry + state estimation",
+        gb: [P, "<code>rtops/telemetry.py</code>", "Synthesized SCADA → DC-WLS state estimator with bad-data detection; the operator runs on the estimate, not the truth. A runtime kernel, not a stored schema layer."],
+        si: [N, "Not in the schema", "No measurement / estimation classes."],
+        py: [N, "Not in the schema", "No measurement layer."] }
+    ]},
     { band: "Physics scope", rows: [
       { label: "Steady-state power flow · N-1",
         gb: [F, "Newton-Raphson + contingencies", "AC power flow with N-1 screening; validated against pandapower."],

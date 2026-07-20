@@ -13,9 +13,11 @@ kinds of analysis.
 
 > **Visual companion:** an interactive three-way comparison lives at
 > [`docs/schema_atlas.html`](./schema_atlas.html) — the organizing philosophy of
-> each schema, a capability-coverage matrix, an entity "Rosetta stone," and how
-> far up the physics stack each one reaches. Open it in a browser (it is
-> self-contained). The tables below are the written form of the same material.
+> each schema, a capability-coverage matrix (now including an **operations-layer
+> band**: node-breaker substations, the balancing area, live switch state, and
+> telemetry), an entity "Rosetta stone," and how far up the physics stack each
+> one reaches. Open it in a browser (it is self-contained). The tables below are
+> the written form of the same material.
 
 ## TL;DR
 
@@ -238,9 +240,22 @@ PSS/E RAW, MATPOWER, CSV) — the mandated European exchange format and the
 modern open analysis stacks barely touch. The practical route is
 CGMES → PowSyBl or pandapower (`cim2pp`) → MATPOWER → Sienna. For the
 hub-and-spoke question this is the sharpest finding yet: *neither candidate
-hub speaks the industry's actual exchange standard*, and a CGMES spoke on the
-grid-rosetta bench (via `cim2pp`/cimpy, validated against ENTSO-E's MiniGrid
-conformity model) would measure exactly what each hub drops of it.
+hub speaks the industry's actual exchange standard*.
+
+That CGMES spoke is now **built** on the grid-rosetta bench (issue #58). Rather
+than route through pandapower's bus-branch `cim2pp` — which would flatten the
+very node-breaker detail this comparison is about — the bench reads the CGMES EQ
++ SSH profiles directly (stdlib, parsed by local tag name, CIM-version tolerant)
+and lands them in Glassbox's node-breaker schema as a **~1:1 CIM-class rename**:
+`Substation`/`VoltageLevel`/`BusbarSection`/`ConnectivityNode` keep their names,
+`Breaker`/`Disconnector` become `Switch(kind=…)`, and `Switch.normalOpen`/`open`
+map onto Glassbox's `normal_open`/`open` — the EQ/SSH split executable. The one
+genuinely computed thing is the planning bus (a `TopologicalNode`, derived by
+union-find over closed switches, exactly as `rtops/topology.py` does), so the
+imported world collapses back to the electrical model the engines solve (0
+unserved). A compact node-breaker conformity model ships in-repo; a full ENTSO-E
+MiniGrid loads the same way. The measured coverage — what each planning hub
+drops of an ops-bearing model — is summarized in the next section.
 
 Glassbox's response (per the [Ops Mode PRD](./prd_ops_mode.md), issue #56): an
 `rtops` substation layer that mirrors CIM's node-breaker classes by name, a
@@ -248,6 +263,41 @@ topology processor so the planning views consume a derived bus-branch model,
 and the EQ/SSH/TP/SV split mapped onto world / shift-scenario / derived
 topology / results — a legible miniature of the real standard rather than a
 caricature.
+
+## Operations coverage — what each schema carries of the control-room layer
+
+Ops Mode (issues #56–#58) added a control-room layer *on top of* the planning
+stack: the CIM node-breaker substation model above, a balancing area (the ACE
+context), and synthesized telemetry feeding a state estimator. Those are
+operations concepts, and the natural question — *can a planning schema carry
+them?* — is now **measured, not asserted**. The grid-rosetta bench round-trips
+an operations-bearing Glassbox world through the PyPSA and Sienna hubs and reads
+the coverage manifests (`tests/test_ops_interop.py`); CGMES, the one exchange
+format that is node-breaker *natively*, sits on the same bench as an inbound
+spoke (`cgmes -> glassbox`). This is the operations-coverage band of the
+[schema atlas](./schema_atlas.html), in written form.
+
+| Operations concept | Glassbox | Sienna | PyPSA | CIM/CGMES |
+|---|---|---|---|---|
+| Node-breaker substations (breakers, busbars, connectivity nodes) | first-class (`rtops`) | absent — **parks in sidecar** | absent — **parks in sidecar** | **native** (the source of the model) |
+| Balancing area / ACE (bias, ties, scheduled interchange) | first-class (`OperatingArea`) | absent — string area tag only, parks | absent — parks | partial (`ControlArea`) |
+| Reserves / ancillary products | `ReserveProduct` (spinning-up) | **translates** (`StaticReserve`) | absent — parks in sidecar | market profile (IEC 62325) |
+| Live switch state (structure vs operating) | `normal_open` / `open` | absent | absent | **native** (the EQ/SSH split) |
+| Telemetry + state estimation | runtime kernel (`rtops/telemetry.py`) | absent | absent | measurement classes (`Analog`/`Discrete`) |
+
+The measured finding: **reserves are the only operations concept a planning
+schema carries natively, and only Sienna** — it translates them to
+`StaticReserve`; PyPSA can hold them only in the sidecar. The node-breaker
+substation layer and the balancing area have no home in *either* planning hub —
+they survive a hub round-trip only as opaque sidecar baggage, byte-identical,
+never as native objects. The schema that *does* carry the node-breaker layer
+natively is the one built for exchange, not analysis — CIM/CGMES — which is
+exactly why Glassbox's `rtops` layer is a miniature of it, and why the bench's
+`cgmes -> glassbox` route is a ~1:1 rename rather than a translation. "Parks in
+the sidecar" is not a metaphor here: it is the grid-rosetta coverage manifest,
+which names every parked entity and restores it on the way home, so nothing is
+lost silently — the one thing a planning schema must never do to an operations
+model it cannot represent.
 
 ## What we'd borrow from Sienna
 
