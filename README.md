@@ -149,7 +149,7 @@ here for the written schema comparison that motivates it.
 ## Status
 
 The planning stack (six engines) runs on the default system; Ops Mode adds the
-control-room layer on top. Validated by **165 passing tests** (`pytest`,
+control-room layer on top. Validated by **168 passing tests** (`pytest`,
 excluding the dev-only oracle round-trips which need optional libraries).
 
 The planning stack has two complementary validation layers (Section 11):
