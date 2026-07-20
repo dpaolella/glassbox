@@ -50,7 +50,9 @@ class OpsSession:
     def _accrue(self) -> None:
         now = time.monotonic()
         if self.speed > 0 and not self.sim.finished:
-            sim_minutes = (now - self._last_wall) / 60.0 * self.speed * 60.0
+            # speed = sim-minutes per wall-minute (60 => one 5-min step
+            # every 5 wall-seconds; a 12-h shift in ~12 wall-minutes)
+            sim_minutes = (now - self._last_wall) / 60.0 * self.speed
             self._credit += sim_minutes / self.sim.cfg.step_minutes
         self._last_wall = now
 
