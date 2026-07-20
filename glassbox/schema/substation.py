@@ -131,3 +131,30 @@ class EquipmentTerminal(BaseModel):
     equipment_id: str = facet_field(facets=["rtops"], default="")
     sequence: int = facet_field(facets=["rtops"], default=1)
     connectivity_node_id: str = facet_field(facets=["rtops"], default="")
+
+
+class OperatingArea(BaseModel):
+    """The balancing area and its interconnection context (PRD §9.1).
+
+    Planning has no "elsewhere"; operations is defined by it. The area's
+    frequency bias B (MW/0.1 Hz, negative by NERC convention) plus the
+    external system's bias and the tie capacity determine how stiff
+    frequency feels and how far the area can lean on its neighbors —
+    Reporting ACE = (NIa - NIs) - 10B(Fa - Fs) needs every field here.
+    """
+
+    id: str = facet_field(facets=["core", "rtops"])
+    name: str = facet_field(facets=["core"], default="")
+    frequency_bias_mw_per_0p1hz: float = facet_field(
+        facets=["rtops"], unit="MW/0.1Hz", default=-80.0,
+        description="the area's own bias B (negative by convention)")
+    external_bias_mw_per_0p1hz: float = facet_field(
+        facets=["rtops"], unit="MW/0.1Hz", default=-1500.0,
+        description="rest-of-interconnection bias behind the ties")
+    tie_capacity_mw: float = facet_field(
+        facets=["rtops"], unit="MW", default=400.0,
+        description="total transfer capability of the area's tie lines")
+    scheduled_interchange_mw: list[float] = facet_field(
+        facets=["rtops"], default_factory=list,
+        description="hourly net scheduled interchange NIs (exports positive); "
+                    "empty = zero schedule")

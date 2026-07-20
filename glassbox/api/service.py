@@ -49,6 +49,7 @@ COLLECTION_MODELS: dict[str, str] = {
     "connectivity_nodes": "ConnectivityNode",
     "switches": "Switch",
     "equipment_terminals": "EquipmentTerminal",
+    "operating_areas": "OperatingArea",
 }
 
 
