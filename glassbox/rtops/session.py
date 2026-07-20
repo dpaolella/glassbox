@@ -25,7 +25,9 @@ _SEVERITY = {"line_trip": "critical", "generator_trip": "critical",
              "line_derated": "warning", "load_scaled": "info",
              "line_reclosed": "info", "turnover_briefing": "info",
              "rc_directive": "critical", "rtca_violation": "warning",
-             "sol_clock_expired": "critical", "sol_cleared": "info"}
+             "sol_clock_expired": "critical", "sol_cleared": "info",
+             "breaker_failure": "critical", "breaker_stuck_armed": "info",
+             "clearance_active": "info", "clearance_released": "info"}
 
 MAX_STEPS_PER_POLL = 24
 
@@ -173,7 +175,17 @@ class OpsSession:
                                "id": gid, "delta_mw": dmw})
             return {"applied": True}
         if kind == "switch":
-            res = operate_switch(sim.world, act.get("id", ""),
+            sw_id = act.get("id", "")
+            if bool(act.get("open", True)) and sw_id in sim._stuck:
+                sim.events.append({"step": sim.k, "kind": "breaker_failure",
+                                   "id": sw_id,
+                                   "detail": "mechanism did not respond"})
+                return {"applied": False,
+                        "reason": f"{sw_id} failed to operate — breaker "
+                                  "mechanism did not respond. Treat as a "
+                                  "breaker failure: isolate via adjacent "
+                                  "devices and notify maintenance"}
+            res = operate_switch(sim.world, sw_id,
                                  bool(act.get("open", True)))
             if res.applied:
                 sw = next(s for s in sim.world.switches if s.id == res.switch_id)
@@ -196,6 +208,34 @@ class OpsSession:
                     a["acked"] = True
                     return {"applied": True}
             return {"applied": False, "reason": f"no alarm #{aid}"}
+        if kind == "switching_order":
+            from .switching import switching_order
+            eq, phase = act.get("id", ""), act.get("phase", "isolate")
+            order = switching_order(sim.world, eq, to_open=(phase == "isolate"))
+            if not order:
+                return {"applied": False,
+                        "reason": f"no bay switches found for '{eq}' — ring "
+                                  "corners isolate via their ring breakers"}
+            self._active_order = {"equipment": eq, "phase": phase}
+            return {"applied": True, "order": order,
+                    "note": "execute in sequence with switch actions; the "
+                            "interlocks will reject any step out of order"}
+        if kind == "clearance":
+            from .switching import switching_order
+            eq = act.get("id", "")
+            order = switching_order(sim.world, eq, to_open=True)
+            if not order:
+                return {"applied": False, "reason": f"no bay for '{eq}'"}
+            if all(step["done"] for step in order):
+                sim.events.append({"step": sim.k, "kind": "clearance_active",
+                                   "id": eq,
+                                   "detail": "isolation verified — crew may "
+                                             "take the equipment"})
+                return {"applied": True, "clearance": "active"}
+            pending = [st["switch_id"] for st in order if not st["done"]]
+            return {"applied": False,
+                    "reason": "clearance requires visible isolation first — "
+                              f"still closed: {', '.join(pending)}"}
         if kind == "request_sced":
             topo = None
             from .topology import derive_bus_branch
@@ -250,7 +290,7 @@ class OpsSession:
 
     def inject(self, event: dict) -> dict:
         """Instructor console: schedule an event into the running shift."""
-        allowed = {"trip_generator", "derate_line", "scale_load"}
+        allowed = {"trip_generator", "derate_line", "scale_load", "stick_breaker"}
         kind = event.get("kind")
         if kind not in allowed:
             return {"applied": False,

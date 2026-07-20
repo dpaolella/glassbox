@@ -52,3 +52,25 @@ def reset_switches(world: World) -> int:
             sw.open = sw.normal_open
             n += 1
     return n
+
+
+def switching_order(world: World, equipment_id: str,
+                    to_open: bool = True) -> list[dict]:
+    """The ordered checklist for taking equipment out (or returning it).
+
+    De-energize: open BREAKERS first (they interrupt load current), then
+    DISCONNECTORS (visible isolation, dead operation only). Restore runs the
+    reverse. The interlock in operate_switch enforces the same order, so a
+    student who skips ahead gets the teaching rejection.
+    """
+    bays = [sw for sw in world.switches if sw.bay_equipment_id == equipment_id]
+    breakers = sorted((sw for sw in bays if sw.kind == SwitchKind.BREAKER),
+                      key=lambda sw: sw.id)
+    dscs = sorted((sw for sw in bays if sw.kind == SwitchKind.DISCONNECTOR),
+                  key=lambda sw: sw.id)
+    if to_open:
+        seq = [(sw, True) for sw in breakers] + [(sw, True) for sw in dscs]
+    else:
+        seq = [(sw, False) for sw in dscs] + [(sw, False) for sw in breakers]
+    return [{"switch_id": sw.id, "kind": sw.kind.value, "open": op,
+             "done": sw.open == op} for sw, op in seq]

@@ -73,6 +73,9 @@ class ShiftConfig:
     hard_overflow_multiple: float = 1.5   # x emergency rating -> instant trip
     reconnect_steps: int = 6         # NB_TIMESTEP_RECONNECTION (30 min)
     forced_outages: bool = True
+    stuck_breakers: list[str] = field(default_factory=list)
+    # breakers whose mechanism fails on the next open command: protection
+    # escalates to breaker-failure clearing (the whole busbar section trips)
     scripted_events: list[dict] = field(default_factory=list)
     # e.g. {"step": 30, "kind": "trip_generator", "id": "coal_1"}
     #      {"step": 10, "kind": "derate_line", "id": "l4", "factor": 0.3}
@@ -324,6 +327,7 @@ class OpsSimulation:
         self._ni = self._build_ni_schedule()
         self._soc = {st.id: 0.5 for st in self.world.storage_units
                      if st.in_service}
+        self._stuck = set(self.cfg.stuck_breakers)
         self._da = self.run_day_ahead()
         self._freq_nominal = self.world.base_frequency_hz
         self._b_total = abs(cfg.bias_mw_per_0p1hz) * 10.0  # MW per Hz
@@ -706,6 +710,10 @@ class OpsSimulation:
             self._line_derate[ev["id"]] = float(ev.get("factor", 0.5))
             self.events.append({"step": k, "kind": "line_derated",
                                 "id": ev["id"], "factor": ev.get("factor", 0.5)})
+        elif kind == "stick_breaker":
+            self._stuck.add(ev["id"])
+            self.events.append({"step": k, "kind": "breaker_stuck_armed",
+                                "id": ev["id"]})
         elif kind == "trip_tie":
             self._tie_available = False
             self._ni[k:] = 0.0     # emergency schedule curtailment
@@ -756,10 +764,28 @@ class OpsSimulation:
         self._overflow_count.pop(lid, None)
         for seq in (1, 2):
             cb = f"cb__{lid}__{seq}"
-            if any(s.id == cb for s in self.world.switches):
-                sw = next(s for s in self.world.switches if s.id == cb)
-                self._switch_ops.append((cb, sw.open))
-                operate_switch(self.world, cb, True)
+            sw = next((s for s in self.world.switches if s.id == cb), None)
+            if sw is None:
+                continue
+            if cb in self._stuck:
+                # breaker failure: the fault cannot be interrupted here, so
+                # protection clears the whole busbar section behind it —
+                # every breaker on that section opens (scenario 6's mechanic)
+                bus_cn = sw.from_node_id
+                cleared = []
+                for other in self.world.switches:
+                    if other.kind.value == "breaker" and not other.open and \
+                            bus_cn in (other.from_node_id, other.to_node_id):
+                        self._switch_ops.append((other.id, other.open))
+                        operate_switch(self.world, other.id, True)
+                        cleared.append(other.id)
+                self.events.append({
+                    "step": k, "kind": "breaker_failure", "id": cb,
+                    "detail": f"breaker {cb} failed to open — protection "
+                              f"cleared the busbar section: {cleared}"})
+                continue
+            self._switch_ops.append((cb, sw.open))
+            operate_switch(self.world, cb, True)
         self.events.append({"step": k, "kind": "line_trip", "id": lid,
                             "reason": reason,
                             "reconnect_steps": self.cfg.reconnect_steps})
