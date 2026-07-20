@@ -27,7 +27,9 @@ _SEVERITY = {"line_trip": "critical", "generator_trip": "critical",
              "rc_directive": "critical", "rtca_violation": "warning",
              "sol_clock_expired": "critical", "sol_cleared": "info",
              "breaker_failure": "critical", "breaker_stuck_armed": "info",
-             "clearance_active": "info", "clearance_released": "info"}
+             "clearance_active": "info", "clearance_released": "info",
+             "se_degraded": "critical", "bad_data_identified": "warning",
+             "hruc_proposal": "warning"}
 
 MAX_STEPS_PER_POLL = 24
 
@@ -140,6 +142,10 @@ class OpsSession:
             "eea_level": sim._eea_level,
             "sol_clocks": {lid: c * sim.cfg.step_minutes
                            for lid, c in sim._sol_clocks.items()},
+            "nodal_lmps": getattr(sim, "_nodal_lmps", {}),
+            "se": sim.se_result.summary()
+                  if getattr(sim, "se_result", None) else None,
+            "hruc_pending": getattr(sim, "_hruc_pending", None),
             "da_summary": sim._da,
             "totals": sim.totals(),
         }
@@ -208,6 +214,27 @@ class OpsSession:
                     a["acked"] = True
                     return {"applied": True}
             return {"applied": False, "reason": f"no alarm #{aid}"}
+        if kind in ("approve_hruc", "deny_hruc"):
+            pending = getattr(sim, "_hruc_pending", None)
+            if not pending:
+                return {"applied": False, "reason": "no HRUC proposal pending"}
+            sim._hruc_pending = None
+            if kind == "deny_hruc":
+                sim.events.append({"step": sim.k, "kind": "hruc_denied",
+                                   "id": pending["unit"]})
+                return {"applied": True, "note": "proposal denied — the "
+                        "shortfall risk is yours to carry now"}
+            gid = pending["unit"]
+            if gid in sim._commitment:
+                hour = (sim.k * sim.cfg.step_minutes) // 60
+                sim._commitment[gid][hour:] = 1.0
+            from .topology import derive_bus_branch
+            sim._run_sced(sim.k, derive_bus_branch(sim.world).world)
+            sim.events.append({"step": sim.k, "kind": "hruc_committed",
+                               "id": gid})
+            return {"applied": True,
+                    "note": f"{gid} committed for the rest of the shift; "
+                            "SCED re-solved with it"}
         if kind == "switching_order":
             from .switching import switching_order
             eq, phase = act.get("id", ""), act.get("phase", "isolate")
@@ -290,7 +317,7 @@ class OpsSession:
 
     def inject(self, event: dict) -> dict:
         """Instructor console: schedule an event into the running shift."""
-        allowed = {"trip_generator", "derate_line", "scale_load", "stick_breaker"}
+        allowed = {"trip_generator", "derate_line", "scale_load", "stick_breaker", "bad_meter"}
         kind = event.get("kind")
         if kind not in allowed:
             return {"applied": False,
