@@ -6,8 +6,9 @@ topology processing); ``switching`` operates devices under interlocks.
 """
 
 from .elaborate import elaborate_world
+from .kernel import OpsSimulation, ShiftConfig, ShiftResult, run_shift
 from .switching import SwitchResult, operate_switch, reset_switches
 from .topology import DerivedTopology, derive_bus_branch
 
-__all__ = ["elaborate_world", "derive_bus_branch", "DerivedTopology",
+__all__ = ["elaborate_world", "OpsSimulation", "ShiftConfig", "ShiftResult", "run_shift", "derive_bus_branch", "DerivedTopology",
            "operate_switch", "reset_switches", "SwitchResult"]
