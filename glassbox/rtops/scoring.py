@@ -33,7 +33,7 @@ def score_shift(traces: dict, events: list[dict], cfg, largest_unit_mw: float,
     n = len(ace)
     if n == 0:
         return {"note": "no steps completed"}
-    b10 = 10.0 * abs(cfg.bias_mw_per_0p1hz)          # MW per Hz (positive)
+    b10 = max(10.0 * abs(cfg.bias_mw_per_0p1hz), 1e-6)  # MW/Hz (never zero)
     fs = 60.0
     step_min = cfg.step_minutes
 

@@ -280,6 +280,9 @@ class OpsSimulation:
             self._sced_unserved = \
                 built.m.variables["unserved"].solution.sum("n").values
         self._window_start = step
+        # a fresh dispatch is a fresh regulation baseline — stale AGC offset
+        # from the previous window must not stack on top of new basepoints
+        self._agc_adjust = {}
         self._window_nodes = list(view.nodes)
         # system lambda: the cost of the marginal dispatched unit
         mc = {g.id: g.marginal_cost for g in view.gens}
@@ -355,7 +358,7 @@ class OpsSimulation:
         self._v_violations = []
         self._da = self.run_day_ahead()
         self._freq_nominal = self.world.base_frequency_hz
-        self._b_total = abs(cfg.bias_mw_per_0p1hz) * 10.0  # MW per Hz
+        self._b_total = max(abs(cfg.bias_mw_per_0p1hz) * 10.0, 1e-6)  # MW/Hz
         self._unserved_mwh = 0.0
         self._energy_cost = 0.0
         self._redispatch: dict[str, float] = {}   # operator basepoint offsets
@@ -419,7 +422,15 @@ class OpsSimulation:
                     self._trip_generator(k, gid,
                                          int(mttr * 60 / cfg.step_minutes),
                                          reason="forced outage")
-            # decrement repair/reconnect timers
+            # decrement repair/reconnect timers; a repaired unit's bay breaker
+            # must reclose or it stays electrically isolated forever
+            repaired = [g for g, v in self._out_gens.items() if v - 1 <= 0]
+            for gid in repaired:
+                cb = f"cb__{gid}__1"
+                if any(s.id == cb for s in self.world.switches):
+                    operate_switch(self.world, cb, False)
+                    self.events.append({"step": k, "kind": "generator_repaired",
+                                        "id": gid})
             self._out_gens = {g: v - 1 for g, v in self._out_gens.items()
                               if v - 1 > 0}
             for lid in [l for l, v in self._tripped_lines.items() if v - 1 <= 0]:
@@ -463,7 +474,10 @@ class OpsSimulation:
             if getattr(self, "_sced_unserved", None) is not None:
                 sched_short = float(
                     self._sced_unserved[min(w, len(self._sced_unserved) - 1)])
-            reg_pool = self._regulation_headroom(k, derived, bp)
+            # headroom already partly consumed by this window's accumulated
+            # AGC offset — offer only what physically remains, never nameplate
+            reg_pool = max(0.0, self._regulation_headroom(k, derived, bp)
+                           - sum(self._agc_adjust.values()))
             freq = freq_nominal
             ace = gen_total + sched_short - actual_load
             for _ in range(cfg.agc_subticks):
@@ -599,8 +613,13 @@ class OpsSimulation:
             case = assemble_pf_case(derived, hour, self.cfg.weather_year,
                                     dispatch=dict(bp))
             sol = solve_newton_raphson(case)
-        except Exception:
+        except Exception as exc:
             self._bus_voltages = {}
+            if not getattr(self, "_pf_assembly_alarmed", False):
+                self.events.append({"step": k, "kind": "voltage_unsolved",
+                                    "detail": f"AC power flow could not be "
+                                              f"assembled: {exc}"})
+                self._pf_assembly_alarmed = True
             return
         if not sol.converged:
             self._bus_voltages = {}
@@ -612,11 +631,11 @@ class OpsSimulation:
                                     "detail": "AC power flow diverged"})
                 self._pf_diverged_alarmed = True
             return
-        self._bus_voltages = {bid: float(sol.V[i])
+        self._bus_voltages = {bid: float(abs(sol.V[i]))
                               for i, bid in enumerate(case.bus_ids)}
         viol = []
         for i, bid in enumerate(case.bus_ids):
-            v = float(sol.V[i])
+            v = float(abs(sol.V[i]))
             if v < case.v_min[i] - 1e-4:
                 viol.append({"bus": bid, "v_pu": round(v, 4),
                              "detail": f"{bid} at {v:.3f} pu, below schedule "
@@ -640,6 +659,13 @@ class OpsSimulation:
             sw = next(s for s in self.world.switches if s.id == sw_id)
             sw.open = prev
         self._switch_ops.clear()
+        # restore any AVR setpoints the operator nudged (the shared world must
+        # not carry a shift's reactive dispatch into the next shift)
+        for gid, orig in self._prev_setpoint.items():
+            g = next((x for x in self.world.generators if x.id == gid), None)
+            if g is not None:
+                g.v_setpoint_pu = orig
+        self._prev_setpoint.clear()
         return ShiftResult(
             config=self.cfg, events=self.events, traces=self.traces,
             totals=self.totals(), da_summary=self._da)

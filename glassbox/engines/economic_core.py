@@ -1054,10 +1054,12 @@ def collect_network(built: BuiltModel) -> "NetworkResult":
         if cname in built.m.constraints:
             try:
                 dual = built.m.constraints[cname].dual.values
-                # un-weight: objective used weight/divisor, so dual is already $/MWh
+                # dual_h = weight_h * price_h (the objective weights each hour
+                # by w). The time-averaged $/MWh is the weight-average of the
+                # per-hour prices = sum(price*w)/sum(w) = sum(dual)/sum(w).
                 w = view.period_weight / view.annual_divisor
                 wsum = w.sum()
-                nr.nodal_price[node] = float((dual * w).sum() / wsum) if wsum else float(dual.mean())
+                nr.nodal_price[node] = float(dual.sum() / wsum) if wsum else float(dual.mean())
                 # per-hour $/MWh for playback: divide out each hour's weight
                 safe_w = np.where(w > 1e-12, w, 1.0)
                 nr.nodal_price_t[node] = [round(float(v), 2)
