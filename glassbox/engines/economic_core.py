@@ -148,6 +148,13 @@ class EngineOptions:
     # None (default) keeps the existing cyclic per-period formulation, so
     # every planning result is untouched. Not valid with investment=True.
     storage_soc_init: Optional[dict[str, float]] = None
+    # ORDC-lite (rtops): a stepped reserve demand curve as (fraction_of_req,
+    # price) tranches, e.g. [(0.5, 300), (1.0, 2000)] — the first half of any
+    # shortage priced at $300/MWh, the rest at $2000. Prices flow into the
+    # energy LMP through the coupled constraint, so scarcity shows up in
+    # prices BEFORE load is shed. None (default) keeps the single
+    # 0.5 x VOLL shortfall price: planning untouched.
+    reserve_curve: Optional[list[tuple[float, float]]] = None
 
 
 # --- assembler --------------------------------------------------------------
@@ -826,9 +833,37 @@ def build_dispatch_model(view: EconomicView, options: EngineOptions) -> BuiltMod
                 if not g.reserve_eligible:
                     continue
                 gcap = (cap.sel(g=g.id) if options.investment else float(g.p_nom_existing))
+                if options.reserve_curve:
+                    # honest headroom (rtops): an outaged or decommitted unit
+                    # holds no reserve — scale nameplate by availability and
+                    # fixed commitment before subtracting output
+                    if g.availability is not None:
+                        gcap = gcap * xr.DataArray(g.availability,
+                                                   coords=[t_idx], dims=["t"])
+                    fc = (options.fixed_commitment or {}).get(g.id)
+                    if fc is not None:
+                        gcap = gcap * xr.DataArray(np.asarray(fc, dtype=float),
+                                                   coords=[t_idx], dims=["t"])
                 headroom_terms.append(gcap - p.sel(g=g.id))
             headroom = sum(headroom_terms[1:], headroom_terms[0])
-            res_shortfall = m.add_variables(lower=0.0, coords=[t_idx], name="reserve_short")
+            if options.reserve_curve:
+                # one shortfall variable per tranche, each capped at its
+                # slice of the requirement; the sum plays the shortfall role
+                tranche_vars = []
+                prev = 0.0
+                for i, (frac, _price) in enumerate(options.reserve_curve):
+                    ub = xr.DataArray(view.reserve_req * (frac - prev),
+                                      coords=[t_idx], dims=["t"])
+                    tranche_vars.append(m.add_variables(
+                        lower=0.0, upper=ub, coords=[t_idx],
+                        name=f"reserve_short_t{i}"))
+                    prev = frac
+                res_shortfall = sum(tranche_vars[1:], tranche_vars[0])
+                res_shortfall_tranches = tranche_vars
+            else:
+                res_shortfall = m.add_variables(lower=0.0, coords=[t_idx],
+                                                name="reserve_short")
+                res_shortfall_tranches = None
             # candidate VRE adds to the requirement in proportion to what is
             # actually *built* (linear in the build variable), not its ceiling
             lhs = headroom + res_shortfall
@@ -887,7 +922,12 @@ def build_dispatch_model(view: EconomicView, options: EngineOptions) -> BuiltMod
     obj = obj + (unserved * w).sum() * view.voll
     # reserve shortfall penalty (below VOLL so energy is served first)
     if res_shortfall is not None:
-        obj = obj + (res_shortfall * w).sum() * (view.voll * 0.5)
+        if options.reserve_curve:
+            for var, (_frac, price) in zip(res_shortfall_tranches,
+                                           options.reserve_curve):
+                obj = obj + (var * w).sum() * price
+        else:
+            obj = obj + (res_shortfall * w).sum() * (view.voll * 0.5)
     # startup + no-load (PCM, only when commitment is decided here)
     if binary_uc:
         for g in gens:
