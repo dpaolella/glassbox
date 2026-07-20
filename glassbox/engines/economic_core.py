@@ -140,6 +140,14 @@ class EngineOptions:
     # when set (gid -> array of 0/1 over T), commitment is fixed and the model
     # becomes a pure LP so power-balance duals (LMPs) are available.
     fixed_commitment: Optional[dict[str, np.ndarray]] = None
+    # rolling-horizon storage feedforward (rtops RT-SCED): initial SOC as a
+    # fraction of energy capacity per storage id. When set, SOC dynamics are
+    # NON-cyclic with duration-weighted energy (a 5-min step moves 1/12 the
+    # energy of an hour) — a short window can then net-discharge what an
+    # earlier horizon stored, instead of being forced back to its start SOC.
+    # None (default) keeps the existing cyclic per-period formulation, so
+    # every planning result is untouched. Not valid with investment=True.
+    storage_soc_init: Optional[dict[str, float]] = None
 
 
 # --- assembler --------------------------------------------------------------
@@ -667,8 +675,25 @@ def build_dispatch_model(view: EconomicView, options: EngineOptions) -> BuiltMod
         # SOC dynamics, cyclic within each representative period. Vectorized per
         # period via .shift (the per-period first row is masked), plus one scalar
         # cyclic-closure constraint linking each period's first step to its last.
-        periods = [(pid, np.where(view.period_ids == pid)[0])
-                   for pid in np.unique(view.period_ids)]
+        if options.storage_soc_init is not None:
+            assert not options.investment, \
+                "storage_soc_init is a rolling-horizon (RT) feature"
+            w_da = xr.DataArray(view.period_weight, coords=[t_idx], dims=["t"])
+            for s in sto:
+                sc, sdis, ss = ch.sel(s=s.id), dis.sel(s=s.id), soc.sel(s=s.id)
+                e_nom = float(s.e_nom_existing)
+                init = float(options.storage_soc_init.get(s.id, 0.5)) * e_nom
+                within = (ss - ss.shift(t=1) - s.eff_c * sc * w_da
+                          + (1.0 / s.eff_d) * sdis * w_da).isel(t=slice(1, None))
+                m.add_constraints(within == 0, name=f"soc_{s.id}_roll")
+                m.add_constraints(
+                    ss.isel(t=0) - s.eff_c * sc.isel(t=0) * w_da.isel(t=0)
+                    + (1.0 / s.eff_d) * sdis.isel(t=0) * w_da.isel(t=0) == init,
+                    name=f"soc_init_{s.id}")
+            periods = []
+        else:
+            periods = [(pid, np.where(view.period_ids == pid)[0])
+                       for pid in np.unique(view.period_ids)]
         for s in sto:
             sc = ch.sel(s=s.id)
             sdis = dis.sel(s=s.id)
