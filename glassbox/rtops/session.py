@@ -219,11 +219,12 @@ class OpsSession:
                                   "mechanism did not respond. Treat as a "
                                   "breaker failure: isolate via adjacent "
                                   "devices and notify maintenance"}
+            sw = next((s for s in sim.world.switches if s.id == sw_id), None)
+            prev = sw.open if sw is not None else None      # capture BEFORE
             res = operate_switch(sim.world, sw_id,
                                  bool(act.get("open", True)))
-            if res.applied:
-                sw = next(s for s in sim.world.switches if s.id == res.switch_id)
-                sim._switch_ops.append((res.switch_id, not sw.open))
+            if res.applied and sw is not None and sw.open != prev:
+                sim._switch_ops.append((res.switch_id, prev))
                 sim.events.append({"step": sim.k, "kind": "operator_switch",
                                    "id": res.switch_id, "open": res.open})
             return {"applied": res.applied, "reason": res.reason}
@@ -247,7 +248,11 @@ class OpsSession:
             gen = next((g for g in sim.world.generators if g.id == gid), None)
             if gen is None:
                 return {"applied": False, "reason": f"no generator '{gid}'"}
-            new_v = float(np.clip(gen.v_setpoint_pu + dv, 0.90, 1.10))
+            base_v = gen.v_setpoint_pu if gen.v_setpoint_pu is not None else 1.0
+            # record the original once so finish() can restore it (the shared
+            # world must not carry an operator's AVR nudge into the next shift)
+            sim._prev_setpoint.setdefault(gid, gen.v_setpoint_pu)
+            new_v = float(np.clip(base_v + dv, 0.90, 1.10))
             gen.v_setpoint_pu = new_v
             sim.events.append({"step": sim.k, "kind": "operator_voltage",
                                "id": gid, "v_setpoint_pu": round(new_v, 3)})

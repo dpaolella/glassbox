@@ -205,3 +205,58 @@ def test_scenario_pass_reported():
     assert rep["scenario_pass"] is not None
     assert "passed" in rep["scenario_pass"] and \
         "criterion" in rep["scenario_pass"]
+
+
+# --- review-driven regressions (issue #58 rtops review) ----------------------
+
+
+def test_voltage_action_and_repeated_shifts_stay_deterministic(world):
+    """Setpoint mutation must not leak across shifts on the same world."""
+    from fastapi.testclient import TestClient
+    from glassbox.api.app import app
+    c = TestClient(app)
+    c.post("/api/world/reset")
+    # a shift with a reactive-dispatch action, run to completion
+    c.post("/api/opsim/start", json={
+        "seed": 8, "n_steps": 8, "forced_outages": False, "speed": 0})
+    c.post("/api/opsim/clock", json={"speed": 1e9})
+    st = c.get("/api/opsim/state").json()
+    gid = next(iter(st["basepoints"]))
+    c.post("/api/opsim/action", json={"type": "voltage", "id": gid,
+                                      "delta_pu": 0.03})
+    for _ in range(4):
+        st = c.get("/api/opsim/state").json()
+        if st["clock"]["finished"]:
+            break
+    # the shared world's setpoint is restored (no leak into the next shift)
+    from glassbox.api.app import service
+    g = next(x for x in service.world.generators if x.id == gid)
+    assert g.v_setpoint_pu is None or abs(g.v_setpoint_pu - 1.0) < 0.5
+
+
+def test_voltage_action_survives_unset_setpoint(world):
+    # a generator whose v_setpoint_pu is None must not crash the action
+    from glassbox.rtops.session import OpsSession
+    from glassbox.rtops import ShiftConfig
+    w = world.model_copy(deep=True)
+    for g in w.generators:
+        g.v_setpoint_pu = None
+    sess = OpsSession(w, ShiftConfig(n_steps=4, forced_outages=False),
+                      speed=0.0)
+    sess.poll()
+    gid = w.generators[0].id
+    r = sess.action({"type": "voltage", "id": gid, "delta_pu": 0.02})
+    assert r["applied"]
+
+
+def test_repaired_generator_returns_to_service(world):
+    gens = sorted((g for g in world.generators if g.in_service),
+                  key=lambda g: -g.p_max_mw)
+    gid = next(g.id for g in gens
+               if any(s.id == f"cb__{g.id}__1" for s in
+                      __import__("glassbox.rtops", fromlist=["elaborate_world"])
+                      .elaborate_world(world.model_copy(deep=True)).switches))
+    res = run_shift(world, _cfg(n_steps=16, scripted_events=[
+        {"step": 1, "kind": "trip_generator", "id": gid, "repair_steps": 4}]))
+    assert any(e["kind"] == "generator_repaired" and e["id"] == gid
+               for e in res.events), "repaired unit must reclose its breaker"
