@@ -330,6 +330,9 @@ export interface OpsState {
   se?: { health: string; redundancy: number; bad_points: string[];
          residual_norm: number | null } | null;
   hruc_pending?: { unit: string; short_mw: number } | null;
+  bus_voltages?: Record<string, number>;
+  voltage_violations?: { bus: string; detail: string }[];
+  in_blackout?: boolean;
   traces: Record<string, number[]>;
   events: Record<string, any>[];
   alarms: { id: number; step: number; severity: string; kind: string;
@@ -350,6 +353,9 @@ export interface OpsReport {
   finished: boolean; steps_completed: number;
   totals: Record<string, number>; grades: Record<string, string>; note: string;
   nerc?: Record<string, any>; eea_peak?: number;
+  scenario?: string | null;
+  scenario_pass?: { passed: boolean; criterion: string } | null;
+  voltage_note?: string;
 }
 
 export const api = {

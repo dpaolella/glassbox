@@ -164,6 +164,17 @@ export function ControlRoomPanel() {
         {clock.finished && <strong className="cr-done">shift complete</strong>}
       </div>
 
+      {state.in_blackout && (
+        <div className="cr-eea" title="Served load has collapsed. Restoration (EOP-005): re-commit units, reclose cleared lines, pick load back up in blocks.">
+          ⚫ BLACKOUT — restore load in blocks
+        </div>
+      )}
+      {(state.voltage_violations ?? []).length > 0 && (
+        <div className="cr-sol" title="VAR-001: buses outside their voltage schedule. Reactive dispatch (adjust generator AVR setpoints) to correct.">
+          ⚡ voltage: {(state.voltage_violations ?? [])
+            .map((v) => v.bus).join(", ")} off-schedule
+        </div>
+      )}
       {(state.eea_level ?? 0) > 0 && (
         <div className="cr-eea" title="Energy Emergency Alert, declared by the (simulated) Reliability Coordinator per EOP-011">
           ⚠ EEA-{state.eea_level} in effect
@@ -187,6 +198,12 @@ export function ControlRoomPanel() {
       {report && (
         <div className="cr-report">
           <h4>Shift report card</h4>
+          {report.scenario_pass && (
+            <div className={`cr-scenario-verdict ${report.scenario_pass.passed ? "pass" : "fail"}`}>
+              {report.scenario_pass.passed ? "✓ PASSED" : "✗ did not pass"}
+              {" — "}{report.scenario_pass.criterion}
+            </div>
+          )}
           {report.nerc?.cps1_pct !== undefined && (
             <div className="cr-report-totals">
               CPS1 {report.nerc.cps1_pct}% · BAAL violations{" "}
@@ -349,6 +366,14 @@ export function ControlRoomPanel() {
           <button disabled={!redisGen} title="what-if against the current interval — never commits (the obs.simulate lesson)"
                   onClick={() => doStudy({ type: "redispatch", id: redisGen, delta_mw: redisMw })}>
             study
+          </button>
+          <button disabled={!redisGen} title="reactive dispatch: raise this unit's AVR voltage setpoint by 0.02 pu (VAR-001)"
+                  onClick={() => act({ type: "voltage", id: redisGen, delta_pu: 0.02 })}>
+            V+
+          </button>
+          <button disabled={!redisGen} title="lower this unit's AVR voltage setpoint by 0.02 pu"
+                  onClick={() => act({ type: "voltage", id: redisGen, delta_pu: -0.02 })}>
+            V−
           </button>
         </div>
         <div className="cr-action-row">

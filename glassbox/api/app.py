@@ -1060,7 +1060,8 @@ def opsim_start(req: OpsStartRequest):
                           scripted_events=req.scripted_events)
     try:
         _ops_session["session"] = OpsSession(service.world, cfg,
-                                             speed=req.speed)
+                                             speed=req.speed,
+                                             scenario_key=req.scenario)
     except Exception as exc:
         raise HTTPException(500, f"could not start shift: {exc}")
     return _ops_session["session"].state()

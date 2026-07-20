@@ -14,6 +14,8 @@ affordance, so it always reaches the UI.
 from __future__ import annotations
 
 import time
+
+import numpy as np
 from typing import Optional
 
 from ..schema import World
@@ -29,13 +31,34 @@ _SEVERITY = {"line_trip": "critical", "generator_trip": "critical",
              "breaker_failure": "critical", "breaker_stuck_armed": "info",
              "clearance_active": "info", "clearance_released": "info",
              "se_degraded": "critical", "bad_data_identified": "warning",
-             "hruc_proposal": "warning"}
+             "hruc_proposal": "warning", "blackout": "critical",
+             "restoration_complete": "info", "voltage_violation": "warning",
+             "voltage_unsolved": "critical"}
 
 MAX_STEPS_PER_POLL = 24
 
 
+def score_baal(sim) -> int:
+    from .scoring import score_shift
+    largest = max((g.p_max_mw for g in sim.world.generators
+                   if g.in_service), default=0.0)
+    r = score_shift(sim.traces, sim.events, sim.cfg, largest, 0.0)
+    return r.get("baal", {}).get("violations", 0)
+
+
+def _dcs(sim) -> list:
+    from .scoring import score_shift
+    largest = max((g.p_max_mw for g in sim.world.generators
+                   if g.in_service), default=0.0)
+    r = score_shift(sim.traces, sim.events, sim.cfg, largest,
+                    sim.totals()["unserved_mwh"])
+    return r.get("dcs", {}).get("reportable_events", [])
+
+
 class OpsSession:
-    def __init__(self, world: World, cfg: ShiftConfig, speed: float = 60.0):
+    def __init__(self, world: World, cfg: ShiftConfig, speed: float = 60.0,
+                 scenario_key: str | None = None):
+        self.scenario_key = scenario_key
         self.sim = OpsSimulation(world, cfg)
         self.sim.start()
         self.speed = speed              # sim-minutes per wall-minute (0=frozen)
@@ -146,6 +169,11 @@ class OpsSession:
             "se": sim.se_result.summary()
                   if getattr(sim, "se_result", None) else None,
             "hruc_pending": getattr(sim, "_hruc_pending", None),
+            "bus_voltages": {k: round(v, 4)
+                             for k, v in getattr(sim, "_bus_voltages", {}).items()},
+            "voltage_violations": getattr(sim, "_v_violations", []),
+            "in_blackout": getattr(sim, "_blackout", False)
+                           and getattr(sim, "_restored_step", None) is None,
             "da_summary": sim._da,
             "totals": sim.totals(),
         }
@@ -214,6 +242,22 @@ class OpsSession:
                     a["acked"] = True
                     return {"applied": True}
             return {"applied": False, "reason": f"no alarm #{aid}"}
+        if kind == "voltage":
+            gid, dv = act.get("id"), float(act.get("delta_pu", 0.0))
+            gen = next((g for g in sim.world.generators if g.id == gid), None)
+            if gen is None:
+                return {"applied": False, "reason": f"no generator '{gid}'"}
+            new_v = float(np.clip(gen.v_setpoint_pu + dv, 0.90, 1.10))
+            gen.v_setpoint_pu = new_v
+            sim.events.append({"step": sim.k, "kind": "operator_voltage",
+                               "id": gid, "v_setpoint_pu": round(new_v, 3)})
+            # re-check voltages so the operator sees the effect immediately
+            from .topology import derive_bus_branch
+            derived = derive_bus_branch(sim.world).world
+            sim._voltage_check(sim.k, derived, self._last_bp())
+            return {"applied": True,
+                    "note": f"{gid} AVR setpoint -> {new_v:.3f} pu; "
+                            "reactive dispatch adjusts voltages, not MW"}
         if kind in ("approve_hruc", "deny_hruc"):
             pending = getattr(sim, "_hruc_pending", None)
             if not pending:
@@ -273,6 +317,14 @@ class OpsSession:
         return {"applied": False, "reason": f"unknown action type '{kind}' — "
                 "valid: redispatch, switch, shed_load, ack_alarm, request_sced"}
 
+    def _last_bp(self) -> dict:
+        sim = self.sim
+        if not sim._basepoints:
+            return {}
+        w = max(sim.k - 1 - sim._window_start, 0)
+        return {g: float(v[min(w, len(v) - 1)])
+                for g, v in sim._basepoints.items()}
+
     # --- study mode (obs.simulate analog): what-if, never mutates ----------
 
     def study(self, act: dict) -> dict:
@@ -315,6 +367,40 @@ class OpsSession:
                 "gen_total_mw": round(gen_total, 1),
                 "would_overload": [w for w in worst if w["rho_emergency"] > 1.0]}
 
+    def _evaluate_pass(self, t: dict) -> dict | None:
+        """Did the operator meet THIS scenario's pass criterion (PRD §10)?"""
+        if not self.scenario_key:
+            return None
+        sim = self.sim
+        evs = sim.events
+        key = self.scenario_key
+        crit = {
+            "first_shift": (t["unserved_mwh"] < 0.5,
+                            "finish with ~zero unserved energy"),
+            "morning_ramp": (
+                score_baal(sim) == 0, "no BAAL violation"),
+            "dcs_drill": (
+                all(d["recovered_in_15min"] for d in
+                    _dcs(sim)) and bool(_dcs(sim)),
+                "ACE recovered within 15 min of the trip"),
+            "thirty_minute_clock": (
+                not any(e["kind"] == "sol_clock_expired" for e in evs),
+                "cleared the SOL exceedance within 30 min"),
+            "switching_order": (
+                any(e["kind"] == "clearance_active" for e in evs),
+                "clearance granted on the target line"),
+            "storm_shift": (
+                sim._shed_mw <= 50.0 and not t["blackout"],
+                "survived turnover with minimal firm shed"),
+            "blackout_restoration": (
+                bool(t["blackout"]) and t.get("restoration_min") is not None,
+                "restored load to 95% before turnover"),
+        }.get(key)
+        if crit is None:
+            return None
+        passed, why = crit
+        return {"passed": bool(passed), "criterion": why}
+
     def inject(self, event: dict) -> dict:
         """Instructor console: schedule an event into the running shift."""
         allowed = {"trip_generator", "derate_line", "scale_load", "stick_breaker", "bad_meter"}
@@ -351,6 +437,11 @@ class OpsSession:
             "nerc": nerc,
             "eea_peak": max((e.get("eea_level", 0) for e in sim.events
                              if e["kind"] == "rc_directive"), default=0),
+            "scenario": self.scenario_key,
+            "scenario_pass": self._evaluate_pass(t),
+            "voltage_note": (f"{t['voltage_violations']} voltage-schedule "
+                             "excursions" if t.get("voltage_violations")
+                             else "voltages held to schedule"),
             "note": "graded as NERC grades desks: CPS1 (frequency support), "
                     "BAAL (ACE limits), DCS (15-min recovery), TOP-001 "
                     "(30-min SOL clocks), plus unserved energy and trips",

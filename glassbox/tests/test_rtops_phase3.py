@@ -136,3 +136,72 @@ def test_hruc_proposal_and_approval(world):
     # denial path is always testable
     r = c.post("/api/opsim/action", json={"type": "deny_hruc"}).json()
     assert "applied" in r
+
+
+# --- voltage operations (issue #58) ------------------------------------------
+
+
+def test_voltage_check_runs_and_reports(world):
+    res = run_shift(world, _cfg(voltage_every_steps=3))
+    # min-voltage trace populated (AC PF ran and converged at least once)
+    assert any(v > 0 for v in res.traces["min_voltage_pu"])
+    assert all(0.5 < v < 1.5 for v in res.traces["min_voltage_pu"] if v > 0)
+    assert "voltage_violations" in res.totals
+
+
+def test_reactive_dispatch_action(world):
+    from fastapi.testclient import TestClient
+    from glassbox.api.app import app
+    c = TestClient(app)
+    c.post("/api/world/reset")
+    c.post("/api/opsim/start", json={
+        "seed": 5, "n_steps": 12, "forced_outages": False, "speed": 0})
+    c.post("/api/opsim/clock", json={"speed": 1e6})
+    st = c.get("/api/opsim/state").json()
+    c.post("/api/opsim/clock", json={"speed": 0})
+    assert "bus_voltages" in st and "voltage_violations" in st
+    gid = next(iter(st["basepoints"]))
+    r = c.post("/api/opsim/action", json={
+        "type": "voltage", "id": gid, "delta_pu": 0.02}).json()
+    assert r["applied"] and "AVR setpoint" in r["note"]
+    bad = c.post("/api/opsim/action", json={
+        "type": "voltage", "id": "nope", "delta_pu": 0.02}).json()
+    assert not bad["applied"]
+
+
+# --- restoration epilogue (issue #58) ----------------------------------------
+
+
+def test_blackout_and_restoration(world):
+    # deliberately induce mass load loss then recovery
+    res = run_shift(world, _cfg(n_steps=48, blackout_served_frac=0.6,
+                                scripted_events=[
+        {"step": 3, "kind": "trip_generator", "id": "nuclear_1"},
+        {"step": 4, "kind": "trip_generator", "id": "ccgt_4"},
+        {"step": 5, "kind": "scale_load", "factor": 1.2}]))
+    served = res.traces["served_frac"]
+    assert min(served) < 1.0                     # load was lost
+    assert "blackout" in res.totals and "min_served_frac" in res.totals
+    # the trace is well-formed and served fraction is a valid ratio
+    assert all(0.0 <= v <= 1.0001 for v in served)
+
+
+# --- scenario pass evaluation (issue #58) ------------------------------------
+
+
+def test_scenario_pass_reported():
+    from fastapi.testclient import TestClient
+    from glassbox.api.app import app
+    c = TestClient(app)
+    c.post("/api/world/reset")
+    c.post("/api/opsim/start", json={"scenario": "first_shift", "speed": 0})
+    c.post("/api/opsim/clock", json={"speed": 1e6})
+    for _ in range(12):
+        st = c.get("/api/opsim/state").json()
+        if st["clock"]["finished"]:
+            break
+    rep = c.get("/api/opsim/report").json()
+    assert rep["scenario"] == "first_shift"
+    assert rep["scenario_pass"] is not None
+    assert "passed" in rep["scenario_pass"] and \
+        "criterion" in rep["scenario_pass"]
