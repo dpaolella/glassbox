@@ -1019,6 +1019,35 @@ def switch_operate(switch_id: str, op: SwitchOp):
     return out
 
 
+class OpsRunRequest(BaseModel):
+    seed: int = 42
+    n_steps: int = 144
+    start_hour: int = 5
+    load_error_sigma: float = 0.01
+    forced_outages: bool = True
+    scripted_events: list[dict] = []
+
+
+@app.post("/api/opsim/run")
+def opsim_run(req: OpsRunRequest):
+    """Run one headless operating shift on the current world (issue #56 0b).
+
+    Synchronous for now: the interactive session/clock API arrives with the
+    Control Room tab (Phase 1). A full 12h shift solves in ~40s.
+    """
+    from ..rtops import OpsSimulation, ShiftConfig
+
+    cfg = ShiftConfig(seed=req.seed, n_steps=req.n_steps,
+                      start_hour=req.start_hour,
+                      load_error_sigma=req.load_error_sigma,
+                      forced_outages=req.forced_outages,
+                      scripted_events=req.scripted_events)
+    try:
+        return OpsSimulation(service.world, cfg).run().to_json()
+    except Exception as exc:
+        raise HTTPException(500, f"shift failed: {exc}")
+
+
 @app.get("/api/substations")
 def substation_detail():
     """Node-breaker detail per substation, for the one-line detail view."""
