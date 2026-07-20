@@ -261,6 +261,8 @@ class OpsSimulation:
         self._energy_cost = 0.0
         self._redispatch: dict[str, float] = {}   # operator basepoint offsets
         self._shed_mw = 0.0                        # operator manual load shed
+        self._eea_level = 0
+        self._sol_clocks: dict[str, int] = {}
         self.k = 0
 
     @property
@@ -361,6 +363,7 @@ class OpsSimulation:
             self.traces["unserved_mw"].append(round(unserved, 3))
             self.traces["max_rho"].append(round(max_rho, 4))
             self.traces["lambda_per_mwh"].append(round(getattr(self, "_lambda", 0.0), 2))
+            self._assess_reliability(k, derived, bp, unserved)
         self.k += 1
 
     def finish(self) -> ShiftResult:
@@ -383,6 +386,81 @@ class OpsSimulation:
                 "max_freq_dev_hz": round(max(
                     (abs(f - self._freq_nominal)
                      for f in self.traces["freq_hz"]), default=0.0), 5)}
+
+    # --- reliability assessment: EEA ladder + RTCA N-1 (Phase 2) -----------
+
+    def _assess_reliability(self, k, derived, bp, unserved) -> None:
+        """The simulated RC watching over your desk (PRD §5): declares EEA
+        levels from reserve posture and runs a one-deep RTCA screen with the
+        30-minute SOL clock (TOP-001's Real-time Assessment cadence)."""
+        # EEA: contingency reserve requirement = largest online unit (BAL-002)
+        online = [g for g in derived.generators
+                  if g.in_service and g.id not in self._out_gens
+                  and bp.get(g.id, 0.0) > 1e-3]
+        largest = max((bp[g.id] for g in online), default=0.0)
+        headroom = sum(max(0.0, g.p_max_mw - bp.get(g.id, 0.0)) for g in online)
+        if unserved > 1.0:
+            level = 3
+        elif headroom < 0.5 * largest:
+            level = 2
+        elif headroom < largest:
+            level = 1
+        else:
+            level = 0
+        if level != self._eea_level:
+            msg = {0: "EEA cancelled — reserves restored",
+                   1: "EEA-1: all resources committed, reserves below "
+                      "requirement (largest online unit)",
+                   2: "EEA-2: reserves critically deficient — deploy demand "
+                      "response, prepare load management",
+                   3: "EEA-3: firm load interruption imminent or in progress"}
+            self.events.append({"step": k, "kind": "rc_directive",
+                                "eea_level": level, "detail": msg[level]})
+            self._eea_level = level
+
+        # RTCA lite: outage the heaviest-loaded line, re-solve, flag post-
+        # contingency overloads; each carries a 30-minute SOL clock.
+        flows = getattr(self, "last_flows", {})
+        live = [l for l in derived.ac_lines
+                if l.in_service and l.id not in self._tripped_lines]
+        if len(live) > 2 and flows:
+            heaviest = max((l for l in live if l.id in flows),
+                           key=lambda l: abs(flows[l.id]), default=None)
+            if heaviest is not None:
+                self._tripped_lines[heaviest.id] = 1     # pretend, briefly
+                post = self._dc_flows(derived, bp)
+                del self._tripped_lines[heaviest.id]
+                viol = []
+                for l in live:
+                    if l.id == heaviest.id or l.id not in post:
+                        continue
+                    rho = abs(post[l.id]) / max(
+                        l.rating_emergency_mva
+                        * self._line_derate.get(l.id, 1.0), 1e-6)
+                    if rho > 1.0:
+                        viol.append((l.id, rho))
+                sol_steps = int(30 / self.cfg.step_minutes)
+                for lid, rho in viol:
+                    self._sol_clocks[lid] = self._sol_clocks.get(lid, 0) + 1
+                    if self._sol_clocks[lid] == 1:
+                        self.events.append({
+                            "step": k, "kind": "rtca_violation", "id": lid,
+                            "detail": f"if {heaviest.id} trips, {lid} reaches "
+                                      f"{rho:.2f}x emergency — SOL clock "
+                                      "started (30 min to mitigate)"})
+                    elif self._sol_clocks[lid] == sol_steps + 1:
+                        self.events.append({
+                            "step": k, "kind": "sol_clock_expired", "id": lid,
+                            "detail": f"post-contingency overload on {lid} "
+                                      "uncleared for 30 minutes — TOP-001 "
+                                      "compliance violation"})
+                cleared = [lid for lid in self._sol_clocks
+                           if lid not in {v[0] for v in viol}]
+                for lid in cleared:
+                    if self._sol_clocks[lid] > 0:
+                        self.events.append({"step": k, "kind": "sol_cleared",
+                                            "id": lid})
+                    del self._sol_clocks[lid]
 
     # --- helpers -------------------------------------------------------------
 
@@ -511,14 +589,18 @@ class OpsSimulation:
             sw = next(s for s in self.world.switches if s.id == cb)
             self._switch_ops.append((cb, sw.open))
             operate_switch(self.world, cb, True)
-        ev = {"step": k, "kind": "generator_trip", "id": gid, "reason": reason}
+        lost_now = 0.0
+        if self._basepoints and gid in self._basepoints:
+            lost_now = float(self._basepoints[gid][0])
+        ev = {"step": k, "kind": "generator_trip", "id": gid, "reason": reason,
+              "lost_mw": round(lost_now, 1)}
         # SFR transient: how deep does frequency dip before governors arrest it?
         try:
             from ..engines.dynamics import (assemble_frequency_system,
                                             simulate_frequency_response)
             bp = {g: float(v[0]) for g, v in self._basepoints.items()} \
                 if self._basepoints else {}
-            lost = bp.get(gid) or next(
+            lost = lost_now or next(
                 (g.p_max_mw * 0.5 for g in self.world.generators
                  if g.id == gid), 0.0)
             sys = assemble_frequency_system(self.world, bp or {gid: lost})
