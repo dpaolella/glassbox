@@ -237,9 +237,9 @@ class OpsSimulation:
 
     # --- the step loop -------------------------------------------------------
 
-    def run(self) -> ShiftResult:
+    def start(self) -> None:
+        """Precompute actuals walks + run day-ahead; ready to advance."""
         cfg = self.cfg
-        # precompute actuals walks (deterministic, seeded)
         n = cfg.n_steps + cfg.sced_window_steps
         walk = np.cumsum(self.rng.normal(0, cfg.load_error_sigma, n))
         self._load_factor = np.clip(1.0 + walk, 0.9, 1.1)
@@ -249,22 +249,36 @@ class OpsSimulation:
             if g.technology.value in ("wind", "solar_pv"):
                 w = np.cumsum(self.rng.normal(0, cfg.vre_error_sigma, n))
                 self._vre_factor[g.id] = np.clip(1.0 + w, 0.5, 1.3)
-        # per-gen forced-outage hazard per step
-        hazard = {g.id: (cfg.step_minutes / 60.0) / g.mttf_h
-                  for g in self.world.generators
-                  if cfg.forced_outages and (g.mttf_h or 0) > 0}
-        outage_draws = {gid: self.rng.random(cfg.n_steps)
-                        for gid in sorted(hazard)}
+        self._hazard = {g.id: (cfg.step_minutes / 60.0) / g.mttf_h
+                        for g in self.world.generators
+                        if cfg.forced_outages and (g.mttf_h or 0) > 0}
+        self._outage_draws = {gid: self.rng.random(cfg.n_steps)
+                              for gid in sorted(self._hazard)}
+        self._da = self.run_day_ahead()
+        self._freq_nominal = self.world.base_frequency_hz
+        self._b_total = abs(cfg.bias_mw_per_0p1hz) * 10.0  # MW per Hz
+        self._unserved_mwh = 0.0
+        self._energy_cost = 0.0
+        self._redispatch: dict[str, float] = {}   # operator basepoint offsets
+        self._shed_mw = 0.0                        # operator manual load shed
+        self.k = 0
 
-        da = self.run_day_ahead()
+    @property
+    def finished(self) -> bool:
+        return self.k >= self.cfg.n_steps
 
-        freq_nominal = self.world.base_frequency_hz
-        b_total = abs(cfg.bias_mw_per_0p1hz) * 10.0  # MW per Hz
-        unserved_mwh = 0.0
-        energy_cost = 0.0
-        trips = 0
+    def run(self) -> ShiftResult:
+        self.start()
+        while not self.finished:
+            self.advance_one()
+        return self.finish()
 
-        for k in range(cfg.n_steps):
+    def advance_one(self) -> None:
+        cfg = self.cfg
+        n = cfg.n_steps + cfg.sced_window_steps
+        hazard, outage_draws = self._hazard, self._outage_draws
+        freq_nominal, b_total = self._freq_nominal, self._b_total
+        for k in [self.k]:
             # 1) scripted + stochastic events
             for ev in cfg.scripted_events:
                 if ev.get("step") == k:
@@ -304,10 +318,14 @@ class OpsSimulation:
             w = k - self._window_start
             bp = {g: float(v[min(w, len(v) - 1)])
                   for g, v in self._basepoints.items()}
+            for gid, dmw in self._redispatch.items():
+                if gid in bp:
+                    bp[gid] = max(0.0, bp[gid] + dmw)
 
             # 4) AGC emulation toward ACE = 0
             hour_idx = min((k * cfg.step_minutes) // 60 * 0 + k, n - 1)
-            actual_load = self._actual_load_mw(k, derived)
+            actual_load = max(0.0, self._actual_load_mw(k, derived)
+                              - self._shed_mw)
             sto = 0.0
             if getattr(self, "_storage_net", None) is not None:
                 sto = float(self._storage_net[min(w, len(self._storage_net) - 1)])
@@ -328,15 +346,13 @@ class OpsSimulation:
                 self._distribute_agc(correction, derived, bp)
                 ace = gen_total + sched_short - actual_load
             unserved = sched_short + max(0.0, -ace)
-            served_gap = max(0.0, ace)
             # islanded Reporting ACE: interchange term is zero
             freq = freq_nominal + ace / b_total
-            unserved_mwh += unserved * cfg.step_minutes / 60.0
-            energy_cost += self._step_cost(bp) * cfg.step_minutes / 60.0
+            self._unserved_mwh += unserved * cfg.step_minutes / 60.0
+            self._energy_cost += self._step_cost(bp) * cfg.step_minutes / 60.0
 
             # 5) protection on realized flows
             max_rho = self._protection_pass(k, derived, bp, actual_load)
-            trips = sum(1 for e in self.events if e["kind"] == "line_trip")
 
             self.traces["freq_hz"].append(round(freq, 5))
             self.traces["ace_mw"].append(round(ace, 3))
@@ -345,22 +361,28 @@ class OpsSimulation:
             self.traces["unserved_mw"].append(round(unserved, 3))
             self.traces["max_rho"].append(round(max_rho, 4))
             self.traces["lambda_per_mwh"].append(round(getattr(self, "_lambda", 0.0), 2))
+        self.k += 1
 
+    def finish(self) -> ShiftResult:
         # restore all switch state the run changed
         for sw_id, prev in reversed(self._switch_ops):
             sw = next(s for s in self.world.switches if s.id == sw_id)
             sw.open = prev
+        self._switch_ops.clear()
         return ShiftResult(
-            config=cfg, events=self.events, traces=self.traces,
-            totals={"unserved_mwh": round(unserved_mwh, 4),
-                    "energy_cost": round(energy_cost, 2),
-                    "line_trips": trips,
-                    "gen_outages": sum(1 for e in self.events
-                                       if e["kind"] == "generator_trip"),
-                    "max_freq_dev_hz": round(max(
-                        abs(f - freq_nominal)
-                        for f in self.traces["freq_hz"]), 5)},
-            da_summary=da)
+            config=self.cfg, events=self.events, traces=self.traces,
+            totals=self.totals(), da_summary=self._da)
+
+    def totals(self) -> dict:
+        trips = sum(1 for e in self.events if e["kind"] == "line_trip")
+        return {"unserved_mwh": round(self._unserved_mwh, 4),
+                "energy_cost": round(self._energy_cost, 2),
+                "line_trips": trips,
+                "gen_outages": sum(1 for e in self.events
+                                   if e["kind"] == "generator_trip"),
+                "max_freq_dev_hz": round(max(
+                    (abs(f - self._freq_nominal)
+                     for f in self.traces["freq_hz"]), default=0.0), 5)}
 
     # --- helpers -------------------------------------------------------------
 

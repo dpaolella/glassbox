@@ -10,6 +10,7 @@ import { OraclePanel } from "./components/OraclePanel";
 import { Catalog } from "./components/Catalog";
 import { ChallengesPanel } from "./components/ChallengesPanel";
 import { GlossaryPanel } from "./components/GlossaryPanel";
+import { ControlRoomPanel } from "./components/ControlRoomPanel";
 import { Tour, TourStep, tourDone } from "./components/Tour";
 
 export interface Selection {
@@ -26,7 +27,8 @@ type Tab =
   | "challenges"
   | "glossary"
   | "weather"
-  | "series";
+  | "series"
+  | "control";
 
 // World collections that map to a Catalog group (for clickable status-bar counts)
 const CATALOG_COLLECTIONS = new Set([
@@ -266,14 +268,14 @@ export default function App() {
 
         <aside className="side-pane" style={{ width: panelWidth }}>
           <nav className="tabs">
-            {(["inspector", "catalog", "scenarios", "math", "oracles", "challenges", "glossary", "weather", "series"] as Tab[]).map(
+            {(["inspector", "catalog", "scenarios", "math", "oracles", "challenges", "glossary", "weather", "series", "control"] as Tab[]).map(
               (t) => (
                 <button
                   key={t}
                   className={`tab ${tab === t ? "active" : ""}`}
                   onClick={() => setTab(t)}
                 >
-                  {t === "math" ? "operators" : t}
+                  {t === "math" ? "operators" : t === "control" ? "control room" : t}
                 </button>
               ),
             )}
@@ -307,6 +309,7 @@ export default function App() {
             {tab === "math" && <OperatorPanel layer={layer} />}
             {tab === "challenges" && <ChallengesPanel />}
             {tab === "glossary" && <GlossaryPanel />}
+            {tab === "control" && <ControlRoomPanel />}
             {tab === "oracles" && <OraclePanel />}
             {tab === "weather" && <WeatherPanel />}
             {tab === "series" && <TimeSeriesPanel />}
