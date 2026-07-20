@@ -84,7 +84,8 @@ from .world import WeatherModelParams, WeatherSite, World
 # Registry of inspectable entity models, keyed by a stable type name, for the
 # generic introspection API (Section 9.2) and tests.
 from .substation import (Substation, VoltageLevel, BusbarSection, ConnectivityNode,
-                         Switch, SwitchKind, SubstationArrangement, EquipmentTerminal)
+                         Switch, SwitchKind, SubstationArrangement, EquipmentTerminal,
+                         OperatingArea)
 
 ENTITY_MODELS = {
     "Bus": Bus,
@@ -114,6 +115,7 @@ ENTITY_MODELS = {
     "ConnectivityNode": ConnectivityNode,
     "Switch": Switch,
     "EquipmentTerminal": EquipmentTerminal,
+    "OperatingArea": OperatingArea,
 }
 
 __all__ = [
@@ -133,6 +135,7 @@ __all__ = [
     "DynamicModel", "DynamicKind", "SynchronousMachineModel", "ConverterModel", "LCLFilter",
     "Substation", "VoltageLevel", "BusbarSection", "ConnectivityNode",
     "Switch", "SwitchKind", "SubstationArrangement", "EquipmentTerminal",
+    "OperatingArea",
     "World", "WeatherModelParams", "WeatherSite",
     "ResultBase", "Provenance", "CEMResult", "PCMResult", "DispatchResult", "NetworkResult",
     "AdequacyResult", "PowerFlowResult", "DynamicsResult", "EMTResult", "ImpedanceScanResult",

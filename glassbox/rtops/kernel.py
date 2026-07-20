@@ -53,8 +53,13 @@ class ShiftConfig:
     # actuals = forecast x bounded random walk (the gridfm-datakit recipe)
     load_error_sigma: float = 0.01   # per-step walk scale
     vre_error_sigma: float = 0.02
-    # balancing (islanded toy: |B| is the whole interconnection's bias here)
-    bias_mw_per_0p1hz: float = -80.0
+    # balancing / interconnection context (overridden by a world
+    # OperatingArea when one exists)
+    bias_mw_per_0p1hz: float = -80.0          # the area's own B (negative)
+    external_bias_mw_per_0p1hz: float = -1500.0   # rest-of-interconnection
+    tie_capacity_mw: float = 400.0            # total tie transfer capability
+    interchange_schedule_mw: list[float] = field(default_factory=list)
+    # hourly NIs, exports positive; empty = zero schedule (islanded balance)
     agc_gain: float = 0.35           # fraction of ACE corrected per subtick
     agc_subticks: int = 12           # emulated AGC cycles per 5-min step
     # markets
@@ -95,7 +100,7 @@ class OpsSimulation:
         self.events: list[dict] = []
         self.traces: dict[str, list] = {k: [] for k in (
             "freq_hz", "ace_mw", "load_mw", "gen_mw", "unserved_mw",
-            "max_rho", "lambda_per_mwh")}
+            "max_rho", "lambda_per_mwh", "ni_sched_mw", "ni_actual_mw")}
         # dynamic state
         self._tripped_lines: dict[str, int] = {}      # id -> steps to reconnect
         self._out_gens: dict[str, int] = {}           # id -> steps to repair
@@ -150,17 +155,31 @@ class OpsSimulation:
                 ln.rating *= self._line_derate[ln.id]
         return view
 
+    def _ref_idx(self, view) -> int:
+        ref = self.world.reference_bus_id
+        return view.nodes.index(ref) if ref in view.nodes else 0
+
     # --- stage 0: day-ahead ------------------------------------------------
 
     def run_day_ahead(self) -> dict:
         from ..engines.economic_core import (EngineOptions,
                                              build_dispatch_model, solve_model)
 
-        n_hours = math.ceil(self.cfg.n_steps * self.cfg.step_minutes / 60)
+        # commit over at least a half-day regardless of shift length: a
+        # too-short UC horizon cannot start long-min-up units (boundary
+        # artifact) and sheds load a full-day commitment would serve
+        n_hours = max(math.ceil(self.cfg.n_steps * self.cfg.step_minutes / 60),
+                      12)
         h0 = self.cfg.weather_year * HOURS_PER_YEAR + self.cfg.start_hour
         hours = np.arange(h0, h0 + n_hours)
         view = self._view(self.world, hours, actual=False, step0=0)
         view.T = len(hours)
+        if np.any(self._ni):
+            ridx = self._ref_idx(view)
+            sph = 60 // self.cfg.step_minutes
+            for t in range(len(hours)):
+                view.load[ridx, t] += self._ni[min(t * sph + sph // 2,
+                                                   len(self._ni) - 1)]
         built = build_dispatch_model(view, EngineOptions(
             investment=False, unit_commitment=True, reserves=True, label="da_uc"))
         status = solve_model(built)
@@ -192,7 +211,18 @@ class OpsSimulation:
 
         T = min(self.cfg.sced_window_steps, self.cfg.n_steps - step)
         hours = self._abs_hours(step, T)
-        view = self._view(derived, hours, actual=True, step0=step)
+        view = self._view(derived, hours, actual=False, step0=step)
+        self._window_native = view.load.copy()      # store forecast, no NIs
+        f_now = float(self._load_factor[step])       # persistence forecast
+        ridx = self._ref_idx(view)
+        self._window_ref_idx = ridx
+        for t in range(T):
+            view.load[:, t] *= f_now
+            view.load[ridx, t] += self._ni[step + t]
+        for g in view.gens:
+            if g.is_vre and g.availability is not None:
+                vf = float(self._vre_factor.get(g.id, self._ones)[step])
+                g.availability = np.clip(g.availability * vf, 0.0, 1.0)
         fixed = {}
         for gid, arr in self._commitment.items():
             idx = ((hours - hours[0]) * 0 +
@@ -223,7 +253,6 @@ class OpsSimulation:
             self._sced_unserved = \
                 built.m.variables["unserved"].solution.sum("n").values
         self._window_start = step
-        self._window_load = view.load          # [n_nodes, T] actuals
         self._window_nodes = list(view.nodes)
         # system lambda: the cost of the marginal dispatched unit
         mc = {g.id: g.marginal_cost for g in view.gens}
@@ -254,6 +283,16 @@ class OpsSimulation:
                         if cfg.forced_outages and (g.mttf_h or 0) > 0}
         self._outage_draws = {gid: self.rng.random(cfg.n_steps)
                               for gid in sorted(self._hazard)}
+        if self.world.operating_areas:
+            oa = self.world.operating_areas[0]
+            self.cfg.bias_mw_per_0p1hz = oa.frequency_bias_mw_per_0p1hz
+            self.cfg.external_bias_mw_per_0p1hz = oa.external_bias_mw_per_0p1hz
+            self.cfg.tie_capacity_mw = oa.tie_capacity_mw
+            if oa.scheduled_interchange_mw:
+                self.cfg.interchange_schedule_mw = \
+                    list(oa.scheduled_interchange_mw)
+        self._tie_available = self.cfg.tie_capacity_mw > 0
+        self._ni = self._build_ni_schedule()
         self._da = self.run_day_ahead()
         self._freq_nominal = self.world.base_frequency_hz
         self._b_total = abs(cfg.bias_mw_per_0p1hz) * 10.0  # MW per Hz
@@ -264,6 +303,32 @@ class OpsSimulation:
         self._eea_level = 0
         self._sol_clocks: dict[str, int] = {}
         self.k = 0
+
+    def _build_ni_schedule(self) -> np.ndarray:
+        """Per-step scheduled net interchange NIs (exports +), with the
+        real-world :50 -> :10 ramp across hourly schedule changes."""
+        cfg = self.cfg
+        n = cfg.n_steps + cfg.sced_window_steps
+        hourly = cfg.interchange_schedule_mw or []
+        if not hourly:
+            return np.zeros(n)
+        def h_val(h):
+            return float(hourly[min(max(h, 0), len(hourly) - 1)])
+        out = np.zeros(n)
+        start_min = cfg.start_hour * 60
+        for k in range(n):
+            m = start_min + k * cfg.step_minutes
+            h, m_in = divmod(m, 60)
+            h -= cfg.start_hour
+            if m_in >= 50:      # ramping toward next hour's schedule
+                frac = (m_in - 50 + cfg.step_minutes) / 20.0
+                out[k] = (1 - frac) * h_val(h) + frac * h_val(h + 1)
+            elif m_in < 10:     # finishing the ramp from the previous hour
+                frac = (m_in + 10 + cfg.step_minutes) / 20.0
+                out[k] = (1 - frac) * h_val(h - 1) + frac * h_val(h)
+            else:
+                out[k] = h_val(h)
+        return out
 
     @property
     def finished(self) -> bool:
@@ -311,7 +376,7 @@ class OpsSimulation:
             # Rating changes (derates) are RTCA inputs, not market events —
             # SCED sees them at its next scheduled solve, which is exactly
             # why overloads happen BETWEEN solves in the real world too.
-            resched = {"generator_trip", "line_trip", "line_reclosed"}
+            resched = {"generator_trip", "line_trip", "line_reclosed", "tie_trip"}
             if k % cfg.sced_every_steps == 0 or k == 0 or \
                     any(e["step"] in (k, k - 1) and e["kind"] in resched
                         for e in self.events):
@@ -347,9 +412,24 @@ class OpsSimulation:
                 gen_total += correction
                 self._distribute_agc(correction, derived, bp)
                 ace = gen_total + sched_short - actual_load
-            unserved = sched_short + max(0.0, -ace)
-            # islanded Reporting ACE: interchange term is zero
-            freq = freq_nominal + ace / b_total
+            # physical shortfall (what customers experience); sched_short
+            # stays inside ACE so AGC treats market-scheduled shortage as
+            # firm, not as regulation error
+            unserved = max(0.0, actual_load - gen_total)
+            # Reporting ACE = (NIa - NIs) - 10B(Fa - Fs). The external area
+            # (big bias behind the ties) absorbs its share of the imbalance
+            # as inadvertent interchange until the tie saturates; whatever
+            # the tie cannot carry moves frequency against the area's own
+            # bias alone. Algebra: ACE == the area's own imbalance, always —
+            # the definition's whole point.
+            ni_s = float(self._ni[k])
+            cap = cfg.tie_capacity_mw if self._tie_available else 0.0
+            bext = 10.0 * abs(cfg.external_bias_mw_per_0p1hz) \
+                if self._tie_available else 0.0
+            support = ace * bext / (b_total + bext) if bext > 0 else 0.0
+            support = float(np.clip(support, -(cap + ni_s), cap - ni_s))
+            ni_actual = ni_s + support
+            freq = freq_nominal + (ace - support) / b_total
             self._unserved_mwh += unserved * cfg.step_minutes / 60.0
             self._energy_cost += self._step_cost(bp) * cfg.step_minutes / 60.0
 
@@ -363,6 +443,8 @@ class OpsSimulation:
             self.traces["unserved_mw"].append(round(unserved, 3))
             self.traces["max_rho"].append(round(max_rho, 4))
             self.traces["lambda_per_mwh"].append(round(getattr(self, "_lambda", 0.0), 2))
+            self.traces["ni_sched_mw"].append(round(ni_s, 2))
+            self.traces["ni_actual_mw"].append(round(ni_actual, 2))
             self._assess_reliability(k, derived, bp, unserved)
         self.k += 1
 
@@ -465,8 +547,9 @@ class OpsSimulation:
     # --- helpers -------------------------------------------------------------
 
     def _actual_load_mw(self, k: int, derived: World) -> float:
-        w = min(k - self._window_start, self._window_load.shape[1] - 1)
-        return float(self._window_load[:, w].sum())
+        w = min(k - self._window_start, self._window_native.shape[1] - 1)
+        return float(self._window_native[:, w].sum()
+                     * self._load_factor[k] + self._ni[k])
 
     def _regulation_headroom(self, k, derived, bp) -> float:
         out = set(self._out_gens)
@@ -538,11 +621,16 @@ class OpsSimulation:
             if g.in_service and g.bus_id in idx:
                 p = bp.get(g.id, 0.0) + self._agc_adjust.get(g.id, 0.0)
                 inj[idx[g.bus_id]] += p
-        w = min(len(self.traces["load_mw"]) - self._window_start,
-                self._window_load.shape[1] - 1)
+        k_now = len(self.traces["load_mw"])
+        w = max(min(k_now - self._window_start,
+                    self._window_native.shape[1] - 1), 0)
+        f_true = float(self._load_factor[min(k_now, len(self._load_factor) - 1)])
         for i, node in enumerate(self._window_nodes):
             if node in idx:
-                inj[idx[node]] -= float(self._window_load[i, max(w, 0)])
+                load_i = float(self._window_native[i, w]) * f_true
+                if i == self._window_ref_idx:
+                    load_i += float(self._ni[min(k_now, len(self._ni) - 1)])
+                inj[idx[node]] -= load_i
         inj -= inj.sum() / nb  # balance residual (AGC slop) uniformly
         B = np.zeros((nb, nb))
         lines = [ln for ln in derived.ac_lines
@@ -576,6 +664,14 @@ class OpsSimulation:
             self._line_derate[ev["id"]] = float(ev.get("factor", 0.5))
             self.events.append({"step": k, "kind": "line_derated",
                                 "id": ev["id"], "factor": ev.get("factor", 0.5)})
+        elif kind == "trip_tie":
+            self._tie_available = False
+            self._ni[k:] = 0.0     # emergency schedule curtailment
+            self.events.append({"step": k, "kind": "tie_trip",
+                                "detail": "tie to the interconnection lost — "
+                                          "islanded: schedules curtailed, "
+                                          "frequency now moves against the "
+                                          "area's own bias alone"})
         elif kind == "scale_load":
             f = float(ev.get("factor", 1.1))
             self._load_factor[k:] = np.clip(self._load_factor[k:] * f, 0.5, 2.0)

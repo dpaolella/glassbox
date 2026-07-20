@@ -14,7 +14,7 @@ from pydantic import BaseModel, ConfigDict, Field
 
 from .dynamic_models import ConverterModel, SynchronousMachineModel
 from .substation import (BusbarSection, ConnectivityNode, EquipmentTerminal,
-                         Substation, Switch, VoltageLevel)
+                         OperatingArea, Substation, Switch, VoltageLevel)
 from .entities import (
     ACLine,
     Bus,
@@ -153,6 +153,7 @@ class World(BaseModel):
     connectivity_nodes: list[ConnectivityNode] = Field(default_factory=list)
     switches: list[Switch] = Field(default_factory=list)
     equipment_terminals: list[EquipmentTerminal] = Field(default_factory=list)
+    operating_areas: list[OperatingArea] = Field(default_factory=list)
 
     # temporal + weather
     temporal_maps: list[TemporalMap] = Field(default_factory=list)
