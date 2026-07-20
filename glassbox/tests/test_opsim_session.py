@@ -95,8 +95,11 @@ def test_redispatch_and_shed_enter_the_balance(client):
 def test_study_mode_never_mutates(client):
     _start(client, n_steps=40)
     client.post("/api/opsim/clock", json={"speed": 1e6})
-    client.get("/api/opsim/state")
-    before = client.get("/api/opsim/state").json()
+    # drive to completion so no poll can advance the clock mid-comparison
+    for _ in range(10):
+        before = client.get("/api/opsim/state").json()
+        if before["clock"]["finished"]:
+            break
     # what-if: open some line's bay breaker (one that exists in this layout)
     subs = client.get("/api/substations").json()
     line_ids = {l["id"] for l in before["lines"]}
@@ -124,8 +127,9 @@ def test_alarms_and_report(client):
         == st["unacked_critical"] - 1
 
     rep = client.get("/api/opsim/report").json()
-    assert rep["finished"] and set(rep["grades"]) == {
-        "reliability", "frequency_control", "security"}
+    assert rep["finished"]
+    assert {"reliability", "security"} <= set(rep["grades"])
+    assert "cps1_pct" in rep["nerc"]  # Phase 2: NERC scoring in the report
 
 
 def test_no_session_is_a_clean_409():

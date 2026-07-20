@@ -1032,6 +1032,7 @@ _ops_session = {"session": None}
 
 
 class OpsStartRequest(BaseModel):
+    scenario: str | None = None      # a library scenario id, overrides fields
     seed: int = 42
     n_steps: int = 144
     start_hour: int = 5
@@ -1046,11 +1047,17 @@ def opsim_start(req: OpsStartRequest):
     """Open an interactive shift session (replaces any existing one)."""
     from ..rtops import OpsSession, ShiftConfig
 
-    cfg = ShiftConfig(seed=req.seed, n_steps=req.n_steps,
-                      start_hour=req.start_hour,
-                      load_error_sigma=req.load_error_sigma,
-                      forced_outages=req.forced_outages,
-                      scripted_events=req.scripted_events)
+    if req.scenario:
+        from ..rtops.scenarios import SCENARIOS, scenario_config
+        if req.scenario not in SCENARIOS:
+            raise HTTPException(404, f"unknown scenario '{req.scenario}'")
+        cfg = scenario_config(req.scenario, service.world)
+    else:
+        cfg = ShiftConfig(seed=req.seed, n_steps=req.n_steps,
+                          start_hour=req.start_hour,
+                          load_error_sigma=req.load_error_sigma,
+                          forced_outages=req.forced_outages,
+                          scripted_events=req.scripted_events)
     try:
         _ops_session["session"] = OpsSession(service.world, cfg,
                                              speed=req.speed)
@@ -1097,6 +1104,18 @@ def opsim_study(act: dict):
 @app.get("/api/opsim/report")
 def opsim_report():
     return _session().report()
+
+
+@app.get("/api/opsim/scenarios")
+def opsim_scenarios():
+    from ..rtops.scenarios import scenario_list
+    return scenario_list()
+
+
+@app.post("/api/opsim/instructor")
+def opsim_instructor(event: dict):
+    """DTS instructor console: inject an event into the running shift."""
+    return _session().inject(event)
 
 
 @app.post("/api/opsim/run")

@@ -23,7 +23,9 @@ from .switching import operate_switch
 _SEVERITY = {"line_trip": "critical", "generator_trip": "critical",
              "overload_warning": "warning", "sced_failed": "critical",
              "line_derated": "warning", "load_scaled": "info",
-             "line_reclosed": "info", "turnover_briefing": "info"}
+             "line_reclosed": "info", "turnover_briefing": "info",
+             "rc_directive": "critical", "rtca_violation": "warning",
+             "sol_clock_expired": "critical", "sol_cleared": "info"}
 
 MAX_STEPS_PER_POLL = 24
 
@@ -133,6 +135,9 @@ class OpsSession:
             "manual_shed_mw": sim._shed_mw,
             "redispatch": sim._redispatch,
             "out_generators": sorted(sim._out_gens),
+            "eea_level": sim._eea_level,
+            "sol_clocks": {lid: c * sim.cfg.step_minutes
+                           for lid, c in sim._sol_clocks.items()},
             "da_summary": sim._da,
             "totals": sim.totals(),
         }
@@ -243,21 +248,43 @@ class OpsSession:
                 "gen_total_mw": round(gen_total, 1),
                 "would_overload": [w for w in worst if w["rho_emergency"] > 1.0]}
 
+    def inject(self, event: dict) -> dict:
+        """Instructor console: schedule an event into the running shift."""
+        allowed = {"trip_generator", "derate_line", "scale_load"}
+        kind = event.get("kind")
+        if kind not in allowed:
+            return {"applied": False,
+                    "reason": f"instructor can inject {sorted(allowed)}"}
+        ev = dict(event)
+        ev["step"] = int(ev.get("step", self.sim.k + 1))
+        if ev["step"] <= self.sim.k:
+            ev["step"] = self.sim.k + 1
+        self.sim.cfg.scripted_events.append(ev)
+        return {"applied": True, "scheduled_step": ev["step"]}
+
     def report(self) -> dict:
-        t = self.sim.totals()
-        def grade(ok, mid, val, reverse=False):
-            v = -val if reverse else val
-            return "A" if v <= ok else ("B" if v <= mid else "C")
+        from .scoring import score_shift
+
+        sim = self.sim
+        t = sim.totals()
+        largest = max((g.p_max_mw for g in sim.world.generators
+                       if g.in_service), default=0.0)
+        nerc = score_shift(sim.traces, sim.events, sim.cfg, largest,
+                           t["unserved_mwh"])
+        grades = dict(nerc.get("grades", {}))
+        grades["security"] = "A" if t["line_trips"] == 0 else "C"
+        expired = sum(1 for e in sim.events
+                      if e["kind"] == "sol_clock_expired")
+        grades["sol_compliance_top001"] = "A" if expired == 0 else "C"
         return {
-            "finished": self.sim.finished,
-            "steps_completed": self.sim.k,
+            "finished": sim.finished,
+            "steps_completed": sim.k,
             "totals": t,
-            "grades": {
-                "reliability": grade(0.0, 5.0, t["unserved_mwh"]),
-                "frequency_control": grade(0.02, 0.05, t["max_freq_dev_hz"]),
-                "security": grade(0, 1, t["line_trips"]),
-            },
-            "note": "full CPS1/BAAL/DCS scoring arrives with Phase 2; these "
-                    "grades cover unserved energy, frequency control, and "
-                    "line security only",
+            "grades": grades,
+            "nerc": nerc,
+            "eea_peak": max((e.get("eea_level", 0) for e in sim.events
+                             if e["kind"] == "rc_directive"), default=0),
+            "note": "graded as NERC grades desks: CPS1 (frequency support), "
+                    "BAAL (ACE limits), DCS (15-min recovery), TOP-001 "
+                    "(30-min SOL clocks), plus unserved energy and trips",
         }

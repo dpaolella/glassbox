@@ -1423,3 +1423,10 @@ code {
 .cr-grade-B strong { color: var(--warn, #e0a935); }
 .cr-grade-C strong { color: var(--bad, #e05555); }
 .cr-report-totals { font-size: 0.82em; opacity: 0.85; margin-top: 4px; }
+
+.cr-eea { background: color-mix(in srgb, var(--bad, #e05555) 25%, transparent);
+  border: 1px solid var(--bad, #e05555); border-radius: 6px; padding: 4px 10px;
+  font-weight: 600; }
+.cr-sol { background: color-mix(in srgb, var(--warn, #e0a935) 18%, transparent);
+  border-radius: 6px; padding: 3px 10px; font-size: 0.85em; }
+.cr-lesson { font-size: 0.85em; opacity: 0.85; margin-top: 8px; }

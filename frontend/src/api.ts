@@ -324,6 +324,8 @@ export interface WeatherEvent {
 export interface OpsState {
   clock: { step: number; n_steps: number; sim_time: string; speed: number;
            finished: boolean };
+  eea_level?: number;
+  sol_clocks?: Record<string, number>;
   traces: Record<string, number[]>;
   events: Record<string, any>[];
   alarms: { id: number; step: number; severity: string; kind: string;
@@ -343,6 +345,7 @@ export interface OpsState {
 export interface OpsReport {
   finished: boolean; steps_completed: number;
   totals: Record<string, number>; grades: Record<string, string>; note: string;
+  nerc?: Record<string, any>; eea_peak?: number;
 }
 
 export const api = {
@@ -355,6 +358,9 @@ export const api = {
     post<Record<string, any>>("/opsim/study", body),
   opsReport: () => get<OpsReport>("/opsim/report"),
   opsSubstations: () => get<Record<string, any>[]>("/substations"),
+  opsScenarios: () => get<{ id: string; name: string; lesson: string; pass: string }[]>("/opsim/scenarios"),
+  opsInstructor: (body: Record<string, unknown>) =>
+    post<{ applied: boolean; reason?: string }>("/opsim/instructor", body),
   worldSummary: () => get<WorldSummary>("/world/summary"),
   oracleAvailability: () => get<Record<string, boolean>>("/oracle/availability"),
   oraclePowerflow: () => get<OracleResult>("/oracle/powerflow"),

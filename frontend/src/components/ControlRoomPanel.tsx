@@ -50,6 +50,8 @@ export function ControlRoomPanel() {
   const [redisGen, setRedisGen] = useState("");
   const [redisMw, setRedisMw] = useState(10);
   const [switchId, setSwitchId] = useState("");
+  const [scenarios, setScenarios] = useState<{ id: string; name: string; lesson: string; pass: string }[]>([]);
+  const [scenario, setScenario] = useState("");
   const timer = useRef<number | null>(null);
 
   const poll = async () => {
@@ -74,12 +76,15 @@ export function ControlRoomPanel() {
   useEffect(() => {
     api.opsState().then((st) => { setState(st); setRunning(true); })
       .catch(() => {});
+    api.opsScenarios().then(setScenarios).catch(() => {});
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const start = async () => {
     setReport(null); setMsg(null); setStudy(null);
-    const st = await api.opsStart({ seed: 42, n_steps: 144, speed: 60 });
+    const st = await api.opsStart(
+      scenario ? { scenario, speed: 60 }
+               : { seed: 42, n_steps: 144, speed: 60 });
     setState(st);
     setSubs(await api.opsSubstations());
     setRunning(true);
@@ -106,7 +111,20 @@ export function ControlRoomPanel() {
           on while forecast error, forced outages, and protection do their
           worst. The turnover briefing arrives when you start.
         </p>
+        <select value={scenario} onChange={(e) => setScenario(e.target.value)}
+                title={scenarios.find((s) => s.id === scenario)?.lesson}>
+          <option value="">default day (seed 42)</option>
+          {scenarios.map((s) => (
+            <option key={s.id} value={s.id}>{s.name}</option>
+          ))}
+        </select>{" "}
         <button className="primary" onClick={start}>Start shift</button>
+        {scenario && (
+          <p className="cr-lesson">
+            {scenarios.find((s) => s.id === scenario)?.lesson}
+            <br /><em>pass: {scenarios.find((s) => s.id === scenario)?.pass}</em>
+          </p>
+        )}
       </div>
     );
   }
@@ -146,10 +164,28 @@ export function ControlRoomPanel() {
         {clock.finished && <strong className="cr-done">shift complete</strong>}
       </div>
 
+      {(state.eea_level ?? 0) > 0 && (
+        <div className="cr-eea" title="Energy Emergency Alert, declared by the (simulated) Reliability Coordinator per EOP-011">
+          ⚠ EEA-{state.eea_level} in effect
+        </div>
+      )}
+      {Object.entries(state.sol_clocks ?? {}).map(([lid, min]) => (
+        <div key={lid} className="cr-sol" title="TOP-001: post-contingency SOL exceedances must be mitigated within 30 minutes">
+          ⏳ SOL clock: {lid} — {min} of 30 min
+        </div>
+      ))}
+
       {/* report card */}
       {report && (
         <div className="cr-report">
           <h4>Shift report card</h4>
+          {report.nerc?.cps1_pct !== undefined && (
+            <div className="cr-report-totals">
+              CPS1 {report.nerc.cps1_pct}% · BAAL violations{" "}
+              {report.nerc.baal?.violations} · DCS{" "}
+              {report.nerc.dcs?.all_recovered ? "recovered" : "FAILED"}
+            </div>
+          )}
           {Object.entries(report.grades).map(([k, g]) => (
             <span key={k} className={`cr-grade cr-grade-${g}`}
                   title={report.note}>
