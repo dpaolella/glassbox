@@ -319,7 +319,42 @@ export interface WeatherEvent {
   scenario: Record<string, unknown>;
 }
 
+// --- control room (issue #56 Phase 1) ---------------------------------------
+
+export interface OpsState {
+  clock: { step: number; n_steps: number; sim_time: string; speed: number;
+           finished: boolean };
+  traces: Record<string, number[]>;
+  events: Record<string, any>[];
+  alarms: { id: number; step: number; severity: string; kind: string;
+            text: string; acked: boolean }[];
+  unacked_critical: number;
+  basepoints: Record<string, number>;
+  lines: { id: string; flow_mw: number; rho_normal: number;
+           rho_emergency: number; tripped: boolean }[];
+  regulation_headroom_mw: number;
+  manual_shed_mw: number;
+  redispatch: Record<string, number>;
+  out_generators: string[];
+  da_summary: Record<string, any>;
+  totals: Record<string, number>;
+}
+
+export interface OpsReport {
+  finished: boolean; steps_completed: number;
+  totals: Record<string, number>; grades: Record<string, string>; note: string;
+}
+
 export const api = {
+  opsStart: (body: Record<string, unknown>) => post<OpsState>("/opsim/start", body),
+  opsState: () => get<OpsState>("/opsim/state"),
+  opsClock: (speed: number) => post<{ speed: number }>("/opsim/clock", { speed }),
+  opsAction: (body: Record<string, unknown>) =>
+    post<{ applied: boolean; reason?: string; note?: string }>("/opsim/action", body),
+  opsStudy: (body: Record<string, unknown>) =>
+    post<Record<string, any>>("/opsim/study", body),
+  opsReport: () => get<OpsReport>("/opsim/report"),
+  opsSubstations: () => get<Record<string, any>[]>("/substations"),
   worldSummary: () => get<WorldSummary>("/world/summary"),
   oracleAvailability: () => get<Record<string, boolean>>("/oracle/availability"),
   oraclePowerflow: () => get<OracleResult>("/oracle/powerflow"),

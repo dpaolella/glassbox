@@ -1028,6 +1028,77 @@ class OpsRunRequest(BaseModel):
     scripted_events: list[dict] = []
 
 
+_ops_session = {"session": None}
+
+
+class OpsStartRequest(BaseModel):
+    seed: int = 42
+    n_steps: int = 144
+    start_hour: int = 5
+    load_error_sigma: float = 0.01
+    forced_outages: bool = True
+    scripted_events: list[dict] = []
+    speed: float = 60.0     # sim-minutes per wall-minute; 0 = frozen
+
+
+@app.post("/api/opsim/start")
+def opsim_start(req: OpsStartRequest):
+    """Open an interactive shift session (replaces any existing one)."""
+    from ..rtops import OpsSession, ShiftConfig
+
+    cfg = ShiftConfig(seed=req.seed, n_steps=req.n_steps,
+                      start_hour=req.start_hour,
+                      load_error_sigma=req.load_error_sigma,
+                      forced_outages=req.forced_outages,
+                      scripted_events=req.scripted_events)
+    try:
+        _ops_session["session"] = OpsSession(service.world, cfg,
+                                             speed=req.speed)
+    except Exception as exc:
+        raise HTTPException(500, f"could not start shift: {exc}")
+    return _ops_session["session"].state()
+
+
+def _session():
+    s = _ops_session["session"]
+    if s is None:
+        raise HTTPException(409, "no active shift — POST /api/opsim/start")
+    return s
+
+
+@app.get("/api/opsim/state")
+def opsim_state():
+    """Advance the clock (lazily) and return the full dashboard state."""
+    return _session().poll()
+
+
+class OpsClockRequest(BaseModel):
+    speed: float
+
+
+@app.post("/api/opsim/clock")
+def opsim_clock(req: OpsClockRequest):
+    s = _session()
+    s.set_speed(req.speed)
+    return {"speed": s.speed}
+
+
+@app.post("/api/opsim/action")
+def opsim_action(act: dict):
+    return _session().action(act)
+
+
+@app.post("/api/opsim/study")
+def opsim_study(act: dict):
+    """The obs.simulate analog: test an action without committing it."""
+    return _session().study(act)
+
+
+@app.get("/api/opsim/report")
+def opsim_report():
+    return _session().report()
+
+
 @app.post("/api/opsim/run")
 def opsim_run(req: OpsRunRequest):
     """Run one headless operating shift on the current world (issue #56 0b).
