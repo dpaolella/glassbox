@@ -76,6 +76,9 @@ class ShiftConfig:
     stuck_breakers: list[str] = field(default_factory=list)
     telemetry: bool = True           # synthesize SCADA + run SE each step
     telemetry_dropout: float = 0.02
+    voltage_ops: bool = True         # periodic AC power flow + voltage schedule
+    voltage_every_steps: int = 12
+    blackout_served_frac: float = 0.5   # served fraction below this = blackout
     # breakers whose mechanism fails on the next open command: protection
     # escalates to breaker-failure clearing (the whole busbar section trips)
     scripted_events: list[dict] = field(default_factory=list)
@@ -108,7 +111,8 @@ class OpsSimulation:
         self.events: list[dict] = []
         self.traces: dict[str, list] = {k: [] for k in (
             "freq_hz", "ace_mw", "load_mw", "gen_mw", "unserved_mw",
-            "max_rho", "lambda_per_mwh", "ni_sched_mw", "ni_actual_mw")}
+            "max_rho", "lambda_per_mwh", "ni_sched_mw", "ni_actual_mw",
+            "served_frac", "min_voltage_pu")}
         # dynamic state
         self._tripped_lines: dict[str, int] = {}      # id -> steps to reconnect
         self._out_gens: dict[str, int] = {}           # id -> steps to repair
@@ -343,6 +347,12 @@ class OpsSimulation:
         self._soc = {st.id: 0.5 for st in self.world.storage_units
                      if st.in_service}
         self._stuck = set(self.cfg.stuck_breakers)
+        self._blackout = False
+        self._blackout_step = None
+        self._restored_step = None
+        self._min_served_frac = 1.0
+        self._bus_voltages = {}
+        self._v_violations = []
         self._da = self.run_day_ahead()
         self._freq_nominal = self.world.base_frequency_hz
         self._b_total = abs(cfg.bias_mw_per_0p1hz) * 10.0  # MW per Hz
@@ -545,8 +555,84 @@ class OpsSimulation:
                 self._soc[st_.id] = float(np.clip(
                     self._soc.get(st_.id, 0.5) + d_soc,
                     st_.soc_min_pu, st_.soc_max_pu))
+            served = (max(0.0, actual_load - unserved) / actual_load
+                      if actual_load > 1e-6 else 1.0)
+            self._min_served_frac = min(self._min_served_frac, served)
+            self.traces["served_frac"].append(round(served, 4))
+            if not self._blackout and served < cfg.blackout_served_frac:
+                self._blackout = True
+                self._blackout_step = k
+                self.events.append({
+                    "step": k, "kind": "blackout",
+                    "detail": f"served load collapsed to {served*100:.0f}% — "
+                              "system blackout. Restore in blocks: reclose "
+                              "cleared lines, re-commit units, pick load back "
+                              "up (EOP-005 restoration)"})
+            elif self._blackout and self._restored_step is None and \
+                    served >= 0.95:
+                self._restored_step = k
+                self.events.append({
+                    "step": k, "kind": "restoration_complete",
+                    "detail": f"load restored to {served*100:.0f}% after "
+                              f"{(k - self._blackout_step) * cfg.step_minutes} "
+                              "minutes"})
+            if cfg.voltage_ops and (k % cfg.voltage_every_steps == 0
+                                    or any(e["step"] == k and e["kind"] in
+                                           ("line_trip", "generator_trip")
+                                           for e in self.events)):
+                self._voltage_check(k, derived, bp)
+            self.traces["min_voltage_pu"].append(
+                round(min(self._bus_voltages.values(), default=1.0), 4))
             self._assess_reliability(k, derived, bp, unserved)
         self.k += 1
+
+    def _voltage_check(self, k, derived, bp) -> None:
+        """Periodic AC power flow on the realized dispatch; flag buses
+        outside their voltage schedule [v_min_pu, v_max_pu] (VAR-001). This
+        is the steady-state security the DC market layer cannot see — low,
+        sagging voltage with shrinking reactive reserve is a collapse
+        precursor."""
+        from ..engines.powerflow import (assemble_pf_case,
+                                         solve_newton_raphson)
+        try:
+            hour = (k * self.cfg.step_minutes) // 60
+            case = assemble_pf_case(derived, hour, self.cfg.weather_year,
+                                    dispatch=dict(bp))
+            sol = solve_newton_raphson(case)
+        except Exception:
+            self._bus_voltages = {}
+            return
+        if not sol.converged:
+            self._bus_voltages = {}
+            self._v_violations = [{"bus": "(unsolved)",
+                                   "detail": "AC power flow did not converge "
+                                             "— voltage state unknown"}]
+            if not getattr(self, "_pf_diverged_alarmed", False):
+                self.events.append({"step": k, "kind": "voltage_unsolved",
+                                    "detail": "AC power flow diverged"})
+                self._pf_diverged_alarmed = True
+            return
+        self._bus_voltages = {bid: float(sol.V[i])
+                              for i, bid in enumerate(case.bus_ids)}
+        viol = []
+        for i, bid in enumerate(case.bus_ids):
+            v = float(sol.V[i])
+            if v < case.v_min[i] - 1e-4:
+                viol.append({"bus": bid, "v_pu": round(v, 4),
+                             "detail": f"{bid} at {v:.3f} pu, below schedule "
+                                       f"{case.v_min[i]:.2f}"})
+            elif v > case.v_max[i] + 1e-4:
+                viol.append({"bus": bid, "v_pu": round(v, 4),
+                             "detail": f"{bid} at {v:.3f} pu, above schedule "
+                                       f"{case.v_max[i]:.2f}"})
+        newly = [x["bus"] for x in viol
+                 if x["bus"] not in {y["bus"] for y in self._v_violations}]
+        for bid in newly:
+            self.events.append({"step": k, "kind": "voltage_violation",
+                                "id": bid,
+                                "detail": next(x["detail"] for x in viol
+                                               if x["bus"] == bid)})
+        self._v_violations = viol
 
     def finish(self) -> ShiftResult:
         # restore all switch state the run changed
@@ -567,7 +653,16 @@ class OpsSimulation:
                                    if e["kind"] == "generator_trip"),
                 "max_freq_dev_hz": round(max(
                     (abs(f - self._freq_nominal)
-                     for f in self.traces["freq_hz"]), default=0.0), 5)}
+                     for f in self.traces["freq_hz"]), default=0.0), 5),
+                "blackout": self._blackout,
+                "min_served_frac": round(self._min_served_frac, 4),
+                "restoration_min": (
+                    (self._restored_step - self._blackout_step)
+                    * self.cfg.step_minutes
+                    if self._blackout and self._restored_step is not None
+                    else None),
+                "voltage_violations": sum(
+                    1 for e in self.events if e["kind"] == "voltage_violation")}
 
     # --- reliability assessment: EEA ladder + RTCA N-1 (Phase 2) -----------
 

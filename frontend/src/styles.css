@@ -1430,3 +1430,8 @@ code {
 .cr-sol { background: color-mix(in srgb, var(--warn, #e0a935) 18%, transparent);
   border-radius: 6px; padding: 3px 10px; font-size: 0.85em; }
 .cr-lesson { font-size: 0.85em; opacity: 0.85; margin-top: 8px; }
+
+.cr-scenario-verdict { font-weight: 600; padding: 4px 8px; border-radius: 4px;
+  margin-bottom: 6px; }
+.cr-scenario-verdict.pass { background: color-mix(in srgb, var(--ok, #4caf7d) 22%, transparent); }
+.cr-scenario-verdict.fail { background: color-mix(in srgb, var(--bad, #e05555) 22%, transparent); }

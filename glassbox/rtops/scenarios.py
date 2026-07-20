@@ -73,6 +73,21 @@ SCENARIOS: dict[str, dict] = {
                 {"step": 10, "kind": "stick_breaker", "id": ""},
                 {"step": 30, "kind": "derate_line", "id": "", "factor": 0.3}]),
     },
+    "blackout_restoration": {
+        "name": "Blackout & restoration",
+        "lesson": "A cascade takes most of the load. Once served load "
+                  "collapses the system is in blackout — your job flips to "
+                  "restoration (EOP-005): units re-commit, cleared lines "
+                  "reclose on their timers, and load comes back in blocks. "
+                  "Watch the served-fraction trace climb back.",
+        "pass": "restore load to 95% before turnover",
+        "config": lambda: ShiftConfig(
+            seed=707, n_steps=48, forced_outages=False,
+            scripted_events=[
+                {"step": 3, "kind": "trip_generator", "id": "nuclear_1"},
+                {"step": 4, "kind": "trip_generator", "id": "ccgt_4"},
+                {"step": 5, "kind": "scale_load", "factor": 1.15}]),
+    },
     "storm_shift": {
         "name": "Storm shift",
         "lesson": "High forecast error, elevated outage risk, and two "
