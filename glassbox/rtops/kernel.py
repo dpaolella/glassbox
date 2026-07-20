@@ -234,7 +234,8 @@ class OpsSimulation:
             fixed[gid] = arr[offs]
         built = build_dispatch_model(view, EngineOptions(
             investment=False, unit_commitment=bool(fixed), reserves=True,
-            label="rt_sced", fixed_commitment=fixed or None))
+            label="rt_sced", fixed_commitment=fixed or None,
+            storage_soc_init=dict(self._soc) if self._soc else None))
         status = solve_model(built)
         if "ok" not in status and "optimal" not in status.lower():
             self.events.append({"step": step, "kind": "sced_failed",
@@ -245,10 +246,16 @@ class OpsSimulation:
                             for g in sol.coords["g"].values}
         self._storage_net = None
         self._sced_unserved = None
+        self._sto_flows = {}
         if "sto_discharge" in built.m.variables:
             dis = built.m.variables["sto_discharge"].solution
             ch = built.m.variables["sto_charge"].solution
             self._storage_net = (dis.sum("s") - ch.sum("s")).values
+            eff = {st.id: (st.eff_c, st.eff_d) for st in view.storages}
+            for sid in dis.coords["s"].values:
+                self._sto_flows[str(sid)] = (ch.sel(s=sid).values,
+                                             dis.sel(s=sid).values,
+                                             eff.get(str(sid), (0.9, 0.9)))
         if "unserved" in built.m.variables:
             self._sced_unserved = \
                 built.m.variables["unserved"].solution.sum("n").values
@@ -293,6 +300,8 @@ class OpsSimulation:
                     list(oa.scheduled_interchange_mw)
         self._tie_available = self.cfg.tie_capacity_mw > 0
         self._ni = self._build_ni_schedule()
+        self._soc = {st.id: 0.5 for st in self.world.storage_units
+                     if st.in_service}
         self._da = self.run_day_ahead()
         self._freq_nominal = self.world.base_frequency_hz
         self._b_total = abs(cfg.bias_mw_per_0p1hz) * 10.0  # MW per Hz
@@ -445,6 +454,17 @@ class OpsSimulation:
             self.traces["lambda_per_mwh"].append(round(getattr(self, "_lambda", 0.0), 2))
             self.traces["ni_sched_mw"].append(round(ni_s, 2))
             self.traces["ni_actual_mw"].append(round(ni_actual, 2))
+            dt_h = cfg.step_minutes / 60.0
+            for st_ in self.world.storage_units:
+                if st_.id not in getattr(self, "_sto_flows", {}):
+                    continue
+                chv, disv, (ec, ed) = self._sto_flows[st_.id]
+                wi = min(w, len(chv) - 1)
+                e_nom = max(st_.energy_capacity_mwh, 1e-6)
+                d_soc = (ec * float(chv[wi]) - float(disv[wi]) / ed) * dt_h / e_nom
+                self._soc[st_.id] = float(np.clip(
+                    self._soc.get(st_.id, 0.5) + d_soc,
+                    st_.soc_min_pu, st_.soc_max_pu))
             self._assess_reliability(k, derived, bp, unserved)
         self.k += 1
 
