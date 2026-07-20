@@ -169,6 +169,14 @@ export function ControlRoomPanel() {
           ⚠ EEA-{state.eea_level} in effect
         </div>
       )}
+      {state.hruc_pending && (
+        <div className="cr-sol" title="Hourly reliability check: the next hour looks short of load + largest-unit reserve. Commitment is a decision, not an outcome.">
+          🔌 HRUC: commit {state.hruc_pending.unit}?
+          ({state.hruc_pending.short_mw} MW short){" "}
+          <button onClick={() => act({ type: "approve_hruc" })}>approve</button>
+          <button onClick={() => act({ type: "deny_hruc" })}>deny</button>
+        </div>
+      )}
       {Object.entries(state.sol_clocks ?? {}).map(([lid, min]) => (
         <div key={lid} className="cr-sol" title="TOP-001: post-contingency SOL exceedances must be mitigated within 30 minutes">
           ⏳ SOL clock: {lid} — {min} of 30 min
@@ -246,6 +254,28 @@ export function ControlRoomPanel() {
         <span title="units on forced outage">
           units out <strong>{state.out_generators.length ? state.out_generators.join(", ") : "none"}</strong>
         </span>
+        {state.se && (
+          <span title={`State estimator: ${state.se.redundancy} measurements per state; bad data identified: ${state.se.bad_points.join(", ") || "none"}. Operations never sees truth — only this estimate.`}>
+            SE <strong style={{ color: state.se.health === "good" ? undefined
+              : state.se.health === "degraded" ? "var(--warn, #e0a935)"
+              : "var(--bad, #e05555)" }}>{state.se.health}</strong>
+          </span>
+        )}
+        {state.nodal_lmps && Object.keys(state.nodal_lmps).length > 0 && (
+          <span title="Nodal LMPs from the real-time LP's balance duals — congestion and scarcity separate prices by location.">
+            LMP spread <strong>
+              ${Math.min(...Object.values(state.nodal_lmps)).toFixed(0)}–
+              {Math.max(...Object.values(state.nodal_lmps)).toFixed(0)}
+            </strong>
+          </span>
+        )}
+        {(traces.ni_sched_mw?.some((v) => v !== 0) ||
+          traces.ni_actual_mw?.some((v) => v !== 0)) && (
+          <span title="Net interchange: actual vs scheduled (exports positive). The gap is inadvertent interchange — leaning on the neighbors.">
+            NI <strong>{last(traces.ni_actual_mw).toFixed(0)}
+            /{last(traces.ni_sched_mw).toFixed(0)} MW</strong>
+          </span>
+        )}
         {state.manual_shed_mw > 0 && (
           <span>shed <strong style={{ color: "var(--bad, #e05555)" }}>
             {state.manual_shed_mw} MW</strong></span>

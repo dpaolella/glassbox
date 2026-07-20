@@ -74,6 +74,8 @@ class ShiftConfig:
     reconnect_steps: int = 6         # NB_TIMESTEP_RECONNECTION (30 min)
     forced_outages: bool = True
     stuck_breakers: list[str] = field(default_factory=list)
+    telemetry: bool = True           # synthesize SCADA + run SE each step
+    telemetry_dropout: float = 0.02
     # breakers whose mechanism fails on the next open command: protection
     # escalates to breaker-failure clearing (the whole busbar section trips)
     scripted_events: list[dict] = field(default_factory=list)
@@ -284,6 +286,19 @@ class OpsSimulation:
                 lam = max(lam, mc.get(gid, 0.0))
         self._lambda = lam or max((mc[g] for g, bp in self._basepoints.items()
                                    if bp[0] > 1e-3), default=0.0)
+        # nodal LMPs: balance-constraint duals of the fixed-commitment LP,
+        # rescaled from $/MW-step to $/MWh by the step weight
+        self._nodal_lmps = {}
+        try:
+            # the objective's weight includes the annual divisor; unscale
+            # with the view's own numbers, not a re-derived constant
+            w0 = float(view.period_weight[0]) / view.annual_divisor
+            for node in view.nodes:
+                con = built.m.constraints[f"balance_{node}"]
+                self._nodal_lmps[node] = round(
+                    float(con.dual.isel(t=0).item()) / w0, 2)
+        except Exception:
+            self._nodal_lmps = {}
         # ORDC-lite scarcity adder: when a reserve tranche is short, its
         # price is the marginal value of capacity — prices scream BEFORE
         # load is shed (the energy-only market's central design idea)
@@ -470,6 +485,45 @@ class OpsSimulation:
 
             # 5) protection on realized flows
             max_rho = self._protection_pass(k, derived, bp, actual_load)
+
+            # 5b) telemetry + state estimation on the realized state
+            if cfg.telemetry:
+                from .telemetry import (TelemetryConfig, estimate_state,
+                                        make_telemetry)
+                tcfg = TelemetryConfig(dropout_prob=cfg.telemetry_dropout,
+                                       bad_data=getattr(self, "_bad_meters", {}))
+                se_lines = [(l.id, l.from_bus_id, l.to_bus_id,
+                             1.0 / max(l.x, 1e-6))
+                            for l in derived.ac_lines
+                            if l.in_service and l.id not in self._tripped_lines]
+                z = make_telemetry(self.rng, getattr(self, "last_flows", {}),
+                                   getattr(self, "_last_inj", {}), tcfg)
+                self.se_result = estimate_state(
+                    z, se_lines, [b.id for b in derived.buses], tcfg,
+                    self.world.reference_bus_id)
+                if self.se_result.health == "flying_blind" and \
+                        not getattr(self, "_blind_alarmed", False):
+                    self.events.append({
+                        "step": k, "kind": "se_degraded",
+                        "detail": "state estimator cannot solve — operating "
+                                  "blind (the 2003 lesson: treat as an "
+                                  "emergency, not an IT ticket)"})
+                    self._blind_alarmed = True
+                elif self.se_result.bad_points:
+                    for bp_key in self.se_result.bad_points:
+                        if bp_key not in getattr(self, "_flagged_bad", set()):
+                            self._flagged_bad = getattr(self, "_flagged_bad",
+                                                        set()) | {bp_key}
+                            self.events.append({
+                                "step": k, "kind": "bad_data_identified",
+                                "id": bp_key,
+                                "detail": "largest-normalized-residual test "
+                                          "rejected this measurement; SE "
+                                          "re-solved without it"})
+
+            # 5c) HRUC: if the next hour looks short, propose a commitment
+            if k % 12 == 0 and k > 0:
+                self._maybe_propose_hruc(k, derived, bp)
 
             self.traces["freq_hz"].append(round(freq, 5))
             self.traces["ace_mw"].append(round(ace, 3))
@@ -678,6 +732,7 @@ class OpsSimulation:
                     load_i += float(self._ni[min(k_now, len(self._ni) - 1)])
                 inj[idx[node]] -= load_i
         inj -= inj.sum() / nb  # balance residual (AGC slop) uniformly
+        self._last_inj = {b: float(inj[idx[b]]) for b in buses}
         B = np.zeros((nb, nb))
         lines = [ln for ln in derived.ac_lines
                  if ln.in_service and ln.id not in self._tripped_lines
@@ -698,6 +753,39 @@ class OpsSimulation:
                         - theta[idx[ln.to_bus_id]]) / max(ln.x, 1e-6)
                 for ln in lines}
 
+    def _maybe_propose_hruc(self, k, derived, bp) -> None:
+        """Hourly reliability check: committed+available capacity vs the
+        next hour's persistence load + largest-unit reserve. Short => propose
+        committing the cheapest OFF unit; the operator approves or denies
+        (commitment is a DECISION, not an outcome — PRD §3.2)."""
+        if getattr(self, "_hruc_pending", None):
+            return
+        out = set(self._out_gens)
+        cap_on = 0.0
+        off_units = []
+        hour = min((k * self.cfg.step_minutes) // 60,
+                   len(next(iter(self._commitment.values()), [0])) - 1) \
+            if self._commitment else 0
+        for g in derived.generators:
+            if not g.in_service or g.id in out:
+                continue
+            committed = self._commitment.get(g.id)
+            if committed is not None and committed[hour] < 0.5:
+                off_units.append(g)
+            else:
+                cap_on += g.p_max_mw
+        need = self._actual_load_mw(k, derived) * 1.02 + \
+            max((bp.get(g.id, 0.0) for g in derived.generators), default=0.0)
+        if cap_on < need and off_units:
+            unit = min(off_units, key=lambda g: g.p_max_mw)
+            self._hruc_pending = {"unit": unit.id, "step": k,
+                                  "short_mw": round(need - cap_on, 1)}
+            self.events.append({
+                "step": k, "kind": "hruc_proposal", "id": unit.id,
+                "detail": f"projected {need - cap_on:.0f} MW short of load + "
+                          f"largest-unit reserve — commit {unit.id}? "
+                          "(approve_hruc / deny_hruc)"})
+
     # --- events ----------------------------------------------------------------
 
     def _apply_event(self, k: int, ev: dict) -> None:
@@ -710,6 +798,10 @@ class OpsSimulation:
             self._line_derate[ev["id"]] = float(ev.get("factor", 0.5))
             self.events.append({"step": k, "kind": "line_derated",
                                 "id": ev["id"], "factor": ev.get("factor", 0.5)})
+        elif kind == "bad_meter":
+            self._bad_meters = getattr(self, "_bad_meters", {})
+            self._bad_meters[ev["key"]] = float(ev.get("gross_mw", 80.0))
+            # silent: a lying meter announces itself only through residuals
         elif kind == "stick_breaker":
             self._stuck.add(ev["id"])
             self.events.append({"step": k, "kind": "breaker_stuck_armed",

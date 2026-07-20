@@ -326,6 +326,10 @@ export interface OpsState {
            finished: boolean };
   eea_level?: number;
   sol_clocks?: Record<string, number>;
+  nodal_lmps?: Record<string, number>;
+  se?: { health: string; redundancy: number; bad_points: string[];
+         residual_norm: number | null } | null;
+  hruc_pending?: { unit: string; short_mw: number } | null;
   traces: Record<string, number[]>;
   events: Record<string, any>[];
   alarms: { id: number; step: number; severity: string; kind: string;
