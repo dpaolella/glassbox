@@ -154,3 +154,25 @@ def test_report_carries_nerc_scores(client):
             "contingency_recovery_dcs", "reliability", "security",
             "sol_compliance_top001"} <= set(rep["grades"])
     assert nerc["constants"]["dcs_recovery_min"] == 15.0
+
+
+# --- ORDC-lite: prices scream before load is shed (issue #57) ----------------
+
+
+def test_scarcity_adder_lifts_lambda_on_unit_loss(world):
+    from glassbox.rtops import ShiftConfig, run_shift
+    cfg = dict(n_steps=12, sced_every_steps=6, sced_window_steps=6,
+               forced_outages=False, load_error_sigma=0.0, vre_error_sigma=0.0)
+    calm = run_shift(world, ShiftConfig(**cfg))
+    tight = run_shift(world, ShiftConfig(**cfg, scripted_events=[
+        {"step": 2, "kind": "trip_generator", "id": "nuclear_1"},
+        {"step": 3, "kind": "trip_generator", "id": "ccgt_4"}]))
+    # calm morning: lambda is a fuel cost; deep scarcity: the reserve
+    # demand curve's top tranche price shows up in lambda
+    assert max(calm.traces["lambda_per_mwh"]) < 300.0
+    assert max(tight.traces["lambda_per_mwh"]) == \
+        ShiftConfig().reserve_curve[-1][1]
+    # and the post-trip SCEDs actually solved (the outage decommit +
+    # p_min-zeroing fixes: no silent stale basepoints)
+    assert not any(e["kind"] == "sced_failed" for e in tight.events)
+    assert tight.traces["gen_mw"][6] < calm.traces["gen_mw"][6] - 500.0

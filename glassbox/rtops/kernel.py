@@ -63,6 +63,9 @@ class ShiftConfig:
     agc_gain: float = 0.35           # fraction of ACE corrected per subtick
     agc_subticks: int = 12           # emulated AGC cycles per 5-min step
     # markets
+    reserve_curve: list[tuple[float, float]] = field(
+        default_factory=lambda: [(0.5, 300.0), (1.0, 2000.0)])
+    # ORDC-lite: shortage price rises as reserves deepen; couples into LMP
     sced_every_steps: int = 12       # re-solve the RT window hourly
     sced_window_steps: int = 12      # 1-hour lookahead at 5-min resolution
     # protection (Grid2Op parameter analogs, PRD §3.4)
@@ -148,6 +151,7 @@ class OpsSimulation:
             if g.id in out:
                 g.availability = np.zeros(T) if g.availability is None \
                     else g.availability * 0.0
+                g.p_min_pu = 0.0   # an outaged unit has no must-run minimum
         view.lines = [ln for ln in view.lines
                       if ln.id not in self._tripped_lines]
         for ln in view.lines:
@@ -232,10 +236,17 @@ class OpsSimulation:
                              + step * self.cfg.step_minutes) // 60),
                            0, len(arr) - 1).astype(int)
             fixed[gid] = arr[offs]
+        # a unit on forced outage is decommitted in the RT case — otherwise
+        # u=1 demands p >= p_min while zero availability demands p <= 0 and
+        # the LP is infeasible (the EMS outage scheduler does this for real)
+        for gid in self._out_gens:
+            if gid in fixed:
+                fixed[gid] = np.zeros(T)
         built = build_dispatch_model(view, EngineOptions(
             investment=False, unit_commitment=bool(fixed), reserves=True,
             label="rt_sced", fixed_commitment=fixed or None,
-            storage_soc_init=dict(self._soc) if self._soc else None))
+            storage_soc_init=dict(self._soc) if self._soc else None,
+            reserve_curve=self.cfg.reserve_curve or None))
         status = solve_model(built)
         if "ok" not in status and "optimal" not in status.lower():
             self.events.append({"step": step, "kind": "sced_failed",
@@ -270,6 +281,17 @@ class OpsSimulation:
                 lam = max(lam, mc.get(gid, 0.0))
         self._lambda = lam or max((mc[g] for g, bp in self._basepoints.items()
                                    if bp[0] > 1e-3), default=0.0)
+        # ORDC-lite scarcity adder: when a reserve tranche is short, its
+        # price is the marginal value of capacity — prices scream BEFORE
+        # load is shed (the energy-only market's central design idea)
+        if self.cfg.reserve_curve:
+            for i, (_frac, price) in enumerate(self.cfg.reserve_curve):
+                vname = f"reserve_short_t{i}"
+                if vname in built.m.variables:
+                    short = float(built.m.variables[vname]
+                                  .solution.isel(t=0).item())
+                    if short > 1e-3:
+                        self._lambda = max(self._lambda, price)
 
     # --- the step loop -------------------------------------------------------
 
