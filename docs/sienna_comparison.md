@@ -1,328 +1,318 @@
-# Glassbox vs. SiennaGridDB — data-model comparison
+# A reference model for grid data schemas — and how the real ones measure up
 
-A review of [SiennaGridDB's data model](https://github.com/G-PST/data-schema-exercise/blob/main/data_schemas/sienna-griddb_data_model.yaml)
-(the NREL Sienna ecosystem schema) and [PyPSA's data model](https://github.com/G-PST/data-schema-exercise/blob/main/data_schemas/pypsa_data_model.yaml)
-against Glassbox's, focused on how each one organizes one power system for many
-kinds of analysis.
+There is no shortage of power-system data schemas: optimization toolkits (PyPSA),
+production analysis stacks (NREL Sienna), the industry's exchange ontology
+(IEC CIM / ENTSO-E CGMES), capacity-expansion formats (OSeMOSYS), enterprise
+market models (Plexos), open production hubs (VeraGrid / MultiCircuit), the old
+test-case lingua franca (MATPOWER/IEEE), and this project's own teaching schema
+(Glassbox). They overlap in the middle and diverge at the edges, and it is hard
+to say anything crisp about "which is best" because they are built for different
+jobs.
 
-> *As of the current `main` (post oracle-depth / build-mode-v2). Since the first
-> cut of this doc the buildable side of the schema grew a second representation
-> (zonal supply curves), reserves and cross-layer requirements became
-> first-class, the world became editable in place, and **PyPSA was added as a
-> third point of comparison** — all reflected below.*
+This document takes a different tack. Instead of ranking schemas against each
+other, it first asks: **what would an ideal shared grid schema represent, and how
+would it be designed?** — and then measures every real schema against *that*.
+The reference model is not a proposal to build; it is a **ruler**.
 
-> **Visual companion:** an interactive three-way comparison lives at
-> [`docs/schema_atlas.html`](./schema_atlas.html) — the organizing philosophy of
-> each schema, a capability-coverage matrix (now including an **operations-layer
-> band**: node-breaker substations, the balancing area, live switch state, and
-> telemetry), an entity "Rosetta stone," and how far up the physics stack each
-> one reaches. Open it in a browser (it is self-contained). The tables below are
-> the written form of the same material.
+> **Companion artifacts.** The interactive visual is
+> [`docs/schema_atlas.html`](./schema_atlas.html) (self-contained; open in a
+> browser) — it shows the reference and the four most robust schemas
+> (Glassbox / Sienna / PyPSA / CGMES) as a capability matrix, an entity "Rosetta
+> stone," and a reach-up-the-physics-stack ladder. The
+> [`grid-rosetta`](https://github.com/dpaolella/grid-rosetta) bench is the
+> *empirical* companion: it translates real models pairwise between these schemas
+> and records, per property, what each route drops — running evidence for the
+> gaps this document names.
 
-## TL;DR
+> **Grounding.** Claims below are checked against each schema's published data
+> model (Sienna's [SiennaGridDB](https://github.com/G-PST/data-schema-exercise),
+> PyPSA's component model, the CGMES profiles, VeraGridEngine's device registry),
+> Glassbox's live Pydantic introspection, and the grid-rosetta coverage manifests.
+> Coverage reflects the *data model*, not the surrounding tooling.
 
-Both schemas separate **one physical system** into views for different analyses,
-store **time series out-of-line**, attach **explicit per-field units with a base**,
-and keep **existing assets distinct from investment options**. The core
-difference is the *mechanism* of separation: Sienna splits into **domain
-packages** (Core / Operations / Investments / Dynamics) made of distinct
-component types; Glassbox keeps **shared component types** and tags **each field
-with a facet** (`core/inv/ops/adq/pf/dyn/emt`). Sienna is a production,
-multi-language, DB-backed interchange schema; Glassbox is a single-user
-pedagogical schema whose facets also drive the UI.
+## The idea: a yardstick, not a hub
 
-## Where they agree
+grid-rosetta makes a deliberate design commitment: it has **no internal schema**.
+A neutral intermediate format would just be a fourth hub contestant, and routing
+every translation through it would bias the very loss it is trying to measure. So
+why introduce a reference model here at all?
 
-| Concern | Sienna | Glassbox |
-|---|---|---|
-| One system, many analyses | 4 domain packages over one core | 7 field-level facets over one `World` |
-| Existing vs. buildable | Operations domain vs. **Investments** domain | `Generator`/`Storage`/`ACLine` assets vs. **`ExpansionCandidate`** + **`ResourcePotential`** |
-| Investment as supply curve | Investment technologies with build limits | `ResourcePotential` → stepped `SupplyTranche`s (rising $/MW) |
-| Reserves / ancillary services | AGC, constant + variable reserves (up/down), reserve groups | `ReserveProduct` (spinning, `pct_load`/`pct_vre`/`fixed_mw` rule) |
-| Units | per-field unit metadata + `UnitSystem` enum, base V/power | per-field `unit` + `base` (`system_mva`/`machine_mva`), per-unit derived |
-| Time series | HDF5 arrays, referenced from the DB | npz arrays, referenced by id from `TimeSeriesStore` |
-| Substrate | Pydantic (among Julia/SQL) | Pydantic v2 |
-| Component shape | "flat and self-contained" | flat entities in one container |
-| Dynamics | separate Dynamics package | polymorphic `DynamicModel` + `dyn`/`emt` facets |
+Because a reference model is **not a hub**. The distinction is the whole point:
 
-The existing-vs-candidate refactor brought Glassbox into line with Sienna's
-**Operations vs. Investments** split — candidates are their own entities with
-build limits and an operating template, not a boolean on the asset. Transmission
-is a genuine build decision too (`ExpansionCandidate` of `kind=line`, modeled as
-a transport corridor by the CEM), matching Sienna's supply/storage/**and network**
-investment scope.
+- A **hub** is a *waypoint* — data flows *through* it, so its blind spots corrupt
+  what passes across.
+- A **reference model** is a *measuring stick* — no data ever touches it. It only
+  enumerates *what a complete grid schema could represent*, so each real schema's
+  reach can be read off against a fixed scale.
 
-## Where they differ
+The two are complementary rulers. grid-rosetta's coverage manifests measure
+**translation loss** — pairwise, empirical, "what did this route actually drop?"
+The reference model measures **representational reach** — "what can this schema
+express at all, versus the full set of things worth expressing?" One is a
+dynamic measurement between two schemas; the other is a static scorecard for one.
 
-**1. Separation mechanism — packages vs. facets.**
-Sienna achieves modularity at the *component/table* level: a capacity-expansion
-tool imports `Core + Investments`; a dynamics tool imports `Core + Dynamics`.
-A given physical thing may be represented by different component types across
-packages. Glassbox keeps one component type (e.g. `Generator`) and tags each
-**field** with the layers that consume it; the attribute projection operator
-then slices the same object per layer.
-- *Sienna's win:* packages are independently adoptable and avoid a monolithic
-  object; cleaner for a multi-tool ecosystem.
-- *Glassbox's win:* "one stored world, many views" is literal — the same
-  `Generator` reveals heat-rate to `ops`, inertia to `dyn`, etc., which powers
-  the layer-filtered inspector and makes the abstraction levels visible *in the
-  data*. That's the whole pedagogical point.
+Two rules keep the reference honest and stop it from being "Glassbox with extras":
 
-**2. Investment representation — two granularities, and a stepped supply curve.**
-Glassbox now carries *two* buildable representations, which the earlier version
-of this doc predated:
-- **`ExpansionCandidate`** — a specific plant, storage unit, or line at a
-  specific bus (nodal granularity; "should we build *this* here?").
-- **`ResourcePotential`** — the aggregate buildable potential of a technology
-  across a whole *zone*, expressed as a **stepped supply curve** of
-  `SupplyTranche`s: the best (cheapest, highest-CF) sites are exhausted first, so
-  a technology's cost is a *rising* curve of $/MW, not a scalar. The CEM builds
-  tranches cheapest-first up to the potential and sites them at the zone's
-  interconnection hub.
+1. **It is a union, not an invention.** Its capabilities are the union of what the
+   surveyed schemas already represent, organized on a schema-neutral spine (the
+   analysis ladder). Nobody's structure wins; the reference is assembled from the
+   field.
+2. **It must expose every schema's gaps — including Glassbox's.** A ruler that
+   only measured others would be a trophy. The sections below are explicit about
+   where Glassbox falls short of its own ideal.
 
-Sienna's Investments domain covers "supply/storage/demand-side technologies,
-financial parameters, existing capacity, retirement/retrofit potential" with
-build limits, but its published summary does not surface a *stepped zonal supply
-curve / resource-class* construct — the thing GenX-style CEMs use to make VRE
-siting economics rise with deployment. This is a place Glassbox goes further on
-CEM realism. Conversely, Sienna models **demand-side technologies** and
-**retirement/retrofit potential** as investment options; Glassbox handles
-retirement *exogenously* (a `retirement_year` / `status` the engines honor), not
-yet as an endogenous CEM decision, and has no demand-side investment class.
+## What a shared grid schema should represent
 
-**3. Reserves / ancillary services.**
-Both represent reserves as their own objects rather than generator flags. Sienna
-covers **AGC, constant and variable reserves (up/down), and reserve groups**.
-Glassbox's `ReserveProduct` carries a `requirement_rule`
-(`pct_load` / `pct_vre` / `fixed_mw`) with a `zone_scope`; the CEM/PCM enforce a
-spinning-up requirement as a soft (penalized-shortfall) constraint, and the
-`pct_vre` term is effectively a *variable* reserve. Glassbox does **not** yet
-model AGC, down-reserves, or reserve groups — an honest gap versus Sienna's
-services package. (FFR sizing, by contrast, flows in from the dynamics layer.)
+### Design principles
 
-**4. Cross-layer requirements are encoded in the schema.**
-Distinct to Glassbox: requirements derived in one layer are carried into others
-*as data*. `Interface.limit_source` records that a flowgate limit may be a
-**stability** limit descending from the dynamics layer, and `SystemConstraint`
-(`min_inertia` / `min_synchronous_units` / `rocof_limit` / `min_system_strength`)
-carries a dynamics-derived floor **up** into planning and operations, tagged with
-`inv`/`ops`/`dyn` facets. Sienna's packages are cleanly separable but its summary
-does not describe requirement flow *between* packages; in Glassbox the coupling is
-first-class in the schema, which is what lets the tool teach the 6.7 handoffs.
+Twelve principles, each attributed to the schema that makes the case for it best.
+An ideal schema would hold all twelve at once; no real one does.
 
-**5. Units formalization.**
-Sienna has a dataset-level `UnitSystem` enum (`SYSTEM_BASE / DEVICE_BASE /
-NATURAL_UNITS`) that cost/fuel curves reference. Glassbox stores SI per field
-with a `base` tag and derives per-unit on demand, plus an explicit machine→system
-base conversion in the dynamics engine. Same intent; Sienna's is more formalized
-at the dataset level. *Adopting a `UnitSystem`-style enum is a clean future step.*
+1. **One stored world, many views.** Store the finest representation once (nodal,
+   node-breaker, full multi-year chronology) and *derive* every coarser view by
+   projection, rather than storing "the zonal data" and "the nodal data"
+   separately. — *Glassbox's central thesis; CGMES's computed bus is the same move.*
+2. **Node-breaker is the base; the bus is computed.** Model the physical
+   switchyard — busbars, connectivity nodes, breakers and disconnectors — and let
+   the power-flow "bus" (a `TopologicalNode`) be a *computed* connected component
+   across closed switches, never stored. Whether a line is in service is then a
+   derived fact. — *CIM/CGMES.*
+3. **Structure and operating state are separate.** The equipment model (what
+   exists, as-drawn) is a different thing from a scenario's switch positions and
+   setpoints, and they change on different cadences. — *CIM's EQ vs SSH profiles;
+   Glassbox's `Switch.normal_open` vs `Switch.open`.*
+4. **Identity is permanent across exchanges.** Every object carries a stable id
+   that survives every translation, so the same physical asset is recognizable
+   across power flow, dynamics, markets, adequacy, and SCADA. — *CIM's `mRID`.*
+5. **Existing assets and buildable options are different objects.** An asset has a
+   lifecycle/status; a candidate is a separate entity with siting, build limits,
+   financials, and an operating template — never a boolean on the asset. — *Sienna's
+   Operations vs Investments domains; Glassbox's `ExpansionCandidate`.*
+6. **Technology is an open label with an optional closed classification.** Carry
+   the source's native free-text type *and* allow a mapping to a closed enum, so
+   the cost of entering a taxonomy is **explicit and deferrable**, not silently
+   forced at the door. — *The grid-rosetta bench's typeless-source finding.*
+7. **Units and base are per-field metadata.** Every numeric field declares its SI
+   unit and its per-unit base; conversion is derivable, not implicit in code. —
+   *All three formal schemas (Sienna's `UnitSystem`, Glassbox's `unit`+`base`,
+   PyPSA's per-attribute units).*
+8. **Time series live out-of-line.** Arrays are referenced by id, never inlined
+   into the component records. — *Universal (HDF5, npz, `_t` DataFrames).*
+9. **Cross-layer requirements are carried as data.** A stability-derived flow
+   limit, a minimum-inertia floor, an FFR reserve requirement is a *field* that
+   flows between layers — not a comment, not tribal knowledge. — *Glassbox's
+   `SystemConstraint` and `Interface.limit_source`.*
+10. **Per-field capability tags.** Each field is tagged with the analyses that
+    consume it, so any tool can slice the one world down to exactly what it needs.
+    — *Glassbox's facets; Sienna's packages are the coarse-grained version.*
+11. **Ingest is auditable.** When data crosses in from another schema, what was
+    approximated, dropped, or defaulted is recorded per property — never lost
+    silently. — *VeraGrid's `DataLogger`; grid-rosetta's coverage manifest.*
+12. **The serialization is language-neutral and spec-published.** A schema anyone
+    can implement against, in a portable wire format with a published contract. —
+    *Sienna's JSON Schema + OpenAPI; CIM's RDF/XML.*
 
-**6. Persistence, interop & export.**
-Sienna: SQLite (3.45+, JSONB) for the static schema + HDF5 for time series, with
-a "Case Generator" emitting JSON/HDF5 for downstream tools; language-agnostic via
-JSON Schema (Draft-07) + OpenAPI 3.1.0; implementations in Python, Julia, SQL;
-explicit interop with GenX/PyPSA/CIM. Glassbox: JSON + npz on the local
-filesystem, Pydantic-as-source, Python-only. Two things narrow this gap since the
-first cut, though: the facet/unit/base metadata rides in each field's Pydantic
-`json_schema_extra`, so `World.model_json_schema()` already emits a **facet-tagged
-JSON Schema for free** (verified: every field carries its `facets`), and the
-FastAPI surface already serves OpenAPI 3.1 — a language-agnostic export is now
-packaging, not new design. Glassbox remains single-user and local by design;
-Sienna is built for multi-adopter, GW-scale interchange.
+### The capability taxonomy
 
-**7. Validation philosophy.**
-Both push *domain* validation to the consuming engine rather than the schema.
-Sienna says so explicitly ("domain-specific validations left to adopting
-libraries"); Glassbox validates structure via Pydantic and validates *phenomena*
-via the test/oracle suite. Glassbox now also re-validates structure **live**: the
-build-mode editor re-runs full Pydantic validation on every in-place patch
-(rejecting bad types/enums/negative values and dangling bus references) and
-journals the inverse op, so the "schema validates structure" contract holds for
-interactive edits, not just load.
+*What* an ideal schema must be able to represent, organized on the analysis
+ladder (coarsest economics to finest physics) plus a cross-cutting metadata band.
+This list is the row set the schemas are scored against.
 
-**8. Presentation.**
-Glassbox's facets do double duty: besides driving the engines, they drive the
-inspector, the operator/overlay UI, and the modeling-layer selector. Sienna is a
-pure data schema and (correctly) says nothing about presentation.
+- **Topology & network (physical).** Node-breaker substations (busbars,
+  connectivity nodes, breakers/disconnectors, terminals); base voltages; AC
+  branches with sequence impedances; DC/HVDC; shunts and reactive devices; the
+  derivable bus-branch view.
+- **Assets.** Generators (native label *and* prime-mover/fuel); storage with
+  independent power and energy; loads; hydro with reservoirs/cascades; converters
+  (grid-following / grid-forming); an asset lifecycle/status.
+- **Investment (capacity expansion).** Nodal candidates *and* zonal supply curves
+  (rising \$/MW with deployment); build limits and financials; transmission
+  expansion; endogenous retirement/retrofit; demand-side options.
+- **Operations & markets.** Unit-commitment parameters (min up/down, start cost);
+  reserves in both directions (spinning / non-spinning / regulation / FFR), AGC,
+  and reserve groups; a balancing area and its ACE context (frequency bias, tie
+  capacity, scheduled interchange); interfaces/flowgates; locational prices from
+  duals; scarcity (ORDC); bids and offers.
+- **Security (steady-state).** Operational limits (thermal and stability, normal
+  and emergency); contingency lists; PTDF / monitored elements; voltage schedules
+  and tap changers.
+- **Adequacy.** Forced-outage models (MTTF/MTTR); correlated multi-year weather
+  draws; value of lost load.
+- **Dynamics (RMS).** Machine models, inertia, governor, AVR/exciter; converter
+  control (GFL/GFM); FFR; and the min-inertia / RoCoF requirements that flow up
+  from here.
+- **EMT.** Sequence and harmonic impedances; filter (LCL) parameters; converter
+  control-loop parameters.
+- **Measurement & telemetry.** Measurement classes (`Analog`/`Discrete`) bound to
+  terminals, so a state estimator has something to run on. — *CIM's territory.*
+- **Metadata & representation (cross-cutting).** Permanent identity; units + base;
+  per-field capability tags; the structure-vs-state split; a provenance/loss
+  ledger; a language-neutral published spec.
 
-## Adding PyPSA — the third model
+## How the schemas measure up
 
-[PyPSA](https://pypsa.org) is an optimization-first toolkit, and its schema
-reflects that: a **network of typed components** held in pandas DataFrames
-(`Bus`, `Generator`, `Line`, `Link`, `StorageUnit`, `Store`, `Load`, `Carrier`,
-`GlobalConstraint`, …), with time-varying attributes split into a parallel dict
-of DataFrames (`<attr>_t`). Where Sienna separates by **package** and Glassbox by
-**field-level facet**, PyPSA barely separates at all — one flat component set, and
-the "analysis" is a *method* you call (`n.optimize()`, `n.pf()`), not a slice of
-the schema.
+The four most robust schemas — Glassbox, Sienna, PyPSA, and CGMES — scored against
+the capability taxonomy. `●` first-class in the data model, `◐` partial / derived
+/ via a flag, `○` not in the data model. (The specialist formats — OSeMOSYS,
+Plexos, VeraGrid, MATPOWER/IEEE — are covered in their own section below; they are
+deliberately partial.)
 
-The sharpest three-way contrast is **investment**, and it is instructive:
+| Capability | Glassbox | Sienna | PyPSA | CGMES |
+|---|:---:|:---:|:---:|:---:|
+| Node-breaker topology (bus computed) | ◐ `rtops` layer | ○ bus-branch | ○ bus-branch | ● native |
+| Structure vs. operating state (EQ/SSH) | ● `normal_open`/`open` | ○ | ○ | ● native |
+| Permanent identity across exchanges | ◐ ids, not exchange-grade | ◐ | ◐ | ● `mRID` |
+| Existing vs. buildable, kept apart | ● `ExpansionCandidate` | ● Investments domain | ◐ `extendable` flag | ○ not an analysis concern |
+| Buildable as a stepped supply curve | ● `ResourcePotential` | ◐ technologies + limits | ○ one `p_nom_max` | ○ |
+| Open label + closed classification | ◐ closed enum only | ○ closed pair only | ● free-text carrier | ● two objects (machine + unit) |
+| Units + base per field | ● | ● + `UnitSystem` | ● documented | ◐ profile-declared |
+| Time series out-of-line | ● npz | ● HDF5 | ● `_t` frames | ◐ separate profiles |
+| Cross-layer requirements as data | ● `SystemConstraint` | ○ packages separable | ○ | ○ |
+| Per-field capability tags | ● facets | ◐ packages (coarse) | ○ | ○ |
+| Reserves / ancillary services | ◐ spinning-up rule | ● AGC + up/down + groups | ○ custom constraint | ○ market profile (62325) |
+| Balancing area / ACE | ● `OperatingArea` | ○ string area tag | ○ | ◐ `ControlArea` |
+| Unit commitment | ● MILP UC | ● Operations domain | ● `committable` | ○ |
+| Steady-state security · N-1 | ● NR + contingencies | ● network domain | ● AC + linear | ◐ topology, no solver |
+| RMS dynamics | ● `dyn` facet | ● Dynamics domain | ○ | ◐ DY profile params |
+| EMT / resonance | ◐ `emt` micro-examples | ○ | ○ | ○ |
+| Resource adequacy (Monte Carlo) | ● `adq` facet | ◐ ecosystem tooling | ○ | ○ |
+| Measurement / telemetry binding | ◐ runtime kernel | ○ | ○ | ● `Analog`/`Discrete` |
+| Auditable ingest provenance | ◐ via grid-rosetta | ○ | ○ | ◐ DataLogger-style tools |
+| Language-neutral published spec | ◐ derivable | ● JSON Schema + OpenAPI | ◐ Python + netCDF | ● RDF/XML |
 
-| | Mechanism | First-class object? |
-|---|---|---|
-| **PyPSA** | `p_nom_extendable = True` + `p_nom_min/max` + `capital_cost` **on the asset** | no — the operating component *is* the candidate |
-| **Sienna** | a dedicated **Investments** domain package | yes — a separate domain |
-| **Glassbox** | `ExpansionCandidate` (nodal) + `ResourcePotential`→`SupplyTranche` (zonal supply curve) | yes — separate entities, two granularities |
+Read the columns and a character emerges; the rest of this section walks the
+sharpest contrasts, capability by capability, since that is where the design
+choices actually live.
 
-Same decision — "what could be built?" — expressed at three depths: a flag, a
-package, or a pair of dedicated entities including a stepped supply curve.
+**Investment — the clearest fork.** The same decision ("what could be built?") is
+expressed at four depths. **PyPSA** overloads the operating asset with a
+`p_nom_extendable` flag plus `p_nom_min/max` and `capital_cost` — the candidate
+*is* the component. **Sienna** gives investment its own **Investments** domain
+package (supply/storage/network options, financials, retirement/retrofit
+potential, and demand-side technologies). **Glassbox** gives it two dedicated
+representations — `ExpansionCandidate` (nodal: "should we build *this* here?")
+*and* `ResourcePotential` → `SupplyTranche` (a zonal stepped supply curve, so the
+best sites exhaust first and a technology's cost *rises* with deployment, the
+GenX-style construct). **CGMES** has none of this — it is an exchange ontology,
+not an analysis schema, and "what could be built" is not a question it asks.
+Against the reference, Sienna is most complete (it models demand-side and
+endogenous retirement, which Glassbox does *not* — Glassbox retires exogenously
+via `retirement_year`/`status`), while Glassbox alone carries the stepped supply
+curve.
 
-Other notable PyPSA positions (verified against the installed component model and
-its published schema summary):
+**Operations — where reserves are the tell.** grid-rosetta measured this directly
+(`tests/test_ops_interop.py`): round-trip an operations-bearing world through the
+PyPSA and Sienna hubs and read what each carries. **Reserves are the only
+operations concept a planning schema carries natively — and only Sienna** (it
+translates them to `StaticReserve`; PyPSA can hold them only in grid-rosetta's
+sidecar, and CGMES relegates them to the market profile, IEC 62325). Sienna is
+strongest here overall: AGC, up- *and* down-reserves, reserve groups. Glassbox's
+`ReserveProduct` carries a `requirement_rule` (`pct_load`/`pct_vre`/`fixed_mw`,
+the `pct_vre` term a variable reserve) but has no AGC, down-reserves, or groups —
+a real gap versus the reference. The deeper control-room layer — the node-breaker
+substation model and the balancing area / ACE context — is where the split is
+starkest: it has *no home in either planning hub* and survives a round-trip only
+as byte-identical sidecar baggage, never as a native object. Only Glassbox (via
+`rtops`) and CGMES model it at all.
 
-- **Transmission expansion** is first-class the same way generation is
-  (`Line`/`Link`/`Transformer` `s_nom_extendable`).
-- **Unit commitment** is supported (`committable = True`, min up/down, start-up).
-- **Reserves / ancillary services** are **not** in the component model — they must
-  be added as custom constraints; there is no reserve object.
-- **RMS dynamics / EMT**: **absent**. PyPSA covers investment, operations, and
-  static AC/DC + linearised power flow, but has no phasor-dynamics or EMT
-  representation — its core workflow is the LP, and stability is out of scope.
-- **Units** are *documented per attribute but not enforced at runtime*, and there
-  is no conversion library — the loosest of the three (Glassbox enforces via
-  Pydantic and derives per-unit; Sienna formalizes a `UnitSystem` enum).
-- **Interoperability** is strong in practice (a large PyPSA-Eur ecosystem, netCDF
-  interchange) but it is a Python library, not a language-neutral schema spec the
-  way Sienna publishes JSON Schema + OpenAPI.
+**Node-breaker topology & the structure/state split — CGMES's home turf.** CGMES
+is the reference standard for principles 2 and 3, and it is why they are in the
+reference at all. It authors the switchyard (`Substation` → `VoltageLevel` →
+`Bay`; `ConnectivityNode`s; `BusbarSection` as *equipment*; `Breaker`/`Disconnector`
+under `Switch`) and *computes* the `TopologicalNode`. It splits the model across
+profiles — **EQ** (equipment, changes rarely), **SSH** (one scenario's switch
+states and setpoints), **TP** (derived topology), **SV** (the solved state) — so
+the structure/state distinction is a data-ownership fact, not a convention.
+PyPSA, Sienna, and pre-`rtops` Glassbox all start from the bus-branch view a real
+EMS *derives*. Glassbox's response is the `rtops` layer: a legible miniature of
+CGMES's node-breaker classes, with a topology processor so the planning engines
+still consume a bus-branch world — and grid-rosetta's `cgmes -> glassbox` bridge
+is, precisely because of this correspondence, a **~1:1 CIM-class rename** rather
+than a translation. Against the reference, only CGMES has this natively in the
+*core*; Glassbox has it as an additive layer, not in its planning spine.
 
-The punchline the visual makes obvious: **the physical spine is nearly identical
-across all three** — `Bus`, `Generator`, `Load`, and an AC branch line up almost
-name-for-name — and the schemas diverge exactly where modeling *ambition*
-diverges: investment representation, reserves, and how far up the physics stack
-each is built to reach (PyPSA → power flow; Sienna → + stability; Glassbox → the
-full teaching stack, each layer pinned to an oracle).
+**Cross-layer requirements — Glassbox's home turf.** Distinct to Glassbox:
+requirements derived in one layer are carried into others *as data*.
+`Interface.limit_source` records that a flowgate limit is a **stability** limit
+descending from the dynamics layer; `SystemConstraint` (min-inertia,
+min-synchronous-units, RoCoF, min-system-strength) carries a dynamics-derived
+floor **up** into planning and operations, tagged with `inv`/`ops`/`dyn` facets.
+None of the others encode requirement *flow* between layers — Sienna's packages
+are cleanly separable but silent on the coupling, which is exactly what lets
+Glassbox teach the stability→operations handoffs.
 
-## Adding CIM/CGMES — the fourth model (the exchange standard)
+**Identity & interchange — the exchange schemas win.** CGMES's `mRID` and
+Sienna's published JSON Schema + OpenAPI (implementations in Python/Julia/SQL) are
+the reference for principles 4 and 12. Glassbox is Python-first and local, though
+the gap is narrower than it looks: its facet/unit/base metadata rides in each
+field's Pydantic `json_schema_extra`, so `World.model_json_schema()` already emits
+a **facet-tagged JSON Schema for free**, and the FastAPI surface already serves
+OpenAPI 3.1 — a language-neutral export is packaging, not new design. A notable
+interop fact sharpens the whole picture: **Sienna has no CIM/CGMES import path**
+(its parsers are PSS/E, MATPOWER, CSV). The mandated European exchange format and
+the modern open analysis stacks barely touch — which is itself the strongest
+argument for measuring both against one reference rather than against each other.
 
-[IEC CIM](https://www.entsoe.eu/data/cim/cim-for-grid-models-exchange/) is not
-an analysis schema at all, which is exactly why it belongs in this comparison:
-it is the industry's **exchange/asset ontology** — a ~1,500-class UML model
-(IEC 61970 transmission / 61968 distribution / 62325 markets) serialized as
-RDF/XML, describing what equipment *is* and how it is physically connected,
-with no solver semantics whatsoever. **CGMES** (currently 3.0 = IEC
-61970-600-1/-2) is ENTSO-E's profile of it, legally required for European TSO
-model exchange under EU Regulation 2017/1485.
+**Provenance — the newest principle, and the least served.** Principle 11
+(auditable ingest) is the one almost nobody satisfies in the schema itself.
+VeraGrid threads a `DataLogger` through every parser; grid-rosetta makes the loss
+ledger a first-class output of every translation. But none of the four core
+schemas *store* provenance as part of the model — it lives in the tooling. This is
+a genuine frontier the reference names and the bench operationalizes.
 
-Three structural ideas separate CIM from everything else on this page:
+## Where each schema meets and misses the ideal
 
-1. **Node-breaker, not bus-branch.** CIM models every breaker and disconnector
-   (`Substation` → `VoltageLevel` → `Bay`; `ConnectivityNode`s;
-   `Breaker`/`Disconnector` under `Switch`; the physical bus is *equipment* —
-   `BusbarSection`). A power-flow "bus" (`TopologicalNode`) is **computed, not
-   stored**: collapse connectivity nodes across closed switches and each
-   connected component is one bus. Whether a line is "in service" is a derived
-   fact. Every analysis schema here (PyPSA, Sienna, Glassbox pre-rtops) starts
-   from the bus-branch view a real EMS *derives* — which is why analysis tools
-   import CIM by running topology processing and collapsing it.
-2. **The profile split as a data-ownership statement.** CGMES ships a model as
-   separate files with different owners and cadences: **EQ** (equipment —
-   changes rarely), **SSH** (one scenario's switch states and setpoints —
-   hourly), **TP** (derived topology), **SV** (the solved state), plus
-   DY/DL/GL. Planning tools live on TP/SV; operations authors EQ/SSH. That
-   split *is* the ops/planning schema distinction, standardized.
-3. **Identity over convenience.** Every object carries a permanent `mRID`
-   across every exchange — the same equipment serves power flow,
-   short-circuit, dynamics, asset management, and SCADA binding
-   (`Analog`/`Discrete` measurements attach to equipment at `Terminal`s).
-   Analysis schemas index by whatever the solver finds convenient.
+- **CGMES/CIM** — *the exchange ontology.* Meets the reference on the physical and
+  identity principles better than anything else: node-breaker, EQ/SSH,
+  permanent `mRID`, terminal-bound measurements, a ~1,500-class model serialized
+  as RDF. Misses everything above the physics: no investment, no reserves in the
+  core, no solver semantics at all. It describes what *is*, exhaustively, and
+  leaves what to *do* with it to the analysis schemas.
+- **Sienna** — *the production analysis stack.* The most complete on the
+  operations and investment principles (AGC, up/down reserves, reserve groups; a
+  full Investments domain with demand-side and retirement; a `UnitSystem` enum;
+  JSON Schema + OpenAPI + multi-language). Misses the node-breaker base (bus-branch
+  only), the structure/state split, cross-layer requirement flow, and — notably —
+  any CIM import path.
+- **PyPSA** — *the optimization problem schema.* Its columns are solver inputs;
+  investment and unit commitment are flags on the component, and the AC/linear
+  power flow is built in. Misses reserves (custom constraints), all dynamics and
+  EMT, node-breaker topology, and enforced units — deliberately, because its
+  center of gravity is the LP, not the data model.
+- **Glassbox** — *the teaching schema.* Meets the reference on "one world many
+  views" (facets), the stepped supply curve, cross-layer requirements, the widest
+  physics reach (adequacy and EMT included, each pinned to an oracle), and — via
+  `rtops` — the node-breaker/operations layer. **Where it misses its own ideal:**
+  no AGC / down-reserves / reserve groups; retirement is exogenous and there is no
+  demand-side investment class; node-breaker lives only in `rtops`, not the
+  planning spine; telemetry/state-estimation is a runtime kernel, not schema-bound
+  measurements (no per-terminal `Analog`/`Discrete`); it is single-user and local
+  rather than a language-neutral multi-adopter spec; and it has no market/bid
+  objects. Naming these is the point of having a ruler.
 
-The four-way contrast in one sentence each:
+## Specialist formats on the bench
 
-| Schema | What it fundamentally is | The generator, in its own words |
-|---|---|---|
-| **CIM/CGMES** | exchange ontology: what exists, analysis-agnostic | `SynchronousMachine` (electrical) + `ThermalGeneratingUnit` (prime mover) — two objects, permanent mRIDs |
-| **Sienna** | typed analysis schema, package-partitioned | `ThermalStandard` with closed `PrimeMover`/`ThermalFuel` enums |
-| **PyPSA** | problem schema: columns are solver inputs | a `Generator` row: `p_nom`, `marginal_cost`, free-text carrier |
-| **Glassbox** | teaching schema, facet-tagged | `Generator` with closed enum + per-field facet/unit metadata |
+Four more schemas are on the grid-rosetta bench precisely because they are
+*partial* — each is illuminating at one edge of the reference and blank at others.
 
-Notable interop fact: **Sienna has no CIM/CGMES import path** (its parsers are
-PSS/E RAW, MATPOWER, CSV) — the mandated European exchange format and the
-modern open analysis stacks barely touch. The practical route is
-CGMES → PowSyBl or pandapower (`cim2pp`) → MATPOWER → Sienna. For the
-hub-and-spoke question this is the sharpest finding yet: *neither candidate
-hub speaks the industry's actual exchange standard*.
+- **OSeMOSYS** (otoole-style CSV) — the **capacity-expansion extreme**: open
+  free-text technology names (like PyPSA) *plus* a native investment side (which
+  the Sienna mirror lacks), but **no network** (single copper-plate region) and
+  **no chronology** (diurnal timeslices). Measured as a hub, an OSeMOSYS payload
+  scores CEM-complete and power-flow-impossible — which is exactly what it is.
+- **Plexos** (MasterDataSet XML) — the **typeless-identity extreme**: enterprise
+  market models whose objects may carry **no category at all**, so "what is this
+  unit?" has no answer in the source. It is the sharpest test of principle 6 (the
+  mapping debt is unavoidable and must be counted, not hidden).
+- **VeraGrid / MultiCircuit** — the **mature-production extreme**: a decade-old
+  hub schema with 153 CGMES device classes, parsers for the formats industry
+  actually uses (PSS/E, CGMES, UCTE, PowerFactory), and a `DataLogger` that is the
+  clearest existing implementation of principle 11. Its breadth-vs-subset
+  asymmetry against a teaching schema is itself a finding.
+- **MATPOWER / IEEE cases** — the **minimal test-case lingua franca**: a bus/branch
+  matrix with no technology labels at all. Useful precisely because it is the
+  floor — the smallest thing that is still a grid model, and a clean typeless
+  source for the mapping-debt experiments.
 
-That CGMES spoke is now **built** on the grid-rosetta bench (issue #58). Rather
-than route through pandapower's bus-branch `cim2pp` — which would flatten the
-very node-breaker detail this comparison is about — the bench reads the CGMES EQ
-+ SSH profiles directly (stdlib, parsed by local tag name, CIM-version tolerant)
-and lands them in Glassbox's node-breaker schema as a **~1:1 CIM-class rename**:
-`Substation`/`VoltageLevel`/`BusbarSection`/`ConnectivityNode` keep their names,
-`Breaker`/`Disconnector` become `Switch(kind=…)`, and `Switch.normalOpen`/`open`
-map onto Glassbox's `normal_open`/`open` — the EQ/SSH split executable. The one
-genuinely computed thing is the planning bus (a `TopologicalNode`, derived by
-union-find over closed switches, exactly as `rtops/topology.py` does), so the
-imported world collapses back to the electrical model the engines solve (0
-unserved). A compact node-breaker conformity model ships in-repo; a full ENTSO-E
-MiniGrid loads the same way. The measured coverage — what each planning hub
-drops of an ops-bearing model — is summarized in the next section.
-
-Glassbox's response (per the [Ops Mode PRD](./prd_ops_mode.md), issue #56): an
-`rtops` substation layer that mirrors CIM's node-breaker classes by name, a
-topology processor so the planning views consume a derived bus-branch model,
-and the EQ/SSH/TP/SV split mapped onto world / shift-scenario / derived
-topology / results — a legible miniature of the real standard rather than a
-caricature.
-
-## Operations coverage — what each schema carries of the control-room layer
-
-Ops Mode (issues #56–#58) added a control-room layer *on top of* the planning
-stack: the CIM node-breaker substation model above, a balancing area (the ACE
-context), and synthesized telemetry feeding a state estimator. Those are
-operations concepts, and the natural question — *can a planning schema carry
-them?* — is now **measured, not asserted**. The grid-rosetta bench round-trips
-an operations-bearing Glassbox world through the PyPSA and Sienna hubs and reads
-the coverage manifests (`tests/test_ops_interop.py`); CGMES, the one exchange
-format that is node-breaker *natively*, sits on the same bench as an inbound
-spoke (`cgmes -> glassbox`). This is the operations-coverage band of the
-[schema atlas](./schema_atlas.html), in written form.
-
-| Operations concept | Glassbox | Sienna | PyPSA | CIM/CGMES |
-|---|---|---|---|---|
-| Node-breaker substations (breakers, busbars, connectivity nodes) | first-class (`rtops`) | absent — **parks in sidecar** | absent — **parks in sidecar** | **native** (the source of the model) |
-| Balancing area / ACE (bias, ties, scheduled interchange) | first-class (`OperatingArea`) | absent — string area tag only, parks | absent — parks | partial (`ControlArea`) |
-| Reserves / ancillary products | `ReserveProduct` (spinning-up) | **translates** (`StaticReserve`) | absent — parks in sidecar | market profile (IEC 62325) |
-| Live switch state (structure vs operating) | `normal_open` / `open` | absent | absent | **native** (the EQ/SSH split) |
-| Telemetry + state estimation | runtime kernel (`rtops/telemetry.py`) | absent | absent | measurement classes (`Analog`/`Discrete`) |
-
-The measured finding: **reserves are the only operations concept a planning
-schema carries natively, and only Sienna** — it translates them to
-`StaticReserve`; PyPSA can hold them only in the sidecar. The node-breaker
-substation layer and the balancing area have no home in *either* planning hub —
-they survive a hub round-trip only as opaque sidecar baggage, byte-identical,
-never as native objects. The schema that *does* carry the node-breaker layer
-natively is the one built for exchange, not analysis — CIM/CGMES — which is
-exactly why Glassbox's `rtops` layer is a miniature of it, and why the bench's
-`cgmes -> glassbox` route is a ~1:1 rename rather than a translation. "Parks in
-the sidecar" is not a metaphor here: it is the grid-rosetta coverage manifest,
-which names every parked entity and restores it on the way home, so nothing is
-lost silently — the one thing a planning schema must never do to an operations
-model it cannot represent.
-
-## What we'd borrow from Sienna
-
-- A dataset-level `UnitSystem` enum to make the SI/device/per-unit choice
-  first-class rather than implicit per field.
-- Richer services: AGC, down-reserves, and reserve groups, to match Sienna's
-  ancillary-services coverage.
-- Endogenous **retirement/retrofit** as investment options (Glassbox retires
-  exogenously today), and a demand-side technology class.
-- Ship the (now nearly-free) language-agnostic export — emit the facet-tagged
-  JSON Schema from `model_json_schema()` as a published artifact so the schema
-  could interoperate, matching Sienna's interchange goal.
-- Optionally, a package/dependency grouping on top of facets for reuse — though
-  facets already give most of the modularity benefit for a single tool.
-
-## What's distinctive about Glassbox
-
-- **Field-level facets** as the single source of truth for "which layer sees
-  what," driving both engines and UI from one annotation.
-- **Cross-layer requirements as data** (`SystemConstraint`, `Interface.limit_source`)
-  — the up/down handoffs between stability, operations, and planning are
-  encoded in the schema, not just implied by the tools.
-- A **stepped zonal supply curve** (`ResourcePotential`/`SupplyTranche`) sitting
-  alongside nodal candidates, so VRE siting economics rise with deployment.
-- A **transparency contract** (`explain()` on every engine/operator) and an
-  **oracle layer** (pandapower/PyPSA/Andes, now including multi-hour dispatch and
-  capacity-expansion round-trips) — concerns outside a data schema's scope, but
-  central to Glassbox's "inspectable" thesis.
+The pattern across all four: the reference model tells you *where* each is blank,
+and grid-rosetta measures *what it costs* to route real data through them anyway.

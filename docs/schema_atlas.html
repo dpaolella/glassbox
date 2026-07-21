@@ -3,11 +3,11 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Schema Atlas — Glassbox vs. Sienna vs. PyPSA</title>
+<title>Schema Atlas — grid schemas against a reference model</title>
 <style>*{box-sizing:border-box}html,body{margin:0}</style>
 </head>
 <body>
-<title>Schema Atlas — Glassbox vs. Sienna vs. PyPSA</title>
+<title>Schema Atlas — grid schemas against a reference model</title>
 
 <style>
   :root {
@@ -29,6 +29,8 @@
     --si-soft: rgba(193,85,44,0.12);
     --py:  #2a6fd0;   /* PyPSA — cool blue */
     --py-soft: rgba(42,111,208,0.12);
+    --cg:  #6d51c7;   /* CGMES / CIM — violet */
+    --cg-soft: rgba(109,81,199,0.12);
 
     /* coverage — neutral ordinal, no good/bad valence */
     --cov-full: var(--ink);
@@ -55,6 +57,7 @@
       --gb:  #eeb43f;  --gb-soft: rgba(238,180,63,0.15);
       --si:  #e07a4e;  --si-soft: rgba(224,122,78,0.15);
       --py:  #5a9bee;  --py-soft: rgba(90,155,238,0.15);
+      --cg:  #a48ff0;  --cg-soft: rgba(164,143,240,0.15);
       --cov-full: var(--ink);
       --cov-part: #7c7a70;
     }
@@ -63,13 +66,13 @@
     --plane:#f4f2ec; --surface:#fbfaf6; --surface-2:#f0ede4; --ink:#14140f; --ink-2:#56534a;
     --muted:#8a877d; --hair:#e0ddd2; --hair-2:#cfcbbd; --ring:rgba(20,20,15,0.10);
     --gb:#c47f00; --gb-soft:rgba(196,127,0,0.12); --si:#c1552c; --si-soft:rgba(193,85,44,0.12);
-    --py:#2a6fd0; --py-soft:rgba(42,111,208,0.12); --cov-full:var(--ink); --cov-part:#a29d90;
+    --py:#2a6fd0; --py-soft:rgba(42,111,208,0.12); --cg:#6d51c7; --cg-soft:rgba(109,81,199,0.12); --cov-full:var(--ink); --cov-part:#a29d90;
   }
   :root[data-theme="dark"] {
     --plane:#0c0f14; --surface:#141922; --surface-2:#1b212c; --ink:#f3f1ea; --ink-2:#b6b2a6;
     --muted:#8b897f; --hair:#262d38; --hair-2:#313a48; --ring:rgba(255,255,255,0.10);
     --gb:#eeb43f; --gb-soft:rgba(238,180,63,0.15); --si:#e07a4e; --si-soft:rgba(224,122,78,0.15);
-    --py:#5a9bee; --py-soft:rgba(90,155,238,0.15); --cov-full:var(--ink); --cov-part:#7c7a70;
+    --py:#5a9bee; --py-soft:rgba(90,155,238,0.15); --cg:#a48ff0; --cg-soft:rgba(164,143,240,0.15); --cov-full:var(--ink); --cov-part:#7c7a70;
   }
 
   * { box-sizing: border-box; }
@@ -90,6 +93,7 @@
   .lede .gb { color: var(--gb); font-weight: 640; }
   .lede .si { color: var(--si); font-weight: 640; }
   .lede .py { color: var(--py); font-weight: 640; }
+  .lede .cg { color: var(--cg); font-weight: 640; }
 
   /* ---- legend / controls ---- */
   .legend { display: flex; flex-wrap: wrap; gap: 10px 12px; align-items: center; margin: 30px 0 8px; }
@@ -101,6 +105,7 @@
   .chip[data-k="gb"] .dot { background: var(--gb); }
   .chip[data-k="si"] .dot { background: var(--si); }
   .chip[data-k="py"] .dot { background: var(--py); }
+  .chip[data-k="cg"] .dot { background: var(--cg); }
   .chip b { color: var(--ink); font-weight: 620; }
   .chip.dim { opacity: .34; }
   .chip:focus-visible { outline: 2px solid var(--py); outline-offset: 2px; }
@@ -114,12 +119,12 @@
   .sec-sub { color: var(--ink-2); max-width: 66ch; margin: 8px 0 22px; font-size: 15.5px; }
 
   /* ---- philosophy cards ---- */
-  .cards { display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; }
+  .cards { display: grid; grid-template-columns: repeat(2, 1fr); gap: 16px; }
   @media (max-width: 760px) { .cards { grid-template-columns: 1fr; } }
   .card { background: var(--surface); border: 1px solid var(--hair); border-radius: var(--r);
           padding: 20px 20px 22px; position: relative; overflow: hidden; }
   .card::before { content: ""; position: absolute; inset: 0 0 auto 0; height: 3px; background: var(--edge, var(--muted)); }
-  .card[data-k="gb"] { --edge: var(--gb); } .card[data-k="si"] { --edge: var(--si); } .card[data-k="py"] { --edge: var(--py); }
+  .card[data-k="gb"] { --edge: var(--gb); } .card[data-k="si"] { --edge: var(--si); } .card[data-k="py"] { --edge: var(--py); } .card[data-k="cg"] { --edge: var(--cg); }
   .card .name { font-family: var(--mono); font-size: 13px; letter-spacing: .04em; color: var(--edge); font-weight: 600; }
   .card h3 { margin: 4px 0 10px; font-size: 18.5px; font-weight: 640; letter-spacing: -0.01em; }
   .card p { margin: 0 0 14px; font-size: 14.5px; color: var(--ink-2); }
@@ -127,16 +132,28 @@
   .card svg { display: block; width: 100%; height: 74px; }
   .card .tag { font-family: var(--mono); font-size: 11px; color: var(--muted); letter-spacing: .05em; text-transform: uppercase; }
 
+  /* ---- reference principles ---- */
+  .principles { display: grid; grid-template-columns: 1fr 1fr; gap: 2px 30px; margin-top: 10px; }
+  @media (max-width: 680px) { .principles { grid-template-columns: 1fr; } }
+  .principles .p { border-top: 1px solid var(--hair); padding: 12px 0; }
+  .principles .p .n { font-family: var(--mono); font-size: 11px; color: var(--muted); }
+  .principles .p h4 { margin: 3px 0 3px; font-size: 15px; font-weight: 620; letter-spacing: -0.01em; }
+  .principles .p p { margin: 0; font-size: 13.5px; color: var(--ink-2); }
+  .principles .p .src { font-family: var(--mono); font-size: 11px; color: var(--muted); }
+  .principles .p .src b { color: var(--ink-2); font-weight: 600; }
+  .refnote { color: var(--ink-2); font-size: 14.5px; max-width: 66ch; margin: 20px 0 0; }
+  .refnote b { color: var(--ink); }
+
   /* ---- coverage matrix ---- */
   .scroll { overflow-x: auto; border: 1px solid var(--hair); border-radius: var(--r); background: var(--surface); }
-  table.matrix { border-collapse: collapse; width: 100%; min-width: 720px; }
+  table.matrix { border-collapse: collapse; width: 100%; min-width: 900px; }
   .matrix thead th { position: sticky; top: 0; background: var(--surface); z-index: 2; }
   .matrix th, .matrix td { text-align: left; padding: 0; }
   .matrix .corner { width: 30%; }
   .matrix thead .sch { padding: 14px 16px; border-bottom: 1px solid var(--hair-2); vertical-align: bottom; }
   .matrix thead .sch .schname { font-family: var(--mono); font-weight: 640; font-size: 14px; }
   .matrix thead .sch .schsub { font-size: 11.5px; color: var(--muted); font-family: var(--mono); letter-spacing: .03em; }
-  .sch[data-k="gb"] .schname { color: var(--gb); } .sch[data-k="si"] .schname { color: var(--si); } .sch[data-k="py"] .schname { color: var(--py); }
+  .sch[data-k="gb"] .schname { color: var(--gb); } .sch[data-k="si"] .schname { color: var(--si); } .sch[data-k="py"] .schname { color: var(--py); } .sch[data-k="cg"] .schname { color: var(--cg); }
   .matrix .band td { font-family: var(--mono); font-size: 11px; letter-spacing: .12em; text-transform: uppercase;
                      color: var(--muted); padding: 16px 16px 7px; border-bottom: 1px solid var(--hair); }
   .matrix tbody tr.row td { border-bottom: 1px solid var(--hair); vertical-align: top; }
@@ -153,6 +170,7 @@
   .cell[data-k="gb"] { --mk: var(--gb); --soft: var(--gb-soft); }
   .cell[data-k="si"] { --mk: var(--si); --soft: var(--si-soft); }
   .cell[data-k="py"] { --mk: var(--py); --soft: var(--py-soft); }
+  .cell[data-k="cg"] { --mk: var(--cg); --soft: var(--cg-soft); }
   .cov .lbl { font-size: 13.5px; color: var(--ink-2); }
   .cov .lbl b { color: var(--ink); font-weight: 600; }
   .cov code { font-family: var(--mono); font-size: 12px; background: var(--surface-2); padding: 1px 5px;
@@ -168,10 +186,10 @@
 
   /* ---- rosetta ---- */
   .rosetta { overflow-x: auto; border: 1px solid var(--hair); border-radius: var(--r); background: var(--surface); }
-  table.ros { border-collapse: collapse; width: 100%; min-width: 720px; }
+  table.ros { border-collapse: collapse; width: 100%; min-width: 880px; }
   .ros th { text-align: left; font-family: var(--mono); font-size: 11px; letter-spacing: .1em; text-transform: uppercase;
             color: var(--muted); padding: 14px 16px 10px; border-bottom: 1px solid var(--hair-2); font-weight: 500; }
-  .ros th[data-k="gb"] { color: var(--gb); } .ros th[data-k="si"] { color: var(--si); } .ros th[data-k="py"] { color: var(--py); }
+  .ros th[data-k="gb"] { color: var(--gb); } .ros th[data-k="si"] { color: var(--si); } .ros th[data-k="py"] { color: var(--py); } .ros th[data-k="cg"] { color: var(--cg); }
   .ros td { padding: 11px 16px; border-bottom: 1px solid var(--hair); vertical-align: top; }
   .ros tr:last-child td { border-bottom: 0; }
   .ros .concept { font-size: 14px; color: var(--ink-2); width: 22%; }
@@ -184,22 +202,22 @@
   /* ---- reach ---- */
   .reach { border: 1px solid var(--hair); border-radius: var(--r); background: var(--surface); padding: 8px 20px 22px; }
   .reach-scroll { overflow-x: auto; }
-  .reach-axis, .reach-row { min-width: 480px; }
-  .reach-axis { display: grid; grid-template-columns: 92px repeat(6, minmax(0, 1fr)); gap: 0; align-items: end;
+  .reach-axis, .reach-row { min-width: 620px; }
+  .reach-axis { display: grid; grid-template-columns: 92px repeat(7, minmax(0, 1fr)); gap: 0; align-items: end;
                 padding: 18px 0 8px; }
   .reach-axis .ax { font-family: var(--mono); font-size: 10.5px; letter-spacing: .02em; color: var(--muted);
                     text-align: center; padding: 0 4px; line-height: 1.25; text-transform: uppercase; }
-  .reach-row { display: grid; grid-template-columns: 92px repeat(6, minmax(0, 1fr)); gap: 0; align-items: center;
+  .reach-row { display: grid; grid-template-columns: 92px repeat(7, minmax(0, 1fr)); gap: 0; align-items: center;
                height: 40px; position: relative; }
   .reach-row + .reach-row { border-top: 1px dashed var(--hair); }
   .reach-row .who { font-family: var(--mono); font-size: 13px; font-weight: 620; }
-  .reach-row[data-k="gb"] .who { color: var(--gb); } .reach-row[data-k="si"] .who { color: var(--si); } .reach-row[data-k="py"] .who { color: var(--py); }
+  .reach-row[data-k="gb"] .who { color: var(--gb); } .reach-row[data-k="si"] .who { color: var(--si); } .reach-row[data-k="py"] .who { color: var(--py); } .reach-row[data-k="cg"] .who { color: var(--cg); }
   .reach-cell { display: flex; justify-content: center; align-items: center; height: 100%; }
   .reach-cell .g { width: 14px; height: 14px; border-radius: 50%; }
   .reach-cell .g.full { background: var(--mk); }
   .reach-cell .g.part { background: linear-gradient(90deg, var(--mk) 50%, transparent 50%); box-shadow: inset 0 0 0 1.5px var(--mk); }
   .reach-cell .g.none { box-shadow: inset 0 0 0 1.5px var(--hair-2); }
-  .reach-row[data-k="gb"] { --mk: var(--gb); } .reach-row[data-k="si"] { --mk: var(--si); } .reach-row[data-k="py"] { --mk: var(--py); }
+  .reach-row[data-k="gb"] { --mk: var(--gb); } .reach-row[data-k="si"] { --mk: var(--si); } .reach-row[data-k="py"] { --mk: var(--py); } .reach-row[data-k="cg"] { --mk: var(--cg); }
   .reach-track { position: absolute; left: 92px; right: 0; top: 50%; height: 6px; transform: translateY(-50%);
                  border-radius: 4px; opacity: .13; background: var(--mk); z-index: 0; }
   .reach-cell { position: relative; z-index: 1; }
@@ -212,7 +230,7 @@
   .take .q { font-family: var(--mono); font-size: 11px; letter-spacing: .1em; text-transform: uppercase; color: var(--muted); }
   .take h4 { margin: 8px 0 8px; font-size: 16.5px; letter-spacing: -0.01em; font-weight: 620; }
   .take p { margin: 0; font-size: 14px; color: var(--ink-2); }
-  .take .gb { color: var(--gb); font-weight: 600; } .take .si { color: var(--si); font-weight: 600; } .take .py { color: var(--py); font-weight: 600; }
+  .take .gb { color: var(--gb); font-weight: 600; } .take .si { color: var(--si); font-weight: 600; } .take .py { color: var(--py); font-weight: 600; } .take .cg { color: var(--cg); font-weight: 600; }
 
   /* legend for coverage glyphs */
   .covkey { display: flex; gap: 18px; flex-wrap: wrap; margin: 14px 2px 0; font-size: 12.5px; color: var(--ink-2); }
@@ -231,26 +249,55 @@
 
 <div class="wrap">
   <p class="eyebrow">Power-system data models · a field guide</p>
-  <h1>Three ways to write down one grid</h1>
+  <h1>One grid, four schemas, one ruler</h1>
   <p class="lede">
-    <span class="gb">Glassbox</span>, <span class="si">SiennaGridDB</span>, and
-    <span class="py">PyPSA</span> each store <b>one physical power system</b> and serve it to many
-    kinds of analysis — capacity expansion, operations, power flow, stability. They agree almost
-    perfectly on the <b>physical spine</b> and diverge on the hard parts: how you say
-    "this could be <em>built</em>," how you carve one model into many views, and how far up the
-    physics stack the schema reaches.
+    <span class="gb">Glassbox</span>, <span class="si">Sienna</span>,
+    <span class="py">PyPSA</span>, and <span class="cg">CGMES</span> each write down
+    <b>one physical power system</b> for a different job — teaching, production analysis,
+    optimization, exchange. Rather than rank them against each other, this atlas measures each
+    against a <b>reference model</b>: what a shared grid schema <em>could</em> represent, assembled
+    from the union of the field. They agree almost perfectly on the physical spine and diverge
+    exactly where their ambitions do.
   </p>
 
   <div class="legend" role="group" aria-label="Highlight a schema">
     <button class="chip" data-k="gb" aria-pressed="false"><span class="dot"></span><b>Glassbox</b>&nbsp;· field-facet</button>
     <button class="chip" data-k="si" aria-pressed="false"><span class="dot"></span><b>Sienna</b>&nbsp;· domain-package</button>
     <button class="chip" data-k="py" aria-pressed="false"><span class="dot"></span><b>PyPSA</b>&nbsp;· component-frame</button>
+    <button class="chip" data-k="cg" aria-pressed="false"><span class="dot"></span><b>CGMES</b>&nbsp;· exchange-ontology</button>
     <span class="hint">click a schema to focus · hover cells for detail</span>
   </div>
 
-  <!-- 1 · philosophies -->
+  <!-- 1 · reference model -->
+  <section id="reference">
+    <div class="sec-head"><span class="sec-num">01</span><h2>What a shared schema should represent</h2></div>
+    <p class="sec-sub">A <b>yardstick, not a hub</b>: no data flows through the reference model — it only
+      enumerates what a complete grid schema could hold, so each real schema's reach reads off a fixed
+      scale. Its capabilities are the <em>union</em> of the field, on the analysis ladder; the twelve
+      principles below are each owed to the schema that argues for it best.</p>
+    <div class="principles">
+      <div class="p"><span class="n">01</span><h4>One stored world, many views</h4><p>Store the finest form once; derive every coarser view.</p><span class="src">taught by <b>Glassbox</b></span></div>
+      <div class="p"><span class="n">02</span><h4>Node-breaker base; the bus is computed</h4><p>Model the switchyard; the power-flow bus is a connected component across closed switches.</p><span class="src">taught by <b>CGMES</b></span></div>
+      <div class="p"><span class="n">03</span><h4>Structure vs. operating state</h4><p>The equipment model and a scenario's switch states are different things, on different cadences.</p><span class="src">taught by <b>CGMES</b> · EQ/SSH</span></div>
+      <div class="p"><span class="n">04</span><h4>Permanent identity across exchanges</h4><p>A stable id survives every translation, so one asset is recognizable everywhere.</p><span class="src">taught by <b>CGMES</b> · mRID</span></div>
+      <div class="p"><span class="n">05</span><h4>Existing vs. buildable are different objects</h4><p>An asset has a lifecycle; a candidate is its own entity with limits and financials.</p><span class="src">taught by <b>Sienna</b> · <b>Glassbox</b></span></div>
+      <div class="p"><span class="n">06</span><h4>Open label + optional closed class</h4><p>Carry the native type and allow a closed enum, so the taxonomy debt is explicit and deferrable.</p><span class="src">taught by <b>the grid-rosetta bench</b></span></div>
+      <div class="p"><span class="n">07</span><h4>Units and base per field</h4><p>Every numeric field declares its unit and per-unit base; conversion is derivable.</p><span class="src">taught by <b>all three formal schemas</b></span></div>
+      <div class="p"><span class="n">08</span><h4>Time series out-of-line</h4><p>Arrays are referenced by id, never inlined into component records.</p><span class="src">universal</span></div>
+      <div class="p"><span class="n">09</span><h4>Cross-layer requirements as data</h4><p>A stability limit or inertia floor is a field that flows between layers, not a comment.</p><span class="src">taught by <b>Glassbox</b></span></div>
+      <div class="p"><span class="n">10</span><h4>Per-field capability tags</h4><p>Each field names the analyses that read it, so any tool slices the world it needs.</p><span class="src">taught by <b>Glassbox</b> · facets</span></div>
+      <div class="p"><span class="n">11</span><h4>Ingest is auditable</h4><p>What was approximated, dropped, or defaulted on import is recorded per property, never silent.</p><span class="src">taught by <b>VeraGrid</b> · <b>grid-rosetta</b></span></div>
+      <div class="p"><span class="n">12</span><h4>Language-neutral, spec-published</h4><p>A portable wire format anyone can implement against, with a published contract.</p><span class="src">taught by <b>Sienna</b> · <b>CGMES</b></span></div>
+    </div>
+    <p class="refnote">The capability matrix in <b>§03</b> is this reference made concrete: its rows are the
+      things worth representing, and every schema — Glassbox included — is scored against them, gaps and
+      all. The <a href="https://github.com/dpaolella/grid-rosetta">grid-rosetta</a> bench is the
+      empirical half — it measures what each pairwise translation actually drops of them.</p>
+  </section>
+
+  <!-- 2 · philosophies -->
   <section id="mech">
-    <div class="sec-head"><span class="sec-num">01</span><h2>The organizing idea</h2></div>
+    <div class="sec-head"><span class="sec-num">02</span><h2>The organizing idea</h2></div>
     <p class="sec-sub">Every schema needs "one system, many analyses." What differs is the seam
       each one cuts to get there — and that single choice explains most of everything below.</p>
     <div class="cards">
@@ -307,15 +354,34 @@
           </svg>
         </div>
       </article>
+      <article class="card" data-k="cg">
+        <div class="name">CGMES / CIM</div>
+        <h3>Model the switchyard</h3>
+        <p>Busbars, connectivity nodes, breakers — the physical network. The power-flow bus is
+          <em>computed</em> from closed switches, not stored. An exchange ontology, analysis-agnostic.</p>
+        <div class="mech">
+          <div class="tag">node-breaker; the bus is derived</div>
+          <svg viewBox="0 0 200 74" aria-hidden="true">
+            <text x="100" y="12" text-anchor="middle" font-family="var(--mono)" font-size="8" fill="var(--muted)">busbar</text>
+            <line x1="24" y1="20" x2="176" y2="20" stroke="var(--cg)" stroke-width="2"/>
+            <line x1="64" y1="20" x2="64" y2="58" stroke="var(--cg)" stroke-width="1.3"/>
+            <rect x="58" y="33" width="12" height="12" rx="2" fill="none" stroke="var(--cg)" stroke-width="1.3"/>
+            <circle cx="64" cy="62" r="4" fill="var(--cg)" opacity="0.9"/>
+            <line x1="136" y1="20" x2="136" y2="58" stroke="var(--cg)" stroke-width="1.3"/>
+            <rect x="130" y="33" width="12" height="12" rx="2" fill="none" stroke="var(--cg)" stroke-width="1.3"/>
+            <circle cx="136" cy="62" r="4" fill="var(--cg)" opacity="0.9"/>
+          </svg>
+        </div>
+      </article>
     </div>
   </section>
 
   <!-- 2 · coverage matrix -->
   <section id="matrix">
-    <div class="sec-head"><span class="sec-num">02</span><h2>What each schema can express</h2></div>
-    <p class="sec-sub">Coverage of a capability <em>in the data model itself</em> — first-class
-      support, a partial/derived form, or not represented. Absence is often a deliberate scope
-      choice, not a deficiency.</p>
+    <div class="sec-head"><span class="sec-num">03</span><h2>What each schema can express</h2></div>
+    <p class="sec-sub">The rows are the reference capabilities from §01; each schema is scored on how
+      it holds each one <em>in the data model itself</em> — first-class, a partial/derived form, or not
+      represented. Absence is often a deliberate scope choice, not a deficiency.</p>
     <div class="scroll">
       <table class="matrix" id="mtx" aria-describedby="covkey">
         <thead>
@@ -324,6 +390,7 @@
             <th class="sch" data-k="gb"><div class="schname">Glassbox</div><div class="schsub">Pydantic v2 · facets</div></th>
             <th class="sch" data-k="si"><div class="schname">Sienna</div><div class="schsub">JSON Schema · packages</div></th>
             <th class="sch" data-k="py"><div class="schname">PyPSA</div><div class="schsub">DataFrames · components</div></th>
+            <th class="sch" data-k="cg"><div class="schname">CGMES</div><div class="schsub">RDF/XML · profiles</div></th>
           </tr>
         </thead>
         <tbody><!-- filled by JS --></tbody>
@@ -338,13 +405,13 @@
 
   <!-- 3 · rosetta -->
   <section id="rosetta">
-    <div class="sec-head"><span class="sec-num">03</span><h2>The same thing, three names</h2></div>
+    <div class="sec-head"><span class="sec-num">04</span><h2>The same thing, four names</h2></div>
     <p class="sec-sub">The physical spine is nearly identical everywhere — a bus is a bus. The names
       part ways exactly where the models part ways: investment, reserves, dynamics.</p>
     <div class="rosetta">
       <table class="ros" id="ros">
         <thead>
-          <tr><th>Concept</th><th data-k="gb">Glassbox</th><th data-k="si">Sienna</th><th data-k="py">PyPSA</th></tr>
+          <tr><th>Concept</th><th data-k="gb">Glassbox</th><th data-k="si">Sienna</th><th data-k="py">PyPSA</th><th data-k="cg">CGMES</th></tr>
         </thead>
         <tbody><!-- filled by JS --></tbody>
       </table>
@@ -353,9 +420,10 @@
 
   <!-- 4 · reach -->
   <section id="reach-sec">
-    <div class="sec-head"><span class="sec-num">04</span><h2>How far up the stack each reaches</h2></div>
-    <p class="sec-sub">Breadth of analyses the schema is built to feed, from economics to the finest
-      physics. All three do investment through power flow; only two model stability; one goes further.</p>
+    <div class="sec-head"><span class="sec-num">05</span><h2>How far up the stack each reaches</h2></div>
+    <p class="sec-sub">Breadth of analyses each schema is built to feed, from economics to the finest
+      physics — plus the operations/control-room layer. The analysis schemas cluster on the left;
+      CGMES is the mirror image, blank on the analyses but the native home of the operations rung.</p>
     <div class="reach">
       <div class="reach-scroll">
         <div class="reach-axis">
@@ -366,19 +434,21 @@
           <div class="ax">Resource adequacy</div>
           <div class="ax">RMS dynamics</div>
           <div class="ax">EMT · resonance</div>
+          <div class="ax">Operations · control room</div>
         </div>
         <div id="reach"><!-- filled by JS --></div>
       </div>
       <p class="reach-note"><b>PyPSA</b> stops at steady-state power flow by design — it is an
         optimization-first tool. <b>Sienna</b> adds a dynamics domain. <b>Glassbox</b> spans the
-        full teaching stack, adequacy and EMT included, and pins each layer to an oracle
-        (pandapower / PyPSA / Andes).</p>
+        full teaching stack, adequacy and EMT included, each pinned to an oracle (pandapower / PyPSA
+        / Andes). <b>CGMES</b> inverts the shape entirely: it feeds none of the analyses itself, but
+        it is the one schema native to the operations/control-room layer the others reach into last.</p>
     </div>
   </section>
 
   <!-- 5 · takeaways -->
   <section id="takeaways">
-    <div class="sec-head"><span class="sec-num">05</span><h2>If you remember three things</h2></div>
+    <div class="sec-head"><span class="sec-num">06</span><h2>If you remember three things</h2></div>
     <div class="takes">
       <div class="take">
         <div class="q">On investment</div>
@@ -386,7 +456,8 @@
         <p><span class="py">PyPSA</span> overloads the asset with an <code>extendable</code> flag;
           <span class="si">Sienna</span> gives investment its own package;
           <span class="gb">Glassbox</span> gives it its own entities <em>and</em> a stepped zonal
-          supply curve. Same decision, three depths.</p>
+          supply curve; <span class="cg">CGMES</span> never asks the question. Three depths and an
+          abstention.</p>
       </div>
       <div class="take">
         <div class="q">On modularity</div>
@@ -397,10 +468,12 @@
       </div>
       <div class="take">
         <div class="q">On scope</div>
-        <h4>A schema encodes an ambition</h4>
-        <p>The reach chart <em>is</em> the mission statement: optimization interchange (PyPSA),
-          production-grade multi-domain modeling (Sienna), or a transparent, inspectable teaching
-          instrument spanning every layer (Glassbox).</p>
+        <h4>Measure against the ideal, not each other</h4>
+        <p>Each schema is an ambition: optimization interchange (<span class="py">PyPSA</span>),
+          production multi-domain modeling (<span class="si">Sienna</span>), the industry exchange
+          ontology (<span class="cg">CGMES</span>), a transparent teaching instrument
+          (<span class="gb">Glassbox</span>). The reference model is the fixed scale that makes those
+          ambitions comparable — and shows where each, Glassbox included, stops short.</p>
       </div>
     </div>
   </section>
@@ -423,93 +496,113 @@
       { label: "Existing vs. buildable, kept apart",
         gb: [F, "Separate <code>ExpansionCandidate</code> entities", "Candidates are their own objects with build limits and an operating template — never a boolean on the asset."],
         si: [F, "Dedicated <b>Investments</b> domain", "Existing capacity lives in Operations; buildable technologies + financials live in the Investments package."],
-        py: [P, "Same asset, an <code>extendable</code> flag", "No separate candidate object: a buildable unit is an ordinary Generator with p_nom_extendable = True + p_nom_min/max + capital_cost."] },
+        py: [P, "Same asset, an <code>extendable</code> flag", "No separate candidate object: a buildable unit is an ordinary Generator with p_nom_extendable = True + p_nom_min/max + capital_cost."],
+        cg: [N, "Not an analysis concern", "CGMES is an exchange ontology describing what exists; 'what could be built' is not a question it models."] },
       { label: "Buildable as a stepped supply curve",
         gb: [F, "<code>ResourcePotential</code> → <code>SupplyTranche</code>", "Best zonal sites exhaust first, so cost rises with deployment — a curve of $/MW, not a scalar. A GenX-style construct."],
         si: [P, "Technologies + build limits", "Investment technologies carry financial params and limits; the published summary doesn't surface a stepped resource-class curve."],
-        py: [N, "One <code>p_nom_max</code> per asset", "Approximable by adding many extendable generators per bus, but there is no first-class supply-curve object."] },
+        py: [N, "One <code>p_nom_max</code> per asset", "Approximable by adding many extendable generators per bus, but there is no first-class supply-curve object."],
+        cg: [N, "Out of scope", "No investment domain."] },
       { label: "Transmission as a build decision",
         gb: [F, "Candidate line = CEM corridor", "A line ExpansionCandidate is modeled as an extendable transport corridor by the capacity-expansion engine."],
         si: [F, "Network investment in scope", "The Investments domain spans supply, storage, and network options."],
-        py: [F, "<code>Line/Link s_nom_extendable</code>", "Transmission expands with the same extendability mechanism as generation."] }
+        py: [F, "<code>Line/Link s_nom_extendable</code>", "Transmission expands with the same extendability mechanism as generation."],
+        cg: [N, "Out of scope", "No investment domain."] }
     ]},
     { band: "Operations & services", rows: [
       { label: "Unit commitment (binaries)",
         gb: [F, "MILP UC in the PCM", "Min up/down, start cost, no-load — a real mixed-integer commitment in the production-cost engine."],
         si: [F, "Operations domain", "Chronological unit commitment + economic dispatch."],
-        py: [F, "<code>committable = True</code>", "PyPSA supports MILP unit commitment with min up/down and start-up costs on committable generators."] },
+        py: [F, "<code>committable = True</code>", "PyPSA supports MILP unit commitment with min up/down and start-up costs on committable generators."],
+        cg: [N, "No solver semantics", "CGMES describes equipment and topology, not an optimization; unit commitment is an analysis-tool concept."] },
       { label: "Reserves / ancillary services",
         gb: [P, "<code>ReserveProduct</code>, spinning-up", "A requirement rule (pct_load / pct_vre / fixed_mw) enforced as a penalized shortfall; the pct_vre term is a variable reserve. No AGC or down-reserves yet."],
         si: [F, "AGC + up/down + reserve groups", "Constant and variable reserves in both directions, AGC, and grouped reserve management."],
-        py: [N, "No native reserve object", "Reserves are not part of the documented component model; they must be added as custom constraints."] }
+        py: [N, "No native reserve object", "Reserves are not part of the documented component model; they must be added as custom constraints."],
+        cg: [N, "Market profile only", "Reserves live in the market profile (IEC 62325), not the core equipment/topology model."] }
     ]},
     { band: "Operations layer — the control room", rows: [
       { label: "Node-breaker substations",
         gb: [F, "<code>rtops</code> substation layer", "Substations, busbars, connectivity nodes, breakers/disconnectors — CIM node-breaker classes by name; the power-flow bus is computed, not stored."],
         si: [N, "Bus-branch only", "No node-breaker classes. Round-tripped through the grid-rosetta Sienna hub, the whole layer parks in the sidecar and survives only as opaque baggage (test_ops_interop.py)."],
-        py: [N, "Bus-branch only", "PyPSA is bus-branch; through its hub the node-breaker layer likewise only survives as sidecar baggage, never as a native object."] },
+        py: [N, "Bus-branch only", "PyPSA is bus-branch; through its hub the node-breaker layer likewise only survives as sidecar baggage, never as a native object."],
+        cg: [F, "Native — the source model", "Substation → VoltageLevel → Bay, ConnectivityNodes, BusbarSection as equipment, Breaker/Disconnector. This is where the node-breaker model comes from."] },
       { label: "Balancing area / ACE context",
         gb: [F, "<code>OperatingArea</code>", "Frequency bias, tie capacity, scheduled interchange — the inputs to Reporting ACE. Planning has no 'elsewhere'; operations is defined by it."],
         si: [N, "String area tag only", "A SiennaBus carries an area/load_zone string, not a first-class balancing area with bias and ties — so it parks in the sidecar too."],
-        py: [N, "No area object", "PyPSA has no balancing-area object; it parks in the sidecar on a hub round-trip."] },
+        py: [N, "No area object", "PyPSA has no balancing-area object; it parks in the sidecar on a hub round-trip."],
+        cg: [P, "<code>ControlArea</code>", "A ControlArea with pTolerance and net interchange exists; the full ACE bias/tie framing is only partial."] },
       { label: "Live switch state (EQ vs SSH)",
         gb: [F, "<code>normal_open</code> / <code>open</code>", "As-drawn state vs live operating state as two fields — a legible copy of CGMES's EQ-vs-SSH profile split."],
         si: [N, "No switch model", "No switches, so no operating-state layer."],
-        py: [N, "No switch model", "No breaker/disconnector representation in the component model."] },
+        py: [N, "No switch model", "No breaker/disconnector representation in the component model."],
+        cg: [F, "Native — EQ vs SSH", "Structure lives in the EQ profile, live switch state in SSH — the split glassbox mirrors."] },
       { label: "Telemetry + state estimation",
         gb: [P, "<code>rtops/telemetry.py</code>", "Synthesized SCADA → DC-WLS state estimator with bad-data detection; the operator runs on the estimate, not the truth. A runtime kernel, not a stored schema layer."],
         si: [N, "Not in the schema", "No measurement / estimation classes."],
-        py: [N, "Not in the schema", "No measurement layer."] }
+        py: [N, "Not in the schema", "No measurement layer."],
+        cg: [F, "<code>Analog</code> / <code>Discrete</code>", "Measurement classes bind to equipment at Terminals — the SCADA and state-estimation substrate."] }
     ]},
     { band: "Physics scope", rows: [
       { label: "Steady-state power flow · N-1",
         gb: [F, "Newton-Raphson + contingencies", "AC power flow with N-1 screening; validated against pandapower."],
         si: [F, "Operations / network", "Steady-state network representation for security analysis."],
-        py: [F, "Non-linear AC + linearised", "Newton-Raphson AC/DC and linear power flow are built in (the core workflow is the LP, though)."] },
+        py: [F, "Non-linear AC + linearised", "Newton-Raphson AC/DC and linear power flow are built in (the core workflow is the LP, though)."],
+        cg: [P, "Topology, no solver", "CGMES carries the network and impedances for power flow but runs none itself; the SV profile holds an imported solved state."] },
       { label: "RMS / phasor stability",
         gb: [F, "<code>dyn</code> facet + <code>DynamicModel</code>", "Swing dynamics, RoCoF, critical-clearing-time; validated against Andes."],
         si: [F, "Dedicated Dynamics domain", "A first-class dynamics package sits over the core."],
-        py: [N, "Steady-state only", "PyPSA has no RMS/phasor dynamics representation."] },
+        py: [N, "Steady-state only", "PyPSA has no RMS/phasor dynamics representation."],
+        cg: [P, "DY profile params", "A Dynamics (DY) profile carries machine and control parameters; CGMES stores them, tools solve them."] },
       { label: "EMT / resonance",
         gb: [P, "<code>emt</code> facet micro-examples", "LCL-filter resonance and converter micro-examples at the finest layer."],
         si: [N, "Not a domain", "The published package set is Core / Ops / Investments / Dynamics — no EMT layer."],
-        py: [N, "Out of scope", "Not represented."] },
+        py: [N, "Out of scope", "Not represented."],
+        cg: [N, "Out of scope", "Not represented."] },
       { label: "Resource adequacy (Monte Carlo)",
         gb: [F, "<code>adq</code> facet · LOLE/EUE/ELCC", "A Monte-Carlo adequacy engine over weather years and forced-outage draws."],
         si: [P, "Ecosystem tooling", "Adequacy lives in the surrounding Sienna tools, not called out as a schema domain."],
-        py: [N, "Not in the core schema", "No native probabilistic adequacy representation."] }
+        py: [N, "Not in the core schema", "No native probabilistic adequacy representation."],
+        cg: [N, "Out of scope", "No probabilistic adequacy representation."] }
     ]},
     { band: "Units & data", rows: [
       { label: "Units declared per field",
         gb: [F, "<code>unit</code> + <code>base</code> per field", "Every numeric field carries its SI unit and per-unit base as first-class metadata."],
         si: [F, "per-field unit + <code>UnitSystem</code>", "Per-field units plus a dataset-level UnitSystem enum (system / device / natural)."],
-        py: [F, "per-attribute <code>unit</code>", "Each component attribute documents its unit in the component table."] },
+        py: [F, "per-attribute <code>unit</code>", "Each component attribute documents its unit in the component table."],
+        cg: [P, "Profile-declared", "Units are fixed by each profile's RDF schema rather than per-instance metadata."] },
       { label: "Units enforced / auto per-unit",
         gb: [F, "Pydantic + on-demand pu", "Validation on load and on every edit; per-unit derived on demand, with an explicit machine↔system base conversion."],
         si: [P, "UnitSystem references", "The enum formalizes the choice at the dataset level; conversion is the adopting library's job."],
-        py: [N, "Documented, not enforced", "Units are documented per attribute but not enforced at runtime; no conversion library."] },
+        py: [N, "Documented, not enforced", "Units are documented per attribute but not enforced at runtime; no conversion library."],
+        cg: [N, "Fixed profile units", "Values are in each profile's declared units; no per-unit system or conversion in the model."] },
       { label: "Time series stored out-of-line",
         gb: [F, "npz arrays by id", "A TimeSeriesStore holds arrays referenced by id from the JSON schema."],
         si: [F, "HDF5 from the DB", "Static schema in SQLite; time series in HDF5, referenced from the database."],
-        py: [F, "DataFrames · <code>attr_t</code>", "Time-varying attributes are a dict of DataFrames, split from the static components; netCDF/CSV on disk."] }
+        py: [F, "DataFrames · <code>attr_t</code>", "Time-varying attributes are a dict of DataFrames, split from the static components; netCDF/CSV on disk."],
+        cg: [P, "Separate profiles", "Steady-state values live in SSH/SV; time-varying data is exchanged as separate files, not inline arrays."] }
     ]},
     { band: "Reach & transparency", rows: [
       { label: "Cross-layer requirement coupling",
         gb: [F, "<code>SystemConstraint</code>, <code>limit_source</code>", "Stability-derived floors (min-inertia, RoCoF) and stability interface limits are carried up into planning/ops as data."],
         si: [N, "Packages separable", "Cleanly separable domains; no requirement flow between packages in the summary."],
-        py: [N, "Not modeled", "No cross-analysis requirement objects."] },
+        py: [N, "Not modeled", "No cross-analysis requirement objects."],
+        cg: [N, "Not modeled", "No requirement-flow objects between analyses."] },
       { label: "Language-agnostic interchange",
         gb: [P, "JSON Schema derivable", "Python-first and local, but the facet-tagged schema exports straight from model_json_schema(); OpenAPI is already served."],
         si: [F, "JSON Schema + OpenAPI", "Draft-07 + OpenAPI 3.1, implementations in Python/Julia/SQL, explicit GenX/PyPSA/CIM interop."],
-        py: [P, "Python + netCDF", "A Python library with netCDF interchange and a large PyPSA-Eur ecosystem, but not a language-neutral schema spec."] },
+        py: [P, "Python + netCDF", "A Python library with netCDF interchange and a large PyPSA-Eur ecosystem, but not a language-neutral schema spec."],
+        cg: [F, "RDF/XML profiles", "The industry's language-neutral exchange standard — RDF/XML with published profiles, mandated for European TSO exchange."] },
       { label: "Transparency / explain layer",
         gb: [F, "<code>explain()</code> + oracles", "Every engine and operator explains its formulation; kernels are round-tripped against mature libraries."],
         si: [N, "Out of schema scope", "A data schema; transparency is a tooling concern."],
-        py: [P, "Open LP model", "The optimization is an inspectable linopy model, though not a schema-level contract."] },
+        py: [P, "Open LP model", "The optimization is an inspectable linopy model, though not a schema-level contract."],
+        cg: [N, "Out of schema scope", "A data standard; no explain layer."] },
       { label: "Drives a user interface",
         gb: [F, "Facets drive the inspector", "The same facet tags power the layer-filtered inspector, map overlays, and modeling-layer selector."],
         si: [N, "Pure data schema", "Says nothing about presentation, by design."],
-        py: [N, "Library, not a UI", "No presentation layer in the schema."] }
+        py: [N, "Library, not a UI", "No presentation layer in the schema."],
+        cg: [N, "Not a UI", "An exchange schema; presentation-agnostic."] }
     ]}
   ];
 
@@ -521,13 +614,13 @@
     td.className = "cell";
     td.setAttribute("data-k", k);
     td.innerHTML = '<div class="cov"><span class="g ' + lvl + '"></span><span class="lbl">' + summary + '</span></div>';
-    td.setAttribute("data-tip", '<span class="tk">' + ({gb:"Glassbox",si:"Sienna",py:"PyPSA"}[k]) + " · " + covWord[lvl] + "</span>" + detail);
+    td.setAttribute("data-tip", '<span class="tk">' + ({gb:"Glassbox",si:"Sienna",py:"PyPSA",cg:"CGMES"}[k]) + " · " + covWord[lvl] + "</span>" + detail);
     return td;
   }
   bands.forEach(function (b) {
     var btr = document.createElement("tr");
     btr.className = "band";
-    btr.innerHTML = '<td colspan="4">' + b.band + "</td>";
+    btr.innerHTML = '<td colspan="5">' + b.band + "</td>";
     tbody.appendChild(btr);
     b.rows.forEach(function (r) {
       var tr = document.createElement("tr");
@@ -539,24 +632,25 @@
       tr.appendChild(cell("gb", r.gb));
       tr.appendChild(cell("si", r.si));
       tr.appendChild(cell("py", r.py));
+      tr.appendChild(cell("cg", r.cg));
       tbody.appendChild(tr);
     });
   });
 
   // ---- rosetta data ----
   var ros = [
-    { c: "Node / bus", spine: true, gb: "Bus", si: "Bus", py: "Bus" },
-    { c: "Thermal / VRE unit", spine: true, gb: "Generator", si: "Generator", py: "Generator" },
-    { c: "Demand", spine: true, gb: "Load", si: "Load", py: "Load" },
-    { c: "AC branch", spine: true, gb: "ACLine", si: "Line", py: "Line" },
-    { c: "Controllable / DC branch", gb: "DCLine", si: "Line (DC)", py: "Link" },
-    { c: "Storage", gb: "Storage", si: "Storage", py: "StorageUnit + Store" },
-    { c: "Energy carrier / fuel", gb: "Fuel", si: "Fuel", py: "Carrier" },
-    { c: "Buildable option", gb: "ExpansionCandidate + ResourcePotential", si: "Investments domain", py: "*_nom_extendable" },
-    { c: "Zonal transfer limit", gb: "Interface (flowgate)", si: "Interface", py: "GlobalConstraint / line limit" },
-    { c: "System policy", gb: "Policy", si: "Services / constraints", py: "GlobalConstraint" },
-    { c: "Reserve product", gb: "ReserveProduct", si: "AGC / Reserve", py: null },
-    { c: "Dynamic model", gb: "DynamicModel", si: "Dynamics domain", py: null }
+    { c: "Node / bus", spine: true, gb: "Bus", si: "Bus", py: "Bus", cg: "ConnectivityNode → TopologicalNode" },
+    { c: "Thermal / VRE unit", spine: true, gb: "Generator", si: "Generator", py: "Generator", cg: "SynchronousMachine + GeneratingUnit" },
+    { c: "Demand", spine: true, gb: "Load", si: "Load", py: "Load", cg: "EnergyConsumer" },
+    { c: "AC branch", spine: true, gb: "ACLine", si: "Line", py: "Line", cg: "ACLineSegment" },
+    { c: "Controllable / DC branch", gb: "DCLine", si: "Line (DC)", py: "Link", cg: "DCLineSegment / Converter" },
+    { c: "Storage", gb: "Storage", si: "Storage", py: "StorageUnit + Store", cg: null },
+    { c: "Energy carrier / fuel", gb: "Fuel", si: "Fuel", py: "Carrier", cg: "FossilFuel / unit type" },
+    { c: "Buildable option", gb: "ExpansionCandidate + ResourcePotential", si: "Investments domain", py: "*_nom_extendable", cg: null },
+    { c: "Zonal transfer limit", gb: "Interface (flowgate)", si: "Interface", py: "GlobalConstraint / line limit", cg: "OperationalLimit" },
+    { c: "System policy", gb: "Policy", si: "Services / constraints", py: "GlobalConstraint", cg: null },
+    { c: "Reserve product", gb: "ReserveProduct", si: "AGC / Reserve", py: null, cg: null },
+    { c: "Dynamic model", gb: "DynamicModel", si: "Dynamics domain", py: null, cg: "SynchronousMachineDynamics" }
   ];
   var rtb = document.querySelector("#ros tbody");
   ros.forEach(function (r) {
@@ -566,18 +660,20 @@
     tr.innerHTML = '<td class="concept">' + r.c + "</td>" +
       '<td data-k="gb">' + nm(r.gb) + "</td>" +
       '<td data-k="si">' + nm(r.si) + "</td>" +
-      '<td data-k="py">' + nm(r.py) + "</td>";
+      '<td data-k="py">' + nm(r.py) + "</td>" +
+      '<td data-k="cg">' + nm(r.cg) + "</td>";
     rtb.appendChild(tr);
   });
 
-  // ---- reach data (Investment, UC, PF, Adequacy, RMS, EMT) ----
+  // ---- reach data (Investment, UC, PF, Adequacy, RMS, EMT, Operations) ----
   var reach = {
-    gb: { name: "Glassbox", cov: [F, F, F, F, F, P] },
-    si: { name: "Sienna",   cov: [F, F, F, P, F, N] },
-    py: { name: "PyPSA",    cov: [F, F, F, N, N, N] }
+    gb: { name: "Glassbox", cov: [F, F, F, F, F, P, F] },
+    si: { name: "Sienna",   cov: [F, F, F, P, F, N, P] },
+    py: { name: "PyPSA",    cov: [F, F, F, N, N, N, N] },
+    cg: { name: "CGMES",    cov: [N, N, P, N, P, N, F] }
   };
   var rc = document.getElementById("reach");
-  ["gb", "si", "py"].forEach(function (k) {
+  ["gb", "si", "py", "cg"].forEach(function (k) {
     var row = document.createElement("div");
     row.className = "reach-row";
     row.setAttribute("data-k", k);
